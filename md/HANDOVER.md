@@ -1,5 +1,8 @@
 # HANDOVER — MODULO 铝型材置物架配置器
 
+> 注：文中提到的 `DEPLOYMENTS.md` / `TOOLS.md` 是本地运维文档，**未随本仓库发布**；
+> 公开侧的部署说明见 [`../docs/deployment.md`](../docs/deployment.md)。
+
 > **该文档为历史交接快照。最新交接文档：[`HANDOVER-LATEST.md`](./HANDOVER-LATEST.md)。**
 > 项目路径：`F:\Autoclaw\alu_extrusion`
 > 交接人：paw-site-building（QwenPaw agent · site-building）

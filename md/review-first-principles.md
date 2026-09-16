@@ -1,5 +1,8 @@
 # 第一性原理对抗性审查 · MODULO 铝型材置物架配置器
 
+> 注：文中提到的 `DEPLOYMENTS.md` / `TOOLS.md` 是本地运维文档，**未随本仓库发布**；
+> 公开侧的部署说明见 [`../docs/deployment.md`](../docs/deployment.md)。
+
 > 审查人：paw-site-building · 2026-09-05
 > 范围：`F:\Autoclaw\alu_extrusion` 全部前端源码 + 部署配置 + DEPLOYMENTS.md
 > 方法：不问"代码写得对不对"，先问"这个东西存在的理由是否成立，以及它在哪个环节会骗人"。

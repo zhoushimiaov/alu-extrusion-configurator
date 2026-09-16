@@ -104,7 +104,7 @@ dour-waltz 四个 workers.dev 临时子域（全部被墙阻断）。
   完整部署记录与踩坑清单：`docs/vercel-reverse-proxy.md`
 - Vercel 项目 `proxy-t2`：反代 portfolio.means.group → p.means.group
 - 源码公开仓库：`https://github.com/zhoushimiaov/alu-extrusion-configurator`（public，main）
-  已做凭据脱敏与大文件清理；详细记录见 `DEPLOYMENTS.md` 文末与 `docs/vercel-reverse-proxy.md`
+  已做凭据脱敏与大文件清理；公开侧的部署说明见 `docs/deployment.md`，反代细节见 `docs/vercel-reverse-proxy.md`（本地运维记录 DEPLOYMENTS.md / TOOLS.md 不入库）
 - DNS：means.group zone（CF）；p.means.group CNAME → cname.vercel-dns.com
 - 测试：`npm test` 50 pass；采购 fixture 冻结于 test/procurement-before-geometry.json
 

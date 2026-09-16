@@ -1,5 +1,8 @@
 # HANDOVER LATEST — MODULO 铝型材置物架配置器
 
+> 注：文中提到的 `DEPLOYMENTS.md` / `TOOLS.md` 是本地运维文档，**未随本仓库发布**；
+> 公开侧的部署说明见 [`../docs/deployment.md`](../docs/deployment.md)。
+
 > 项目：`F:\Autoclaw\alu_extrusion`  
 > 更新：2026-09-07  
 > 当前状态：本地源码、生产构建和 GLB 独立测试页均已更新；尚未发布线上。

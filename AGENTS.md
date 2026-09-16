@@ -7,7 +7,7 @@
 
 MODULO 双产品参数化配置器：工业铝型材置物架 + 光轴展架（单排双柱海报架）。
 Three.js 程序化建模，零外部模型文件，`npm run build` 产出单文件
-`dist/index.html`。部署形态见 `DEPLOYMENTS.md`。
+`dist/index.html`。部署形态见 `docs/deployment.md`（本地运维记录 `DEPLOYMENTS.md` 不入库）。
 
 ## 不可变约束（先读这里，违反即事故）
 
@@ -36,7 +36,7 @@ Three.js 程序化建模，零外部模型文件，`npm run build` 产出单文�
      绑定 rack.means.group，见 wrangler.toml）
    - 国内可达的 portfolio 反代：Vercel 项目 proxy-t2（vercel.json 纯
      rewrite 到 portfolio.means.group），绑定 p.means.group
-5. 完成后更新 `DEPLOYMENTS.md`（新地址、版本号、验证结论）。
+5. 完成后更新**本地**运维记录 `DEPLOYMENTS.md`（新地址、版本号、验证结论；该文件不入库），公开侧同步 `docs/deployment.md`。
 
 ## 已知坑（前人踩过，别再踩）
 
@@ -59,4 +59,4 @@ Three.js 程序化建模，零外部模型文件，`npm run build` 产出单文�
 
 - 每次实质性改动在回复中给出：改了什么、验证证据（命令 + 关键输出）、
   遗留风险。不声称未经执行验证的结论。
-- 部署地址与版本号以 `DEPLOYMENTS.md` 为准，勿凭记忆引用。
+- 部署地址与版本号以**本地** `DEPLOYMENTS.md` 为准（不入库），公开侧以 `docs/deployment.md` 与线上实测为准。

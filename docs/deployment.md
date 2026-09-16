@@ -139,3 +139,18 @@ node tools/qa-export.mjs         # 模型导出形体校验
 npx wrangler deployments list            # 找上一版部署 id
 npx wrangler rollback <deployment-id>    # 回到该版本（可反复切换）
 ```
+
+---
+
+## 6. 版本与归档
+
+| 项 | 值 |
+|---|---|
+| 自动部署启用日期 | 2026-09-16 |
+| 对应提交 | `7afbff3`（ci: 推送 main 自动部署到 Cloudflare Workers） |
+| 首次运行记录 | [Actions run #35052160987](https://github.com/zhoushimiaov/alu-extrusion-configurator/actions/runs/35052160987)（未配置 Secrets，按设计跳过部署，结论 success） |
+| 配置生成脚本 | `tools/make-ci-config.mjs` |
+| 回滚手册 | [rollback.md](./rollback.md) |
+| 反代架构记录 | [vercel-reverse-proxy.md](./vercel-reverse-proxy.md) |
+
+本仓库的文档均为长期维护文档：修改后请同步更新本节日期与对应提交号。

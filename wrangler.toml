@@ -1,0 +1,26 @@
+# Cloudflare Workers 部署配置（公开版：不含账号标识符）
+#
+# 本地部署请使用 wrangler.local.toml（不入库，见 docs/deployment.md）：
+#   npx wrangler deploy --config wrangler.local.toml
+name = "modulo-alu-shelf"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# workers.dev 子域：既作为兜底入口，也作为 Vercel 反向代理的上游地址。
+# 一旦给 Worker 绑定自定义域并交给反代，这里必须保持开启，否则 Worker 将无法回源。
+workers_dev = true
+
+# account_id 已移除：本地通过环境变量提供
+#   $env:CLOUDFLARE_ACCOUNT_ID = "<你的账号 id>"
+# CI 通过 secrets.CLOUDFLARE_ACCOUNT_ID 提供。
+
+# 价格表 KV：页面运行时经 /api/market 拉取，改价无需重新构建部署。
+# 首次部署先创建命名空间，再把返回的 id 填到这里（或 wrangler.local.toml）：
+#   npx wrangler kv namespace create MARKET_KV
+#   npx wrangler kv key put --binding=MARKET_KV price_table --path tools/price_table.json --remote
+[[kv_namespaces]]
+binding = "MARKET_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+[assets]
+directory = "./dist"

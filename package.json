@@ -1,0 +1,26 @@
+{
+  "name": "alu_extrusion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "工业铝型材置物架参数化配置器 (Three.js)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test \"test/*.test.mjs\"",
+    "analyze": "node tools/gz-analyze.mjs",
+    "smoke": "playwright test test/smoke.spec.mjs"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@playwright/test": "^1.63.0",
+    "gl-matrix": "^3.4.3",
+    "playwright": "^1.63.0",
+    "vite": "^5.4.11",
+    "vite-plugin-singlefile": "^2.0.3"
+  }
+}

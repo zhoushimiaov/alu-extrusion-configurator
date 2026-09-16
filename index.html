@@ -1,0 +1,73 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MODULO 模数 · 铝型材置物架配置器</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta name="description" content="参数化铝型材置物架实时配置器：逐层逐跨配置、算料单导出、安装说明，基于 Three.js 程序化建模" />
+  <!-- 分享卡片（OG / Twitter）：微信/iMessage/Slack 抓取 -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MODULO 模数 · 铝型材置物架配置器" />
+  <meta property="og:description" content="逐层逐跨自由规划，实时算料报价，一键导出算料单与 3D 模型。" />
+  <meta property="og:url" content="https://rack.means.group/" />
+  <meta property="og:image" content="https://rack.means.group/og-cover.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="theme-color" content="#17181c" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">
+        <span class="brand-name">MODULO</span>
+        <span class="brand-sub">模数 · 铝型材系统</span>
+      </div>
+      <div class="top-note">参数化实时渲染 · THREE.JS</div>
+      <nav id="product-tabs" class="product-tabs" style="margin-left:16px" aria-label="产品切换">
+        <button data-kind="profile">铝型材置物架</button>
+        <button data-kind="rod">光轴展架</button>
+        <button data-kind="cart">移动边几</button>
+        <button data-kind="crates">周转箱架</button>
+        <button data-kind="woodcart">木展车</button>
+      </nav>
+    </header>
+    <main id="layout">
+      <section id="viewport" aria-label="3D 预览">
+        <canvas id="gl"></canvas>
+        <svg id="dim-layer" aria-hidden="true"></svg>
+        <div id="hotspot-layer"></div>
+        <div id="hud-left" class="mono"></div>
+        <div id="hud-right"></div>
+        <div id="loader">正在生成骨架 …</div>
+        <noscript>本页面需要启用 JavaScript 才能渲染 3D 配置器。</noscript>
+      </section>
+      <aside id="panel" aria-label="配置面板"></aside>
+    </main>
+  </div>
+  <div id="toast" role="status"></div>
+  <script>
+    // 生产错误上报：控制台留痕 + 保留最近 5 条供诊断（不再用红色全屏 overlay 干扰用户）
+    (function () {
+      var recent = [];
+      window.addEventListener('error', function (e) {
+        var line = 'ERR: ' + e.message + ' @' + (e.filename || '?') + ':' + (e.lineno || 0);
+        recent.push(line);
+        if (recent.length > 5) recent.shift();
+        window.__ALU_ERRORS = recent;
+        console.error('[ALU]', line, e.error && e.error.stack || '');
+        // 可选：接入远程上报端点后再启用
+        // try { navigator.sendBeacon('/log/error', JSON.stringify({ msg: e.message, stack: e.error && e.error.stack })); } catch (_) {}
+      });
+    })();
+  </script>
+  <script type="module" src="/src/main.js"></script>
+  <script>
+    // file:// 直接双击打开时，ES 模块会被浏览器拦截：自动跳到单文件构建产物。
+    // 本守卫必须位于模块标签之后：源码页能查到该标签而触发跳转；
+    // dist 内联构建后没有该标签，因此不会自跳转。
+    if (location.protocol === 'file:' && document.querySelector('script[src="/src/main.js"]')) {
+      location.replace('dist/index.html' + location.hash);
+    }
+  </script>
+</body>
+</html>

@@ -46,7 +46,7 @@
   </div>
   <div id="toast" role="status"></div>
   <script>
-    // 生产错误上报：控制台留痕 + 保留最近 5 条供诊断（不再用红色全屏 overlay 干扰用户）
+    // 生产错误留痕：保留最近 5 条供诊断（不做远程上报，避免无接收端的死代码）
     (function () {
       var recent = [];
       window.addEventListener('error', function (e) {
@@ -55,8 +55,6 @@
         if (recent.length > 5) recent.shift();
         window.__ALU_ERRORS = recent;
         console.error('[ALU]', line, e.error && e.error.stack || '');
-        // 可选：接入远程上报端点后再启用
-        // try { navigator.sendBeacon('/log/error', JSON.stringify({ msg: e.message, stack: e.error && e.error.stack })); } catch (_) {}
       });
     })();
   </script>

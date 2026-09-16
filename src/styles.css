@@ -76,30 +76,31 @@ body {
 #dim-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #hotspot-layer { position: absolute; inset: 0; pointer-events: none; }
 
-/* ---------- 尺寸标注（白底：黑线黑字） ---------- */
-.dim-line, .dim-tick { stroke: rgba(10, 10, 10, 0.55); stroke-width: 1; }
-.dim-label { font-family: var(--font-mono); font-size: 11px; fill: var(--fg); }
-.dim-label-bg { fill: rgba(255, 255, 255, 0.82); stroke: var(--rule); rx: 4; }
+/* ---------- 尺寸标注（建筑图纸风：细线 + 端部斜短划 + 数字压线） ---------- */
+.dim-line, .dim-tick { stroke: rgba(10, 10, 10, 0.45); stroke-width: 0.75; }
+.dim-label { font-family: var(--font-mono); font-weight: 500; font-size: 12px; fill: var(--fg); letter-spacing: 0.02em; }
+.dim-label-bg { fill: rgba(255, 255, 255, 0.92); stroke: none; }
 
-/* ---------- 热点按钮（白底黑圈） ---------- */
+/* ---------- 热点按钮（图纸线框符号：细描边、无厚重填充/投影，与细线标注统一） ---------- */
 .hotspot {
   position: absolute;
-  width: 34px; height: 34px;
+  width: 30px; height: 30px;
   border-radius: 50%;
-  border: 1.5px solid var(--rule-strong);
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(10, 10, 10, 0.72);
+  background: rgba(255, 255, 255, 0.72);
   color: var(--fg);
-  font-family: var(--font-mix);
-  font-size: 16px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 15px;
   line-height: 1;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   pointer-events: auto;
   transform: translate(-50%, -50%);
-  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background 0.16s, opacity 0.2s;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background 0.16s, border-color 0.16s, opacity 0.2s;
   user-select: none;
 }
-.hotspot:hover { transform: translate(-50%, -50%) scale(1.1); background: #ffffff; }
+.hotspot:hover { transform: translate(-50%, -50%) scale(1.08); background: #ffffff; border-color: var(--fg); }
 .hotspot:active { transform: translate(-50%, -50%) scale(0.97); }
 .hotspot[disabled] { opacity: 0.25; cursor: default; }
 .hotspot[disabled]:hover { transform: translate(-50%, -50%); }
@@ -119,18 +120,23 @@ body {
 }
 .hotspot:hover .tip { opacity: 1; }
 
-/* ---------- HUD（白底：#777 小字纪律） ---------- */
+/* ---------- HUD（建筑图纸读数：中文 mix 细体 + 数字 mono 等宽） ---------- */
+/* 字体统一规范：数字/读数一律 --font-mono（等宽，图纸感）；中文说明一律 --font-mix；
+   衬线 --font-serif 只留给面板标题导语点缀。HUD 整体偏细，数字用 600 而非 700 加粗。 */
 #hud-left {
   position: absolute;
   left: clamp(14px, 2vw, 26px); bottom: 14px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--meta);
-  line-height: 1.8;
+  font-family: var(--font-mix);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--fg-3);
+  line-height: 1.85;
   pointer-events: none;
   letter-spacing: 0.03em;
 }
-#hud-left b { color: var(--fg); font-weight: 700; }
+#hud-left b { color: var(--fg); font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.01em; }
+/* 第三行免责声明：单独提对比度（原随 --fg-3 在浅灰底上偏淡） */
+#hud-left span { color: var(--fg-2); font-size: 10.5px; }
 
 #hud-right {
   position: absolute;
@@ -398,37 +404,67 @@ details.install li b { color: var(--fg); font-weight: 700; margin-right: 6px; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------- 响应式 ---------- */
+/* 移动端：HUD 读数 / 尺寸标注 / 逐层逐跨按钮等原本压在 10–12px，
+   在窄屏上难以辨认。这里统一放大到 ≥13px 的可读区间，并给 3D 视口更多高度。 */
 @media (max-width: 919px) {
   #topbar { flex-wrap: wrap; padding: 10px 16px; height: auto; min-height: 56px; row-gap: 6px; }
-  #topbar .chip-toggle { margin-left: 0 !important; font-size: 12px; padding: 6px 12px; }
+  #topbar .chip-toggle { margin-left: 0 !important; font-size: 13px; padding: 6px 12px; }
   .top-note { display: none; }
-  .product-tabs { width: 100%; order: 3; }
-  .product-tabs button { flex: 1; padding: 7px 4px; font-size: 11.5px; }
-  #layout { grid-template-columns: 1fr; grid-template-rows: 52% 48%; }
+  .product-tabs { width: 100%; order: 3; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .product-tabs::-webkit-scrollbar { display: none; }
+  .product-tabs button { flex: 1 0 auto; white-space: nowrap; padding: 9px 8px; font-size: 13px; }
+  /* 视口给更多高度（面板可滚动），HUD 与热点不至于挤出画面 */
+  #layout { grid-template-columns: 1fr; grid-template-rows: minmax(46vh, 52vh) 1fr; }
   #viewport { min-height: 0; }
-  #panel { border-left: 0; border-top: 1px solid var(--rule); padding: 14px 16px 22px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .panel-title { font-size: 19px; }
-  .panel-lead { font-size: 12px; }
-  .spec-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .spec-cell .v { font-size: 18px; }
-  .stepper button { width: 40px; }
-  .stepper .num { font-size: 14px; }
+  #panel { border-left: 0; border-top: 1px solid var(--rule); padding: 16px 16px 24px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .panel-title { font-size: 21px; }
+  .panel-title .en { font-size: 13px; }
+  .panel-lead { font-size: 14px; }
+  .spec-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .spec-cell .k { font-size: 12.5px; }
+  .spec-cell .v { font-size: 21px; }
+  .spec-cell .v small { font-size: 13px; }
+  .field-label { font-size: 13.5px; }
+  .stepper button { width: 44px; font-size: 19px; }
+  .stepper .num { font-size: 16px; }
   .seg { flex-wrap: wrap; }
-  .seg button { flex: 1 1 40%; font-size: 12px; padding: 8px 6px; }
-  .price-line .price { font-size: 24px; }
+  .seg button { flex: 1 1 40%; font-size: 13.5px; padding: 10px 6px; }
+  .level-row .lv-name { font-size: 13px; width: 62px; }
+  .level-row .seg button { font-size: 13px; padding: 7px 3px; }
+  .bay-row .bay-name { font-size: 13px; width: 62px; }
+  .bay-row input { font-size: 15px; padding: 7px 9px; }
+  .bay-row .unit { font-size: 12.5px; }
+  .switch-row .label { font-size: 14px; }
+  .price-line .price { font-size: 27px; }
+  .price-note { font-size: 12px; }
+  .price-src { font-size: 12px; }
+  .price-breakdown { font-size: 12.5px; }
+  .price-detail summary { font-size: 13px; }
+  .pl-label, .pl-detail { font-size: 12.5px; }
+  .pl-links a { font-size: 12.5px; }
+  .weight-note { font-size: 12.5px; }
   .action-row { flex-direction: column; gap: 8px; }
-  .action-row .cta, .action-row .cta-ghost { width: 100%; }
-  #hud-left { font-size: 10px; left: 10px; bottom: 64px; max-width: 60vw; }
+  .action-row .cta, .action-row .cta-ghost { width: 100%; font-size: 15px; padding: 14px 0; }
+  /* HUD 读数放大并上移，避免被右下工具栏遮挡 */
+  #hud-left { font-size: 13px; left: 10px; bottom: 96px; max-width: 62vw; line-height: 1.7; }
   #hud-right { right: 8px; bottom: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 96vw; gap: 6px; }
-  #hud-right .chip { padding: 6px 9px; font-size: 11px; }
-  #hud-right .chip-toggle { padding: 6px 9px; font-size: 11px; }
-  .install { font-size: 12.5px; }
-  .panel-disclaimer { font-size: 11px; }
+  #hud-right .chip { padding: 7px 10px; font-size: 12.5px; }
+  #hud-right .chip-toggle { padding: 7px 10px; font-size: 12.5px; }
+  /* 3D 内尺寸标注放大（原本 11px） */
+  .dim-label { font-size: 13.5px; }
+  /* 热点（±按钮）放大触控目标 */
+  .hotspot { width: 40px; height: 40px; font-size: 19px; }
+  .hotspot .tip { font-size: 12.5px; }
+  .install { font-size: 13.5px; }
+  details.install summary { font-size: 14px; }
+  details.install summary .en { font-size: 12px; }
+  details.install li { font-size: 13.5px; }
+  .panel-disclaimer { font-size: 12px; }
 }
 @media (max-width: 479px) {
   .spec-grid { grid-template-columns: repeat(2, 1fr); }
   .brand-sub { display: none; }
-  #hud-left { max-width: 46vw; }
+  #hud-left { max-width: 52vw; font-size: 13px; bottom: 100px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

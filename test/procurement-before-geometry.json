@@ -1,0 +1,218 @@
+[
+  {
+    "config": {
+      "bays": 2,
+      "levels": 3,
+      "series": "2040",
+      "decks": [
+        "rib",
+        "acrylic",
+        "none"
+      ],
+      "bayWidths": [
+        0.3,
+        0.57
+      ],
+      "sidePanels": true,
+      "props": true,
+      "color": "silver"
+    },
+    "stats": {
+      "profileLengthM": 18.81,
+      "weightKg": 19.555161,
+      "partCount": 160,
+      "stripLengthM": 35,
+      "cutList": [
+        {
+          "spec": "2020 立柱",
+          "section": "20×20",
+          "len": 1.4,
+          "span": 1.4,
+          "qty": 6
+        },
+        {
+          "spec": "2040 背横梁",
+          "section": "20×40",
+          "len": 0.276,
+          "span": 0.3,
+          "qty": 4
+        },
+        {
+          "spec": "2040 背横梁",
+          "section": "20×40",
+          "len": 0.546,
+          "span": 0.57,
+          "qty": 4
+        },
+        {
+          "spec": "2040 前支撑梁",
+          "section": "20×40",
+          "len": 0.276,
+          "span": 0.3,
+          "qty": 3
+        },
+        {
+          "spec": "2040 前支撑梁",
+          "section": "20×40",
+          "len": 0.546,
+          "span": 0.57,
+          "qty": 3
+        },
+        {
+          "spec": "2040 侧横梁",
+          "section": "20×40",
+          "len": 0.356,
+          "span": 0.36,
+          "qty": 12
+        },
+        {
+          "spec": "型材层板条",
+          "section": "24×16",
+          "len": 0.45,
+          "span": 0.45,
+          "qty": 28
+        },
+        {
+          "spec": "侧板条",
+          "section": "24×8",
+          "len": 0.4,
+          "span": 0.4,
+          "qty": 56
+        }
+      ],
+      "hardware": [
+        {
+          "name": "压铸角件 26mm（前后节点）",
+          "qty": 30
+        },
+        {
+          "name": "M8×12 T 螺栓+螺母",
+          "qty": 60
+        },
+        {
+          "name": "悬挑托架（竖板+托舌）",
+          "qty": 6
+        },
+        {
+          "name": "可调支脚 M10",
+          "qty": 6
+        },
+        {
+          "name": "亚克力支撑卡扣",
+          "qty": 8
+        }
+      ],
+      "paneCells": 2,
+      "panes": [
+        {
+          "label": "磨砂亚克力层板",
+          "areaM2": 0.292,
+          "kind": "acrylic"
+        }
+      ]
+    }
+  },
+  {
+    "config": {
+      "bays": 2,
+      "levels": 3,
+      "series": "2020",
+      "decks": [
+        "rib",
+        "rib",
+        "none"
+      ],
+      "bayWidths": [
+        0.8,
+        1.2
+      ],
+      "sidePanels": true,
+      "props": true,
+      "color": "silver"
+    },
+    "stats": {
+      "profileLengthM": 26.72,
+      "weightKg": 29.790192000000005,
+      "partCount": 352,
+      "stripLengthM": 115.60000000000001,
+      "cutList": [
+        {
+          "spec": "2020 立柱",
+          "section": "20×20",
+          "len": 1.4,
+          "span": 1.4,
+          "qty": 6
+        },
+        {
+          "spec": "2020 背横梁",
+          "section": "20×20",
+          "len": 0.776,
+          "span": 0.8,
+          "qty": 4
+        },
+        {
+          "spec": "2020 背横梁",
+          "section": "20×20",
+          "len": 1.176,
+          "span": 1.2,
+          "qty": 4
+        },
+        {
+          "spec": "2020 前支撑梁",
+          "section": "20×20",
+          "len": 0.776,
+          "span": 0.8,
+          "qty": 3
+        },
+        {
+          "spec": "2020 前支撑梁",
+          "section": "20×20",
+          "len": 1.176,
+          "span": 1.2,
+          "qty": 3
+        },
+        {
+          "spec": "2020 侧横梁",
+          "section": "20×20",
+          "len": 0.356,
+          "span": 0.36,
+          "qty": 12
+        },
+        {
+          "spec": "型材层板条",
+          "section": "24×16",
+          "len": 0.45,
+          "span": 0.45,
+          "qty": 136
+        },
+        {
+          "spec": "侧板条",
+          "section": "24×8",
+          "len": 0.4,
+          "span": 0.4,
+          "qty": 136
+        }
+      ],
+      "hardware": [
+        {
+          "name": "压铸角件 26mm（前后节点）",
+          "qty": 30
+        },
+        {
+          "name": "M8×12 T 螺栓+螺母",
+          "qty": 60
+        },
+        {
+          "name": "悬挑托架（竖板+托舌）",
+          "qty": 12
+        },
+        {
+          "name": "可调支脚 M10",
+          "qty": 6
+        }
+      ],
+      "paneCells": 0,
+      "panes": []
+    }
+  }
+]

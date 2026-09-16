@@ -1,0 +1,148 @@
+{
+  "updated": "2026-09-05",
+  "source": "未核验示例单价（淘宝 / 1688 仅为搜索入口）",
+  "rules": [
+    {
+      "id": "alu-2040",
+      "match": {},
+      "price": 16,
+      "range": [
+        12,
+        22
+      ],
+      "query": "2040工业铝型材"
+    },
+    {
+      "id": "alu-2020",
+      "match": {},
+      "price": 9,
+      "range": [
+        6,
+        13
+      ],
+      "query": "2020工业铝型材"
+    },
+    {
+      "id": "strip-2416",
+      "match": {},
+      "price": 7,
+      "range": [
+        5,
+        10
+      ],
+      "query": "铝型材层板条"
+    },
+    {
+      "id": "strip-2408",
+      "match": {},
+      "price": 5,
+      "range": [
+        3,
+        8
+      ],
+      "query": "铝型材封边条"
+    },
+    {
+      "id": "rod-20",
+      "match": {},
+      "price": 22,
+      "range": [
+        15,
+        30
+      ],
+      "query": "镀铬光轴 直径20"
+    },
+    {
+      "id": "rod-12",
+      "match": {},
+      "price": 12,
+      "range": [
+        8,
+        18
+      ],
+      "query": "镀铬光轴 直径12"
+    }
+  ],
+  "hardware": [
+    {
+      "match": {},
+      "price": 0.8,
+      "query": "2020压铸角件"
+    },
+    {
+      "match": {},
+      "price": 0.5,
+      "query": "T型螺栓 法兰螺母 M8"
+    },
+    {
+      "match": {},
+      "price": 3,
+      "query": "型材层板托架"
+    },
+    {
+      "match": {},
+      "price": 2.5,
+      "query": "可调支脚 M10"
+    },
+    {
+      "match": {},
+      "price": 0.5,
+      "query": "亚克力板固定卡扣"
+    },
+    {
+      "match": {},
+      "price": 6,
+      "query": "万向轮 2寸 带刹车"
+    },
+    {
+      "match": {},
+      "price": 3,
+      "query": "调平地脚 M12"
+    },
+    {
+      "match": {},
+      "price": 2,
+      "query": "光轴T型夹块"
+    },
+    {
+      "match": {},
+      "price": 1,
+      "query": "光轴固定卡夹"
+    },
+    {
+      "match": {},
+      "price": 1.5,
+      "query": "光轴横杆夹"
+    },
+    {
+      "match": {},
+      "price": 1,
+      "query": "展板挂扣"
+    },
+    {
+      "match": {},
+      "price": 1,
+      "query": "层板托夹"
+    }
+  ],
+  "acrylicPerM2": {
+    "price": 150,
+    "range": [
+      110,
+      200
+    ],
+    "query": "磨砂亚克力板 8mm"
+  },
+  "zincPerM2": {
+    "price": 45,
+    "range": [
+      30,
+      65
+    ],
+    "query": "镀锌钢板 薄板"
+  },
+  "posterFlat": {
+    "price": 28,
+    "query": "海报打印 定制"
+  }
+}

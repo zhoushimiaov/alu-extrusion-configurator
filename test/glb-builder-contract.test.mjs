@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {buildGlbFrame} from '../src/core/buildGlbFrame.js';
+test('GLB production builder exposes named W/H/D bounds required by dimensions and camera',()=>{const b=buildGlbFrame({bayWidths:[.57,.57],levels:3});assert.equal(typeof b.bounds.W,'number');assert.equal(typeof b.bounds.H,'number');assert.equal(typeof b.bounds.D,'number');assert.ok(Number.isFinite(b.bounds.W)&&Number.isFinite(b.bounds.H)&&Number.isFinite(b.bounds.D));b.dispose();});

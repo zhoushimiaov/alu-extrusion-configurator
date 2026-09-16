@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {buildGlbFrame} from '../src/core/buildGlbFrame.js';
+test('GLB reveal groups own isolated materials so staggered fade cannot zero siblings',()=>{const b=buildGlbFrame({bayWidths:[.57,.57],levels:3});const meshes=Object.values(b.groups);assert.ok(meshes.length>2);for(let i=1;i<meshes.length;i++){assert.notEqual(meshes[0].material[0],meshes[i].material[0]);assert.notEqual(meshes[0].material[1],meshes[i].material[1]);}b.dispose();});

@@ -128,12 +128,24 @@ gh secret list --repo $repo      # 校验（只显示名称与更新时间，不
 checkout → setup-node(20, npm cache)
   → 检查 Secrets（缺失则跳过后续步骤）
   → npm ci
-  → npm test          # 50 项单元测试，不通过则不部署
-  → npm run build     # 产出单文件 dist/index.html
-  → node tools/make-ci-config.mjs   # 由公开 wrangler.toml 生成 wrangler.ci.toml
+  → node tools/check-import-case.mjs   # 导入路径大小写检查（跨平台可移植性）
+  → npm test                           # 50 项单元测试，不通过则不部署
+  → npm run build                      # 产出单文件 dist/index.html
+  → node tools/make-ci-config.mjs      # 由公开 wrangler.toml 生成 wrangler.ci.toml
   → wrangler deploy --config wrangler.ci.toml
   → 写入运行摘要（Worker 名、提交 SHA、触发方式、线上地址）
 ```
+
+### 3.4 跨平台可移植性（CI 暴露过的两个真实问题）
+
+开发在 Windows、构建在 Linux，下面两类写法「本地能跑、CI 必崩」，本仓库都已修复并加了防线：
+
+| 问题 | 现象 | 防线 |
+|---|---|---|
+| 测试脚本里给 glob 加引号：`node --test "test/*.test.mjs"` | bash 不展开引号内通配符，Node 20 也不展开 → `Could not find '…/test/*.test.mjs'` | 去掉引号：`node --test test/*.test.mjs`（bash 展开；Windows 下由 Node 自行展开） |
+| 导入路径大小写与磁盘不一致：`import './buildshelf.js'` 而文件是 `buildShelf.js` | Windows/macOS 不区分大小写所以本地正常，Linux 报 `ERR_MODULE_NOT_FOUND` | `tools/check-import-case.mjs` 在 CI 的单元测试前执行，按字节比对文件名大小写 |
+
+> 注意 `node --test test/`（目录形式）在 Node 22 下会被当成模块路径而失败，不要用。
 
 - 并发策略：`concurrency: deploy-workers`，同一时间只跑一个部署，且**不取消进行中的部署**，
   避免线上出现半截状态。
@@ -141,7 +153,7 @@ checkout → setup-node(20, npm cache)
 - 若只想保留手动部署：把 `deploy.yml` 里的 `push:` 段删除，或用
   Settings → Actions → 该工作流 → Disable 临时停用。
 
-### 3.4 与 Cloudflare 自带 Git 集成的取舍
+### 3.5 与 Cloudflare 自带 Git 集成的取舍
 
 不建议使用 Cloudflare 控制台的 **Workers Builds**：它会让部署入口分叉（控制台配置 + 本仓库文档
 记录的命令不一致），且构建环境需要单独配置 KV 绑定。用 GitHub Actions 的好处是

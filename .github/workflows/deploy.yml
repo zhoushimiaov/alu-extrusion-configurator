@@ -1,0 +1,45 @@
+name: Deploy to Cloudflare Workers
+
+# 默认手动触发（Actions 页面 → Run workflow）。
+# 需要 push 自动部署时，取消下面 push 段的注释即可。
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 运行单元测试
+        run: npm test
+
+      - name: 构建单文件产物
+        run: npm run build
+
+      - name: 生成带真实 KV 绑定的部署配置
+        env:
+          KV_NAMESPACE_ID: ${{ secrets.MARKET_KV_NAMESPACE_ID }}
+        run: |
+          if [ -z "$KV_NAMESPACE_ID" ]; then
+            echo "::warning::未设置 MARKET_KV_NAMESPACE_ID，将使用占位符（/api/market 可能不可用）"
+          fi
+          sed -e "s/REPLACE_WITH_YOUR_KV_NAMESPACE_ID/${KV_NAMESPACE_ID}/" wrangler.toml > wrangler.ci.toml
+          grep -n "id = " wrangler.ci.toml
+
+      - name: 部署到 Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler.ci.toml

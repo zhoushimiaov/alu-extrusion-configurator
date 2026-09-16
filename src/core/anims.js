@@ -95,24 +95,23 @@ export function createAnims(camera, controls) {
     return { pos: tgt.clone().add(dir.multiplyScalar(dist)), tgt };
   }
 
-  // 分组浮现：位移 + 淡入（兼容 mesh 数组与 InstancedMesh 映射表）
+  // 分组浮现：位移 + 整体缩放（不改材质 opacity —— 材质保持共享，动画结束无需回滚材质状态）
   function reveal(parts) {
     if (REDUCED) return;
     const list = Array.isArray(parts) ? parts.map((m, i) => [m.name || ('m' + i), m]) : Object.entries(parts);
     let idx = 0;
     for (const [name, mesh] of list) {
       if (!mesh || !mesh.isMesh || !mesh.material) continue;
-      const mats = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map(mat=>({mat,opacity:mat.opacity,transparent:mat.transparent}));
       const baseY = mesh.position.y;
-      for(const {mat} of mats){mat.transparent=true;mat.opacity=0;}
       mesh.position.y = baseY - 0.05;
+      mesh.scale.y = 0.001;
       addTween({
         dur: 240, delay: idx * 60,
         onUpdate: (e) => {
-          for(const {mat,opacity} of mats) mat.opacity=e*opacity;
           mesh.position.y = baseY - 0.05 * (1 - e);
+          mesh.scale.y = 0.001 + 0.999 * e;
         },
-        onDone: () => { mesh.position.y = baseY; for(const {mat,opacity,transparent} of mats){mat.opacity=opacity;mat.transparent=transparent;} },
+        onDone: () => { mesh.position.y = baseY; mesh.scale.y = 1; },
       });
       idx++;
     }
@@ -156,8 +155,7 @@ export function createAnims(camera, controls) {
         onUpdate: (e) => { mat.opacity = fromO + (toO - fromO) * e; },
         onDone: () => { conn.visible = !on; },
       });
-      if (on) conn.visible = true;
-      else conn.visible = true;
+      conn.visible = true;
     }
   }
 

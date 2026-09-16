@@ -1,5 +1,6 @@
 // 光轴木展车配置面板（tab 第五产品）
 import { WOOD_TONES, LIMITS as WC_LIMITS, DEFAULT_WOODCART_CONFIG, INSTALL_STEPS_WOODCART } from '../config/woodcart.js';
+import { makeClamp } from '../config/clamp.js';
 import { attachDragSlider } from './dragSlider.js';
 import { calcMarketPrice } from './marketPrice.js';
 import { PRICE_MARKET_HTML, updatePriceBlock } from './priceview.js';
@@ -11,6 +12,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
+const clampCfg = makeClamp(WC_LIMITS, DEFAULT_WOODCART_CONFIG);
 let state = { ...DEFAULT_WOODCART_CONFIG };
 const subs = new Set();
 export const woodcartStore = {
@@ -18,7 +20,7 @@ export const woodcartStore = {
   installSteps: INSTALL_STEPS_WOODCART,
   get: () => state,
   set(patch) {
-    const next = { ...state, ...patch };
+    const next = clampCfg({ ...state, ...patch });
     if (JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
     for (const fn of subs) fn(state);
@@ -31,10 +33,15 @@ export function calcWoodCartPrice(cfg, stats) {
   return 0;
 }
 
+let dragCleanup = null;
 export function createWoodCartPanel(root, actions) {
-  root.appendChild(el('div', 'panel-title',
+  // 面板挂到独立容器：dispose 时整体摘除，旧面板的 root 级监听器随之脱离文档
+  const container = el('div');
+  root.appendChild(container);
+  const mount = container;
+  mount.appendChild(el('div', 'panel-title',
     `光轴木展车<span class="en">ROD & PLYWOOD CART</span>`));
-  root.appendChild(el('p', 'panel-lead',
+  mount.appendChild(el('p', 'panel-lead',
     '光轴 + 胶合板移动展车：柜体收纳、洞洞板背板、中部层板、顶部挂杆，一车多能。'));
 
   const spec = el('div', 'spec-grid', `
@@ -42,8 +49,8 @@ export function createWoodCartPanel(root, actions) {
     <div class="spec-cell"><div class="k">总高 H</div><div class="v" data-spec="h">2.21<small>m</small></div></div>
     <div class="spec-cell"><div class="k">深 D</div><div class="v" data-spec="d">0.51<small>m</small></div></div>
     <div class="spec-cell"><div class="k">零件</div><div class="v" data-spec="p">0<small>件</small></div></div>`);
-  root.appendChild(spec);
-  root.appendChild(el('hr', 'sec-rule'));
+  mount.appendChild(spec);
+  mount.appendChild(el('hr', 'sec-rule'));
 
   const mkStepper = (label, key, step) => {
     const f = el('div', null, `
@@ -57,15 +64,16 @@ export function createWoodCartPanel(root, actions) {
     return f;
   };
   const wField = mkStepper('宽度 WIDTH', 'w', '0.05');
-  root.appendChild(wField);
+  mount.appendChild(wField);
   const dField = mkStepper('深度 DEPTH', 'd', '0.05');
-  root.appendChild(dField);
+  mount.appendChild(dField);
   const hField = mkStepper('立柱总高 HEIGHT', 'h', '0.1');
-  root.appendChild(hField);
+  mount.appendChild(hField);
   const sField = mkStepper('层板数 SHELVES', 's', '1');
-  root.appendChild(sField);
+  mount.appendChild(sField);
 
-  attachDragSlider(root, {
+  dragCleanup && dragCleanup();
+  dragCleanup = attachDragSlider(mount, {
     get: () => woodcartStore.get(),
     set: (patch) => woodcartStore.set(patch),
     limits: WC_LIMITS,
@@ -80,7 +88,7 @@ export function createWoodCartPanel(root, actions) {
     woodSeg.appendChild(b);
   }
   woodField.appendChild(woodSeg);
-  root.appendChild(woodField);
+  mount.appendChild(woodField);
 
   // 开关
   const mkSwitch = (label, key) => {
@@ -92,13 +100,13 @@ export function createWoodCartPanel(root, actions) {
     return { rowEl, sw };
   };
   const pegSw = mkSwitch('洞洞板背板', 'pegboard');
-  root.appendChild(pegSw.rowEl);
+  mount.appendChild(pegSw.rowEl);
   const topSw = mkSwitch('顶部挂杆', 'topRail');
-  root.appendChild(topSw.rowEl);
+  mount.appendChild(topSw.rowEl);
   const sideSw = mkSwitch('侧向挂杆', 'sideRail');
-  root.appendChild(sideSw.rowEl);
+  mount.appendChild(sideSw.rowEl);
   const casterSw = mkSwitch('万向轮（取消则用调平地脚）', 'casters');
-  root.appendChild(casterSw.rowEl);
+  mount.appendChild(casterSw.rowEl);
 
   // 价格区
   const priceBlock = el('div', 'price-block', `
@@ -111,7 +119,7 @@ export function createWoodCartPanel(root, actions) {
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
     </div>
     <div class="panel-disclaimer">承重与报价为演示示例，实际以工程图纸与正式报价单为准。</div>`);
-  root.appendChild(priceBlock);
+  mount.appendChild(priceBlock);
 
   const install = el('details', 'install');
   install.innerHTML = `
@@ -119,9 +127,9 @@ export function createWoodCartPanel(root, actions) {
     <ol>
       ${INSTALL_STEPS_WOODCART.map(s => `<li><b>${s.t}</b>${s.d}</li>`).join('')}
     </ol>`;
-  root.appendChild(install);
+  mount.appendChild(install);
 
-  root.addEventListener('click', (e) => {
+  mount.addEventListener('click', (e) => {
     const btn = e.target.closest('button, .switch');
     if (!btn) return;
     const c = woodcartStore.get();
@@ -160,7 +168,7 @@ export function createWoodCartPanel(root, actions) {
 
   function syncSpecs(c) {
     spec.querySelector('[data-spec="w"]').innerHTML = (c.width + 0.06).toFixed(2) + '<small>m</small>';
-    spec.querySelector('[data-spec="h"]').innerHTML = (c.height + 0.06).toFixed(2) + '<small>m</small>';
+    spec.querySelector('[data-spec="h"]').innerHTML = (c.height + c.cabinetH + 0.04).toFixed(2) + '<small>m</small>';
     spec.querySelector('[data-spec="d"]').innerHTML = (c.depth + 0.06).toFixed(2) + '<small>m</small>';
     const conf = [['width', wField, 'w'], ['depth', dField, 'd'], ['height', hField, 'h'], ['shelves', sField, 's']];
     for (const [key, field, act] of conf) {
@@ -181,7 +189,7 @@ export function createWoodCartPanel(root, actions) {
     casterSw.sw.setAttribute('aria-checked', String(c.casters));
   }
   syncSpecs(state);
-  woodcartStore.subscribe(syncSpecs);
+  const unsub = woodcartStore.subscribe(syncSpecs);
 
   function updateStats(stats) {
     if (!stats) return;
@@ -189,5 +197,10 @@ export function createWoodCartPanel(root, actions) {
     spec.querySelector('[data-spec="p"]').innerHTML = stats.partCount.toLocaleString('zh-CN') + '<small>件</small>';
     priceBlock.querySelector('[data-weight]').textContent = `含轮与五金 · 零件 ${stats.partCount.toLocaleString('zh-CN')} 件`;
   }
-  return { updateStats, weightEl: priceBlock.querySelector('[data-weight]') };
+  function dispose() {
+    unsub();
+    if (dragCleanup) { dragCleanup(); dragCleanup = null; }
+    container.remove();
+  }
+  return { updateStats, weightEl: priceBlock.querySelector('[data-weight]'), dispose };
 }

@@ -1,6 +1,7 @@
 // 光轴展架配置面板（忠实参考模型：单排双柱海报展示架）
 // 可调：柱心距、立柱高度、背板形式、底部置物（无/窄托板/镀锌层板）、滚轮、表面
 import { BACK_TYPES, SHELF_TYPES, ROD_COLORS, LIMITS as ROD_LIMITS, DEFAULT_ROD_CONFIG, INSTALL_STEPS_ROD, ROD_STYLES } from '../config/rodrack.js';
+import { makeClamp } from '../config/clamp.js';
 import { attachDragSlider } from './dragSlider.js';
 import { calcMarketPrice } from './marketPrice.js';
 import { PRICE_MARKET_HTML, updatePriceBlock } from './priceview.js';
@@ -12,6 +13,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
+const clampCfg = makeClamp(ROD_LIMITS, DEFAULT_ROD_CONFIG);
 let state = { ...DEFAULT_ROD_CONFIG };
 const subs = new Set();
 export const rodStore = {
@@ -19,7 +21,7 @@ export const rodStore = {
   installSteps: INSTALL_STEPS_ROD,
   get: () => state,
   set(patch) {
-    const next = { ...state, ...patch };
+    const next = clampCfg({ ...state, ...patch });
     if (JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
     for (const fn of subs) fn(state);
@@ -34,10 +36,15 @@ export function calcRodPrice(cfg, stats) {
 }
 const fmt = (n) => '¥ ' + n.toLocaleString('zh-CN');
 
+let dragCleanup = null;
 export function createRodPanel(root, actions) {
-  root.appendChild(el('div', 'panel-title',
+  // 面板挂到独立容器：dispose 时整体摘除，旧面板的 root 级监听器随之脱离文档
+  const container = el('div');
+  root.appendChild(container);
+  const mount = container;
+  mount.appendChild(el('div', 'panel-title',
     `光轴展架<span class="en">CHROME ROD POSTER RACK</span>`));
-  root.appendChild(el('p', 'panel-lead',
+  mount.appendChild(el('p', 'panel-lead',
     '双光轴立柱移动展示架：底部托板或层板、中部背板或海报画面、顶部档杆；滚轮底盘可整体推行。'));
 
   const spec = el('div', 'spec-grid', `
@@ -45,8 +52,8 @@ export function createRodPanel(root, actions) {
     <div class="spec-cell"><div class="k">总高 H</div><div class="v" data-spec="h">1.38<small>m</small></div></div>
     <div class="spec-cell"><div class="k">底盘 D</div><div class="v" data-spec="d">0.42<small>m</small></div></div>
     <div class="spec-cell"><div class="k">零件</div><div class="v" data-spec="p">0<small>件</small></div></div>`);
-  root.appendChild(spec);
-  root.appendChild(el('hr', 'sec-rule'));
+  mount.appendChild(spec);
+  mount.appendChild(el('hr', 'sec-rule'));
 
   // 柱心距步进
   const mkStepper = (label, plus, minus, numKey, unit) => {
@@ -60,12 +67,13 @@ export function createRodPanel(root, actions) {
     return f;
   };
   const wField = mkStepper('柱心距 WIDTH', 'w+', 'w-', 'w');
-  root.appendChild(wField);
+  mount.appendChild(wField);
   const hField = mkStepper('立柱长度 HEIGHT', 'h+', 'h-', 'h');
-  root.appendChild(hField);
+  mount.appendChild(hField);
 
   // 数值框水平拖拽（3ds Max 风格）：按住数值左右滑动改值，步长 0.05/0.1
-  attachDragSlider(root, {
+  dragCleanup && dragCleanup();
+  dragCleanup = attachDragSlider(mount, {
     get: () => rodStore.get(),
     set: (patch) => rodStore.set(patch),
     limits: ROD_LIMITS,
@@ -80,7 +88,7 @@ export function createRodPanel(root, actions) {
     styleSeg.appendChild(b);
   }
   styleField.appendChild(styleSeg);
-  root.appendChild(styleField);
+  mount.appendChild(styleField);
 
   // 背板
   const backField = el('div', null, `<div class="field-label"><span>背板 BACK PANEL</span></div>`);
@@ -91,7 +99,7 @@ export function createRodPanel(root, actions) {
     backSeg.appendChild(b);
   }
   backField.appendChild(backSeg);
-  root.appendChild(backField);
+  mount.appendChild(backField);
 
   // 底部置物
   const shelfField = el('div', null, `<div class="field-label"><span>底部置物 SHELF</span></div>`);
@@ -102,7 +110,7 @@ export function createRodPanel(root, actions) {
     shelfSeg.appendChild(b);
   }
   shelfField.appendChild(shelfSeg);
-  root.appendChild(shelfField);
+  mount.appendChild(shelfField);
 
   // 滚轮开关
   const casterRow = el('div', 'switch-row', `<span class="label">滚轮底盘（取消则用调平地脚）</span>`);
@@ -110,7 +118,7 @@ export function createRodPanel(root, actions) {
   casterSw.setAttribute('role', 'switch');
   casterSw.dataset.sw = 'casters';
   casterRow.appendChild(casterSw);
-  root.appendChild(casterRow);
+  mount.appendChild(casterRow);
 
   // 配色
   const colorField = el('div', null, `<div class="field-label"><span>表面 FINISH</span></div>`);
@@ -124,7 +132,7 @@ export function createRodPanel(root, actions) {
     swatches.appendChild(s);
   }
   colorField.appendChild(swatches);
-  root.appendChild(colorField);
+  mount.appendChild(colorField);
 
   // 价格区
   const priceBlock = el('div', 'price-block', `
@@ -137,7 +145,7 @@ export function createRodPanel(root, actions) {
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
     </div>
     <div class="panel-disclaimer">承重与报价为演示示例，实际以工程图纸与正式报价单为准。</div>`);
-  root.appendChild(priceBlock);
+  mount.appendChild(priceBlock);
 
   // 安装说明
   const install = el('details', 'install');
@@ -146,9 +154,9 @@ export function createRodPanel(root, actions) {
     <ol>
       ${INSTALL_STEPS_ROD.map(s => `<li><b>${s.t}</b>${s.d}</li>`).join('')}
     </ol>`;
-  root.appendChild(install);
+  mount.appendChild(install);
 
-  root.addEventListener('click', (e) => {
+  mount.addEventListener('click', (e) => {
     const btn = e.target.closest('button, .switch');
     if (!btn) return;
     const c = rodStore.get();
@@ -167,10 +175,13 @@ export function createRodPanel(root, actions) {
     if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(rodStore.get());
   });
 
-  // 可拖拽视觉提示
-  const style = document.createElement('style');
-  style.textContent = '.stepper .num[data-drag] { cursor: ew-resize; } .stepper .num[data-drag]:hover { background: #f7f4ec; }';
-  document.head.appendChild(style);
+  // 可拖拽视觉提示（样式幂等注入：只挂一次，切产品不再累积）
+  if (!document.getElementById('drag-num-style')) {
+    const style = document.createElement('style');
+    style.id = 'drag-num-style';
+    style.textContent = '.stepper .num[data-drag] { cursor: ew-resize; } .stepper .num[data-drag]:hover { background: #f7f4ec; }';
+    document.head.appendChild(style);
+  }
 
   function syncSpecs(c) {
     spec.querySelector('[data-spec="w"]').innerHTML = (c.width + 0.12).toFixed(2) + '<small>m</small>';
@@ -196,7 +207,7 @@ export function createRodPanel(root, actions) {
     // 报价由当前算料快照更新。
   }
   syncSpecs(state);
-  rodStore.subscribe(syncSpecs);
+  const unsub = rodStore.subscribe(syncSpecs);
 
   function updateStats(stats) {
     if (!stats) return;
@@ -204,5 +215,10 @@ export function createRodPanel(root, actions) {
     spec.querySelector('[data-spec="p"]').innerHTML = stats.partCount.toLocaleString('zh-CN') + '<small>件</small>';
     priceBlock.querySelector('[data-weight]').textContent = `含滚轮与夹块 · 零件 ${stats.partCount.toLocaleString('zh-CN')} 件`;
   }
-  return { updateStats, weightEl: priceBlock.querySelector('[data-weight]') };
+  function dispose() {
+    unsub();
+    if (dragCleanup) { dragCleanup(); dragCleanup = null; }
+    container.remove();
+  }
+  return { updateStats, weightEl: priceBlock.querySelector('[data-weight]'), dispose };
 }

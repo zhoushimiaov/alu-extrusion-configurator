@@ -31,6 +31,87 @@ function setMT(i, mesh, x, y, z, rx = 0, ry = 0, rz = 0) {
   mesh.setMatrixAt(i, _m4);
 }
 
+/**
+ * 纯统计：由几何装配的中间量推导 stats（算料/报价/自重的唯一数据源）。
+ * 不触碰 THREE，可在无 WebGL / 测试 / 离线场景独立调用。
+ * @param {object} cfg 规整后的配置
+ * @param {object} q 装配中间量（各构件数量与长度）
+ */
+export function computeShelfStats(cfg, q) {
+  const { bays, levels, bayWidths, decks } = cfg;
+  const prof = PROFILE_SERIES[cfg.series] || PROFILE_SERIES['2040'];
+  const postProf = PROFILE_SERIES['2020'];
+  const W = bayWidths.reduce((a, b) => a + b, 0);
+  const H = levels * LEVEL_PITCH + POST_H_BASE;
+  const stats = { profileLengthM: 0, weightKg: 0, partCount: 0 };
+
+  const postLen = q.nPosts * H;
+  const backBeamLen = q.nBeamRows * W;
+  const railLen = q.railRows.reduce((a, [, w]) => a + w, 0);
+  const sideBeamLen = q.nSideBeams * q.sideLen;
+  const stripLenTotal = q.stripRows.length * q.stripLen;
+  const panelLenTotal = q.panelRows.length * (LEVEL_PITCH - 0.05);
+  const paneArea = q.paneCells.reduce((a, [, , w]) => a + (w - .018) * q.paneDepth, 0);
+
+  stats.profileLengthM = postLen + backBeamLen + railLen + sideBeamLen;
+  stats.stripLengthM = stripLenTotal + panelLenTotal;
+  const volAlu = postLen * postProf.area + (backBeamLen + railLen + sideBeamLen) * prof.area
+    + stripLenTotal * DECK_STRIP.area + panelLenTotal * PANEL_RIB.area;
+  stats.weightKg =
+    volAlu * ALU_DENSITY +
+    paneArea * PANE_THICKNESS * ACRYLIC_DENSITY +
+    q.nNodes * CONN_MASS + q.nBrk * 0.02 + q.nPosts * FOOT_MASS;
+  stats.partCount = q.nPosts + q.nBeamRows * bays + q.railRows.length + q.nSideBeams
+    + q.stripRows.length + q.panelRows.length + q.paneCells.length
+    + q.nNodes + q.nBrk * 2 + q.nPosts;
+
+  // ---- 算料单 ----
+  const cutList = [];
+  const addCut = (spec, section, len, qty, span = len) => {
+    const prev = cutList.find(c => c.spec === spec && c.section === section && Math.abs(c.len - len) < 1e-6);
+    if (prev) prev.qty += qty; else cutList.push({ spec, section, len, span, qty });
+  };
+  const postSec = `${postProf.w * 1000}×${postProf.h * 1000}`;
+  const beamSec = `${prof.w * 1000}×${prof.h * 1000}`;
+  addCut(postProf.label + ' 立柱', postSec, +H.toFixed(3), q.nPosts);
+  for (let k = 0; k <= levels; k++) {
+    for (let b = 0; b < bays; b++) {
+      const span = +bayWidths[b].toFixed(3);
+      addCut(cfg.series + ' 背横梁', beamSec, beamCutLength(span, postProf.w), 1, span);
+    }
+  }
+  { // 前支撑梁（有层板的层每跨一根 + 顶行每跨一根）
+    const railCuts = {};
+    for (let k = 0; k < levels; k++) {
+      if (decks[k] === 'none') continue;
+      for (const w of bayWidths) railCuts[w.toFixed(3)] = (railCuts[w.toFixed(3)] || 0) + 1;
+    }
+    for (const w of bayWidths) railCuts[w.toFixed(3)] = (railCuts[w.toFixed(3)] || 0) + 1;
+    for (const [span, qty] of Object.entries(railCuts)) {
+      addCut(cfg.series + ' 前支撑梁', beamSec, beamCutLength(+span, postProf.w), qty, +span);
+    }
+  }
+  addCut(cfg.series + ' 侧横梁', beamSec, +(q.sideLen - 2 * JOINT_GAP).toFixed(3), q.nSideBeams, +q.sideLen.toFixed(3));
+  if (q.stripRows.length) addCut('型材层板条', '24×16', +q.stripLen.toFixed(3), q.stripRows.length);
+  if (q.panelRows.length) addCut('侧板条', '24×8', +(LEVEL_PITCH - 0.05).toFixed(3), q.panelRows.length);
+  const hw = [
+    { name: '压铸角件 26mm（前后节点）', qty: q.nNodes },
+    { name: 'M8×12 T 螺栓+螺母', qty: q.nNodes * 2 },
+    { name: '悬挑托架（竖板+托舌）', qty: q.nBrk * 2 },
+    { name: '可调支脚 M10', qty: q.nPosts },
+  ];
+  if (q.paneCells.length) hw.push({ name: '亚克力支撑卡扣', qty: q.paneCells.length * 4 });
+
+  stats.cutList = cutList;
+  stats.hardware = hw;
+  stats.paneCells = q.paneCells.length;
+  stats.panes = q.paneCells.length
+    ? [{ label: '磨砂亚克力层板', areaM2: +paneArea.toFixed(3), kind: 'acrylic' }]
+    : [];
+  return stats;
+}
+
+
 export function buildShelf(config, withProps = true) {
   const cfg = normalizeConfig(config);
   const { bays, levels, series, decks, bayWidths, sidePanels, color } = cfg;
@@ -388,73 +469,11 @@ export function buildShelf(config, withProps = true) {
     group.add(mesh);
   }
 
-  // ---- 统计 ----
-  const postLen = nPosts * H;
-  const backBeamLen = nBeamRows * W;
-  const railLen = railRows.reduce((a, [, w]) => a + w, 0);
-  const sideBeamLen = nSideBeams * sideLen;
-  const stripLenTotal = stripRows.length * stripLen;
-  const panelLenTotal = panelRows.length * (LEVEL_PITCH - 0.05);
-  // Preserve baseline procurement area; visual overlap does not alter purchasing.
-  const paneArea = paneCells.reduce((a, [, , w]) => a + (w - .018) * paneDepth, 0);
-
-  stats.profileLengthM = postLen + backBeamLen + railLen + sideBeamLen;
-  stats.stripLengthM = stripLenTotal + panelLenTotal;
-  const volAlu = postLen * postProf.area + (backBeamLen + railLen + sideBeamLen) * prof.area
-    + stripLenTotal * DECK_STRIP.area + panelLenTotal * PANEL_RIB.area;
-  stats.weightKg =
-    volAlu * ALU_DENSITY +
-    paneArea * PANE_THICKNESS * ACRYLIC_DENSITY +
-    nNodes * CONN_MASS + nBrk * 0.02 + nPosts * FOOT_MASS;
-  stats.partCount = nPosts + nBeamRows * bays + railRows.length + nSideBeams
-    + stripRows.length + panelRows.length + paneCells.length
-    + nNodes + nBrk * 2 + nPosts;
-
-  // ---- 算料单 ----
-  // len = 实际下料长（已按 beamCutLength 扣节点占位）；span = 名义净跨，两列同时输出可追溯
-  const cutList = [];
-  const addCut = (spec, section, len, qty, span = len) => {
-    const prev = cutList.find(c => c.spec === spec && c.section === section && Math.abs(c.len - len) < 1e-6);
-    if (prev) prev.qty += qty; else cutList.push({ spec, section, len, span, qty });
-  };
-  const postSec = `${postProf.w * 1000}×${postProf.h * 1000}`;
-  const beamSec = `${prof.w * 1000}×${prof.h * 1000}`;
-  addCut(postProf.label + ' 立柱', postSec, +H.toFixed(3), nPosts);
-  for (let k = 0; k <= levels; k++) {
-    for (let b = 0; b < bays; b++) {
-      const span = +bayWidths[b].toFixed(3);
-      addCut(series + ' 背横梁', beamSec, beamCutLength(span, postProf.w), 1, span);
-    }
-  }
-  { // 前支撑梁（有层板的层每跨一根 + 顶行每跨一根）
-    const railCuts = {};
-    for (let k = 0; k < levels; k++) {
-      if (decks[k] === 'none') continue;
-      for (const w of bayWidths) railCuts[w.toFixed(3)] = (railCuts[w.toFixed(3)] || 0) + 1;
-    }
-    for (const w of bayWidths) railCuts[w.toFixed(3)] = (railCuts[w.toFixed(3)] || 0) + 1;
-    for (const [span, qty] of Object.entries(railCuts)) {
-      addCut(series + ' 前支撑梁', beamSec, beamCutLength(+span, postProf.w), qty, +span);
-    }
-  }
-  addCut(series + ' 侧横梁', beamSec, +(sideLen - 2 * JOINT_GAP).toFixed(3), nSideBeams, +sideLen.toFixed(3));
-  if (stripRows.length) addCut('型材层板条', '24×16', +stripLen.toFixed(3), stripRows.length);
-  if (panelMesh) addCut('侧板条', '24×8', +(LEVEL_PITCH - 0.05).toFixed(3), panelRows.length);
-  const hw = [
-    { name: '压铸角件 26mm（前后节点）', qty: nNodes },
-    { name: 'M8×12 T 螺栓+螺母', qty: nNodes * 2 },
-    { name: '悬挑托架（竖板+托舌）', qty: nBrk * 2 },
-    { name: '可调支脚 M10', qty: nPosts },
-  ];
-  if (paneCells.length) hw.push({ name: '亚克力支撑卡扣', qty: paneCells.length * 4 });
-
-  stats.cutList = cutList;
-  stats.hardware = hw;
-  stats.paneCells = paneCells.length;
-  // 板件清单（比价引擎按 areaM2 × 每平米参考价计价）
-  stats.panes = paneCells.length
-    ? [{ label: '磨砂亚克力层板', areaM2: +paneArea.toFixed(3), kind: 'acrylic' }]
-    : [];
+  // ---- 统计（委托给纯函数 computeShelfStats，几何与算料同源）----
+  Object.assign(stats, computeShelfStats(cfg, {
+    nPosts, nBeamRows, railRows, nSideBeams, sideLen, stripRows, stripLen,
+    panelRows, paneCells, paneDepth, nNodes, nBrk,
+  }));
 
   function dispose() {
     for (const [, mesh] of layered) {

@@ -225,7 +225,10 @@ export function createPanel(root, actions) {
   // ---- 同步 ----
   function syncSpecs(c) {
     const W = c.bayWidths.reduce((a, b) => a + b, 0);
-    const H = c.levels * 0.45 + 0.05;
+    // 高度须与当前装配模式的真实公式一致（否则右栏读数与 3D 尺寸标注对不上）：
+    //   GLB 精确节点：levels*0.46+0.03（见 buildGlbFrame.js glbLayout）
+    //   标准参数架：levels*0.45+0.05（见 buildShelf.js: LEVEL_PITCH+POST_H_BASE）
+    const H = c.frameMode === 'glb' ? c.levels * 0.46 + 0.03 : c.levels * 0.45 + 0.05;
     spec.querySelector('[data-spec="w"]').innerHTML = W.toFixed(2) + '<small>m</small>';
     spec.querySelector('[data-spec="h"]').innerHTML = H.toFixed(2) + '<small>m</small>';
     spec.querySelector('[data-spec="d"]').innerHTML = DEPTH.toFixed(2) + '<small>m</small>';

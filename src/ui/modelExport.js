@@ -89,7 +89,7 @@ function flattenToPlainMeshes(sourceGroup, rootName) {
  * @returns {Promise<string>} 下载文件名
  */
 export async function downloadModel(sourceGroup, kind = 'profile', meta = {}) {
-  const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+  const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
   const exporter = new GLTFExporter();
 
   const rootName = ROOT_NAMES[kind] || ROOT_NAMES.profile;

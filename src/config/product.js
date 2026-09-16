@@ -51,17 +51,6 @@ export const PANEL_COLORS = {
   black: { label: '哑黑',     hex: 0x2b2d30, roughness: 0.60, metalness: 0.20 },
 };
 
-// （已弃用）旧示例报价表：报价现由 src/config/market.js 市场价 + marketPrice.js 从算料推导
-export const PRICE = {
-  currency: '¥',
-  base: 199,
-  perBay: 168,
-  perLevel: 96,
-  deckRibPerBayLevel: 45,
-  acrylicPerBayLevel: 62,
-  sidePanelEach: 60,
-};
-
 // 安装说明（文末折叠区）
 export const INSTALL_STEPS = [
   { t: '清点核验', d: '按算料单核对型材数量与下料长度，五金包按连接件、螺栓、支脚分格清点。' },

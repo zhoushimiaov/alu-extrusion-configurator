@@ -48,7 +48,8 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     ];
     extraStats = [];
     wText = (cfg.width + 0.06).toFixed(2);
-    hText = (cfg.height + 0.06).toFixed(2);
+    // 真实总高 = 立柱身长 height + 柜体顶 cabinetH(0.72) - 穿入 0.02 + 顶余量 0.06（与 buildWoodCart bounds.H 一致）
+    hText = (cfg.height + cfg.cabinetH + 0.04).toFixed(2);
   } else if (kind === 'cart') {
     const { ACRYLIC_TYPES, WOOD_FINISHES } = window.__ALU_LABELS.cart;
     title = '移动边几 · 算料单';
@@ -78,7 +79,8 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     ];
     extraStats = [];
     wText = (cfg.width + 0.12).toFixed(2);
-    hText = '1.36';
+    // 总高 = 立柱长 cfg.height + 柱顶超出 0.142 + 顶部余量 0.04（与 buildRodRack bounds.H 一致）
+    hText = (cfg.height + 0.182).toFixed(2);
   } else {
     const { PROFILE_SERIES, DECK_TYPES, COLORS } = window.__ALU_LABELS.product;
     let deckSummary = {};

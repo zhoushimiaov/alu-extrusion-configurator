@@ -99,17 +99,9 @@ let panel = null;
 const center = new THREE.Vector3(0, 0, 0);
 const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : current);
 
-// 产品入场景后的舞台处理：投影/接收阴影标记 + 阴影相机按包围盒收紧
-// 透明与透射材质不投影（玻璃/亚克力投实黑影会显脏）
+// 场景处理：阴影已全局关闭，此处仅按产品包围盒调整主光位置
 function stageProduct(p) {
   if (!p || !p.group) return;
-  p.group.traverse((o) => {
-    if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    const glassy = mats.some((m) => m && (m.transparent || (m.transmission ?? 0) > 0));
-    o.castShadow = !glassy;
-    o.receiveShadow = true;
-  });
   if (p.bounds) fitShadow(p.bounds);
 }
 
@@ -343,7 +335,10 @@ const woodcartActions = {
 };
 
 // ---- 产品挂载 ----
+// panel.dispose() 释放订阅与全局监听；原封的 panel.js 不返回 dispose，
+// 由包装对象以「摘除容器」兜底（DOM 摘除后其 root 级监听器不再可达）。
 function mountActiveProduct() {
+  if (panel && typeof panel.dispose === 'function') panel.dispose();
   panelRoot.innerHTML = '';
   hotspotLayer.style.display = productKind === 'profile' ? '' : 'none';
   hotspots.setHidden(productKind !== 'profile');
@@ -356,7 +351,24 @@ function mountActiveProduct() {
     panel = createCartPanel(panelRoot, cartActions);
     if (webglFailed) syncCartStatsOnly(); else rebuildCart();
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
-  } else if (productKind === 'crates') {     setInstallSteps(INSTALL_STEPS_CRATES);     panel = createCratesPanel(panelRoot, cratesActions);     if (webglFailed) syncCratesStatsOnly(); else rebuildCrates();     if (rodHandles?.group.parent) scene.remove(rodHandles.group);   } else if (productKind === 'woodcart') {     setInstallSteps(INSTALL_STEPS_WOODCART);     panel = createWoodCartPanel(panelRoot, woodcartActions);     if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart();     if (rodHandles?.group.parent) scene.remove(rodHandles.group);   } else {     setInstallSteps(INSTALL_STEPS);     panel = createPanel(panelRoot, profileActions);     syncPriceNote();     if (webglFailed) syncStatsOnly(); else rebuild();     if (rodHandles?.group.parent) scene.remove(rodHandles.group);   }
+  } else if (productKind === 'crates') {
+    setInstallSteps(INSTALL_STEPS_CRATES);
+    panel = createCratesPanel(panelRoot, cratesActions);
+    if (webglFailed) syncCratesStatsOnly(); else rebuildCrates();
+    if (rodHandles?.group.parent) scene.remove(rodHandles.group);
+  } else if (productKind === 'woodcart') {
+    setInstallSteps(INSTALL_STEPS_WOODCART);
+    panel = createWoodCartPanel(panelRoot, woodcartActions);
+    if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart();
+    if (rodHandles?.group.parent) scene.remove(rodHandles.group);
+  } else {
+    setInstallSteps(INSTALL_STEPS);
+    const inner = createPanel(panelRoot, profileActions);
+    panel = { ...inner, dispose() { /* 原封 panel.js 无显式资源；容器已由上方 innerHTML 清空 */ } };
+    syncPriceNote();
+    if (webglFailed) syncStatsOnly(); else rebuild();
+    if (rodHandles?.group.parent) scene.remove(rodHandles.group);
+  }
 }
 
 // ---- 产品切换 tab 组（三分支持 #rod / #cart URL 直达）----
@@ -417,11 +429,12 @@ woodcartStore.subscribe(debounce(() => {
   if (productKind === 'woodcart') { rebuildWoodCart(); if (webglFailed) syncWoodCartStatsOnly(); }
 }));
 
-// KV 价格表到达后重刷价格区块（未配置 KV 时回退内置表也会触发一次，无副作用）
+// KV 价格表到达后重刷价格区块（覆盖全部五产品；未配置 KV 时回退内置表也会触发一次，无副作用）
 onMarketRefresh(() => {
   if (webglFailed) return;
-  if (productKind === 'profile') { if (current) panel.updateStats(current.stats); syncPriceNote(); }
-  else if (rodCurrent) panel.updateStats(rodCurrent.stats);
+  const a = active();
+  if (a) panel.updateStats(a.stats);
+  if (productKind === 'profile') syncPriceNote();
 });
 
 let toastTimer = 0;

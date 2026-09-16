@@ -46,17 +46,6 @@ export const ROD_COLORS = {
   steel: { label: '不锈钢', hex: 0xb8bdc3 },
 };
 
-export const PRICE_ROD = {
-  base: 420,
-  perWidth: 300,        // 每米柱心距
-  heightSurcharge: 260, // 超出基准高度 1.2m 部分，每米加价
-  backZinc: 120,
-  backPoster: 150,
-  shelfTray: 60,
-  shelfDeck: 90,
-  casters: 80,
-};
-
 export const INSTALL_STEPS_ROD = [
   { t: '底盘组装', d: '将两根底盘横轴平行卡入底叉，锁紧顶丝，确认前后轮距一致。' },
   { t: '立柱固定', d: '两根光轴立柱插入底叉锥孔，用水平尺校准垂直后拧紧夹箍。' },

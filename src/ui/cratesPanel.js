@@ -1,5 +1,6 @@
 // 周转箱收纳架配置面板（tab 第四产品）
 import { CRATE_SCHEMES, LIMITS as CRATES_LIMITS, DEFAULT_CRATES_CONFIG, INSTALL_STEPS_CRATES } from '../config/crates.js';
+import { makeClamp } from '../config/clamp.js';
 import { attachDragSlider } from './dragSlider.js';
 import { calcMarketPrice } from './marketPrice.js';
 import { PRICE_MARKET_HTML, updatePriceBlock } from './priceview.js';
@@ -11,6 +12,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
+const clampCfg = makeClamp(CRATES_LIMITS, DEFAULT_CRATES_CONFIG);
 let state = { ...DEFAULT_CRATES_CONFIG };
 const subs = new Set();
 export const cratesStore = {
@@ -18,7 +20,7 @@ export const cratesStore = {
   installSteps: INSTALL_STEPS_CRATES,
   get: () => state,
   set(patch) {
-    const next = { ...state, ...patch };
+    const next = clampCfg({ ...state, ...patch });
     if (JSON.stringify(next) === JSON.stringify(state)) return;
     state = next;
     for (const fn of subs) fn(state);
@@ -31,10 +33,15 @@ export function calcCratesPrice(cfg, stats) {
   return 0;
 }
 
+let dragCleanup = null;
 export function createCratesPanel(root, actions) {
-  root.appendChild(el('div', 'panel-title',
+  // 面板挂到独立容器：dispose 时整体摘除，旧面板的 root 级监听器随之脱离文档
+  const container = el('div');
+  root.appendChild(container);
+  const mount = container;
+  mount.appendChild(el('div', 'panel-title',
     `周转箱收纳架<span class="en">CRATE STORAGE RACK</span>`));
-  root.appendChild(el('p', 'panel-lead',
+  mount.appendChild(el('p', 'panel-lead',
     '2040 铝架 + 抽拉式物流周转箱：层数可调、箱色自由搭配，满载可推行。'));
 
   const spec = el('div', 'spec-grid', `
@@ -42,8 +49,8 @@ export function createCratesPanel(root, actions) {
     <div class="spec-cell"><div class="k">总高 H</div><div class="v" data-spec="h">1.10<small>m</small></div></div>
     <div class="spec-cell"><div class="k">深 D</div><div class="v" data-spec="d">0.48<small>m</small></div></div>
     <div class="spec-cell"><div class="k">零件</div><div class="v" data-spec="p">0<small>件</small></div></div>`);
-  root.appendChild(spec);
-  root.appendChild(el('hr', 'sec-rule'));
+  mount.appendChild(spec);
+  mount.appendChild(el('hr', 'sec-rule'));
 
   const mkStepper = (label, key, step) => {
     const f = el('div', null, `
@@ -57,15 +64,16 @@ export function createCratesPanel(root, actions) {
     return f;
   };
   const wField = mkStepper('宽度 WIDTH', 'w', '0.05');
-  root.appendChild(wField);
+  mount.appendChild(wField);
   const dField = mkStepper('深度 DEPTH', 'd', '0.05');
-  root.appendChild(dField);
+  mount.appendChild(dField);
   const hField = mkStepper('立柱长度 HEIGHT', 'h', '0.05');
-  root.appendChild(hField);
+  mount.appendChild(hField);
   const tField = mkStepper('层数 TIERS', 't', '1');
-  root.appendChild(tField);
+  mount.appendChild(tField);
 
-  attachDragSlider(root, {
+  dragCleanup && dragCleanup();
+  dragCleanup = attachDragSlider(mount, {
     get: () => cratesStore.get(),
     set: (patch) => cratesStore.set(patch),
     limits: CRATES_LIMITS,
@@ -80,7 +88,7 @@ export function createCratesPanel(root, actions) {
     schemeSeg.appendChild(b);
   }
   schemeField.appendChild(schemeSeg);
-  root.appendChild(schemeField);
+  mount.appendChild(schemeField);
 
   // 开关
   const mkSwitch = (label, key) => {
@@ -92,9 +100,9 @@ export function createCratesPanel(root, actions) {
     return { rowEl, sw };
   };
   const pullSw = mkSwitch('抽拉展示（层间交错抽出）', 'pullOut');
-  root.appendChild(pullSw.rowEl);
+  mount.appendChild(pullSw.rowEl);
   const casterSw = mkSwitch('万向轮底盘（取消则用调平地脚）', 'casters');
-  root.appendChild(casterSw.rowEl);
+  mount.appendChild(casterSw.rowEl);
 
   // 价格区
   const priceBlock = el('div', 'price-block', `
@@ -107,7 +115,7 @@ export function createCratesPanel(root, actions) {
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
     </div>
     <div class="panel-disclaimer">承重与报价为演示示例，实际以工程图纸与正式报价单为准。</div>`);
-  root.appendChild(priceBlock);
+  mount.appendChild(priceBlock);
 
   // 安装说明
   const install = el('details', 'install');
@@ -116,9 +124,9 @@ export function createCratesPanel(root, actions) {
     <ol>
       ${INSTALL_STEPS_CRATES.map(s => `<li><b>${s.t}</b>${s.d}</li>`).join('')}
     </ol>`;
-  root.appendChild(install);
+  mount.appendChild(install);
 
-  root.addEventListener('click', (e) => {
+  mount.addEventListener('click', (e) => {
     const btn = e.target.closest('button, .switch');
     if (!btn) return;
     const c = cratesStore.get();
@@ -174,7 +182,7 @@ export function createCratesPanel(root, actions) {
     casterSw.sw.setAttribute('aria-checked', String(c.casters));
   }
   syncSpecs(state);
-  cratesStore.subscribe(syncSpecs);
+  const unsub = cratesStore.subscribe(syncSpecs);
 
   function updateStats(stats) {
     if (!stats) return;
@@ -182,5 +190,10 @@ export function createCratesPanel(root, actions) {
     spec.querySelector('[data-spec="p"]').innerHTML = stats.partCount.toLocaleString('zh-CN') + '<small>件</small>';
     priceBlock.querySelector('[data-weight]').textContent = `含轮与角件 · 零件 ${stats.partCount.toLocaleString('zh-CN')} 件`;
   }
-  return { updateStats, weightEl: priceBlock.querySelector('[data-weight]') };
+  function dispose() {
+    unsub();
+    if (dragCleanup) { dragCleanup(); dragCleanup = null; }
+    container.remove();
+  }
+  return { updateStats, weightEl: priceBlock.querySelector('[data-weight]'), dispose };
 }

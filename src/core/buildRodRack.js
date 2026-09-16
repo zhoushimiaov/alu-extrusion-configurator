@@ -29,7 +29,7 @@ function setMT(i, mesh, x, y, z, sx = 1, sy = 1, sz = 1) {
   mesh.setMatrixAt(i, _m4);
 }
 
-// 入场动画会逐 child 修改 opacity；每个 child 必须拥有独立材质，不能共享状态。
+// 入场动画不再逐 child 修改 opacity，材质无需为动画保持独立；仍按实例克隆以避免跨产品污染。
 function instanced(geo, mat, count) {
   return count > 0 ? new THREE.InstancedMesh(geo, Array.isArray(mat) ? mat.map(m => m.clone()) : mat.clone(), count) : null;
 }

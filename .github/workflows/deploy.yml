@@ -31,7 +31,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22+：wrangler 4.132.0 的 engines 要求 >=22.0.0（Node 20 会直接拒绝启动）
+          node-version: 22
           cache: npm
 
       # 未配置 Secrets 时不报错、不部署，只给一条提示；配好后自动生效

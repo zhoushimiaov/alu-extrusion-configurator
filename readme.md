@@ -57,8 +57,9 @@ npx wrangler deploy --config wrangler.local.toml
 
 - 线上架构：`rack.means.group` → Vercel 边缘反向代理（纯 rewrite）→ Cloudflare Worker
   （静态资产 + `/api/market` 价格表）。Vercel 那层无需重新部署。
-- 详细步骤、配置文件分工、GitHub Actions 自动部署、回滚：见 **[docs/deployment.md](docs/deployment.md)**
+- 详细步骤、配置文件分工、GitHub Actions 自动部署：见 **[docs/deployment.md](docs/deployment.md)**
 - 反代架构与踩坑记录：见 [docs/vercel-reverse-proxy.md](docs/vercel-reverse-proxy.md)
+- 出问题怎么退：见 **[docs/rollback.md](docs/rollback.md)**（六个回滚场景）
 
 ## 目录结构
 

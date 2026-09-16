@@ -99,8 +99,12 @@ node tools/qa-export.mjs         # 模型导出形体校验
 
 ## 5. 回滚
 
-Worker 侧：`npx wrangler deployments list` 找到上一版本 →
-`npx wrangler rollback [deployment-id]`。
+全部回滚路径已整理成独立手册：**[rollback.md](./rollback.md)**（Worker 版本 / KV 价格表 /
+反代与 DNS / Git 仓库与历史 / 误连 Git 集成 / 下线，六个场景，每个都有症状、命令与验证）。
 
-反代侧：若需要改回 Cloudflare 直连，见
-[`vercel-reverse-proxy.md`](./vercel-reverse-proxy.md) 的“回滚”一节。
+最常用的两条：
+
+```powershell
+npx wrangler deployments list            # 找上一版部署 id
+npx wrangler rollback <deployment-id>    # 回到该版本（可反复切换）
+```

@@ -66,15 +66,51 @@ Cloudflare Workers。工作流文件：[.github/workflows/deploy.yml](../.github
 
 ### 3.1 需要先配置的 Secrets
 
-仓库 Settings → Secrets and variables → Actions：
-
 | Secret | 必填 | 用途 |
 |---|---|---|
-| `CLOUDFLARE_API_TOKEN` | 是 | 部署凭据。权限至少：**Workers Scripts: Edit**、**Workers KV Storage: Edit** |
+| `CLOUDFLARE_API_TOKEN` | 是 | 部署凭据（**唯一需要去 Cloudflare 后台生成的项**） |
 | `CLOUDFLARE_ACCOUNT_ID` | 是 | 指定账号（该登录态下有多个账号，非交互环境必须显式指定） |
 | `MARKET_KV_NAMESPACE_ID` | 否 | 价格表 KV 命名空间 id。**不填也能部署**：工作流会移除 KV 绑定，页面自动回退内置价格表 |
 
 > 未配置前工作流不会报错：它会打印一条提示并跳过部署。配好之后无需再改代码，下次推送自动生效。
+
+#### 3.1.1 生成 API Token（一次性，约 1 分钟）
+
+1. 打开 <https://dash.cloudflare.com/profile/api-tokens>
+2. 点 **Create Token** → 选 **Create Custom Token**（不要用模板，模板权限过宽）
+3. 按下表勾选权限：
+
+   | 作用域 | 资源 | 权限 |
+   |---|---|---|
+   | Account | <你的账号> | **Workers Scripts** → Edit |
+   | Account | <你的账号> | **Workers KV Storage** → Edit |
+   | Account | <你的账号> | Account Settings → Read（可选，便于账号解析） |
+
+   可选：若将来要重新启用 `rack.means.group` 的 Cloudflare 自定义域，
+   需再加 **Zone → Workers Routes → Edit**（当前架构用不到）。
+4. Account Resources 选你的账号，Zone Resources 选 All zones（或留空）
+5. TTL 建议设 1 年或不设过期；**创建后立即复制**（只显示一次）
+
+#### 3.1.2 写入仓库 Secrets（两种方式任选）
+
+方式一：网页 — 仓库 **Settings → Secrets and variables → Actions → New repository secret**
+（<https://github.com/zhoushimiaov/alu-extrusion-configurator/settings/secrets/actions>）
+
+方式二：命令行（gh CLI，值可经标准输入传入，不出现在命令行历史里）
+
+```powershell
+$repo = 'zhoushimiaov/alu-extrusion-configurator'
+gh secret set CLOUDFLARE_ACCOUNT_ID   --repo $repo --body '<账号 id>'
+gh secret set MARKET_KV_NAMESPACE_ID  --repo $repo --body '<KV namespace id>'
+# token 建议从标准输入读，避免出现在 shell 历史：
+Get-Content .openclaw\tmp\cf-token.txt -Raw | gh secret set CLOUDFLARE_API_TOKEN --repo $repo
+gh secret list --repo $repo      # 校验（只显示名称与更新时间，不显示值）
+```
+
+#### 3.1.3 轮换与撤销
+
+- 轮换：在同一个 API Tokens 页面 **Roll** 现有 token，或删除后新建，再更新仓库 Secret。
+- 撤销：删除 token 即可让 CI 立即失去部署能力（线上不受影响，只是不再自动部署）。
 
 ### 3.2 触发条件
 

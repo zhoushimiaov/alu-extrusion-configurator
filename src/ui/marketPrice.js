@@ -21,11 +21,20 @@ export function onMarketRefresh(fn) {
   if (ready) fn(current);
 }
 
+/** 规则匹配容错：match 可能是 RegExp（内置表）或字符串（未经清洗的远端表）；
+ *  任何异常都返回 null（未计价），绝不让一项坏数据掀翻整张报价单。 */
 function matchCutRule(c) {
-  return current.rules.find(r => r.match.test(c.section)) || null;
+  return current.rules.find(r => safeTest(r.match, c.section)) || null;
 }
 function matchHwRule(name) {
-  return current.hardware.find(r => r.match.test(name)) || null;
+  return current.hardware.find(r => safeTest(r.match, name)) || null;
+}
+function safeTest(match, s) {
+  try {
+    if (match instanceof RegExp) return match.test(s);
+    if (typeof match === 'string' && match) return new RegExp(match).test(s);
+  } catch { /* 非法正则源码：视为不匹配 */ }
+  return false;
 }
 
 /**

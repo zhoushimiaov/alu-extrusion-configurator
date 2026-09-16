@@ -4,7 +4,7 @@
   "rules": [
     {
       "id": "alu-2040",
-      "match": {},
+      "match": "20×40|2040",
       "price": 16,
       "range": [
         12,
@@ -14,7 +14,7 @@
     },
     {
       "id": "alu-2020",
-      "match": {},
+      "match": "20×20|2020",
       "price": 9,
       "range": [
         6,
@@ -24,7 +24,7 @@
     },
     {
       "id": "strip-2416",
-      "match": {},
+      "match": "24×16",
       "price": 7,
       "range": [
         5,
@@ -34,7 +34,7 @@
     },
     {
       "id": "strip-2408",
-      "match": {},
+      "match": "24×8",
       "price": 5,
       "range": [
         3,
@@ -44,7 +44,7 @@
     },
     {
       "id": "rod-20",
-      "match": {},
+      "match": "⌀20",
       "price": 22,
       "range": [
         15,
@@ -54,7 +54,7 @@
     },
     {
       "id": "rod-12",
-      "match": {},
+      "match": "⌀12",
       "price": 12,
       "range": [
         8,
@@ -65,62 +65,62 @@
   ],
   "hardware": [
     {
-      "match": {},
+      "match": "压铸角件",
       "price": 0.8,
       "query": "2020压铸角件"
     },
     {
-      "match": {},
+      "match": "T ?螺栓|螺栓\\+螺母",
       "price": 0.5,
       "query": "T型螺栓 法兰螺母 M8"
     },
     {
-      "match": {},
+      "match": "悬挑托架",
       "price": 3,
       "query": "型材层板托架"
     },
     {
-      "match": {},
+      "match": "可调支脚",
       "price": 2.5,
       "query": "可调支脚 M10"
     },
     {
-      "match": {},
+      "match": "亚克力支撑卡扣",
       "price": 0.5,
       "query": "亚克力板固定卡扣"
     },
     {
-      "match": {},
+      "match": "万向轮",
       "price": 6,
       "query": "万向轮 2寸 带刹车"
     },
     {
-      "match": {},
+      "match": "调平地脚",
       "price": 3,
       "query": "调平地脚 M12"
     },
     {
-      "match": {},
+      "match": "T ?型夹块",
       "price": 2,
       "query": "光轴T型夹块"
     },
     {
-      "match": {},
+      "match": "斜撑端卡",
       "price": 1,
       "query": "光轴固定卡夹"
     },
     {
-      "match": {},
+      "match": "横杆卡夹",
       "price": 1.5,
       "query": "光轴横杆夹"
     },
     {
-      "match": {},
+      "match": "背板挂扣",
       "price": 1,
       "query": "展板挂扣"
     },
     {
-      "match": {},
+      "match": "层板托夹",
       "price": 1,
       "query": "层板托夹"
     }

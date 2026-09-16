@@ -1,6 +1,6 @@
 // 示例价格表：以下单价、区间未经卖家SKU/计价单位核验，不是实时市场报价。
-// 更新方式：node tools/price-scout.mjs 会抓取 1688 搜索结果页的价格分布并输出建议值，
-// 人工确认后改这里并更新 updated 日期。价格只用于比价参考，不构成正式报价。
+// 更新方式：改 tools/price_table.json（人工核验后）→ wrangler kv key put 写入 → 页面无需重新构建部署。
+// 价格只用于比价参考，不构成正式报价。
 export const MARKET = {
   updated: '2026-09-05',
   source: '未核验示例单价（淘宝 / 1688 仅为搜索入口）',

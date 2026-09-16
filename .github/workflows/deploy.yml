@@ -78,8 +78,27 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '4'
+          wranglerVersion: '4.132.0'
           command: deploy --config wrangler.ci.toml
+
+      # 部署后自检：回读线上 dist/index.html 与本次构建产物做 SHA256 比对，
+      # 不一致即让 CI 失败——堵住「静默发布坏包 / 回滚未生效 / 反代回源旧版」的缺口。
+      # 经 Vercel 反代 → CF Worker，边缘缓存有延迟，带 cache-busting 并重试。
+      - name: 部署后 SHA256 自检
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          LOCAL_SHA=$(sha256sum dist/index.html | awk '{print $1}')
+          echo "本地 dist SHA256: $LOCAL_SHA"
+          for i in 1 2 3 4 5; do
+            REMOTE_SHA=$(curl -fsSL --max-time 20 "https://rack.means.group/?cb=$RANDOM$i" | sha256sum | awk '{print $1}')
+            echo "第 $i 次线上 SHA256: $REMOTE_SHA"
+            if [ "$REMOTE_SHA" = "$LOCAL_SHA" ]; then
+              echo "✅ 线上一致（第 $i 次）"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ 线上与本地不一致（5 次重试后）"; exit 1
 
       - name: 写入运行摘要
         if: steps.creds.outputs.ready == 'true'

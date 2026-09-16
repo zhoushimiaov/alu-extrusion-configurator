@@ -94,6 +94,9 @@ npx wrangler deploy --config wrangler.local.toml
   改动结构前建议先读它。
 - 单文件构建：`vite-plugin-singlefile` 把 JS / CSS / 贴图全部内联。
 - 报价与承重均为**演示示例**，页面已标注，不作为加工、采购或承重依据。
+- 价格数据契约：远端价格表 `tools/price_table.json` 是**唯一权威源**（改价须改此文件并提交 git，再 `wrangler kv key put`）。
+  其 `match` 字段是**正则源码字符串**（JSON 无法承载 RegExp）；worker 边缘做 schema 校验，
+  前端 `marketRemote.js` 再清洗一道——任一项 `match` 不可编译或 `price` 非法即丢弃该项、整表非法回退内置表，坏数据永不进入报价。
 
 ## 许可
 

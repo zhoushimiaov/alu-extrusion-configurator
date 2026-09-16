@@ -1,0 +1,10 @@
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+const scene=new THREE.Scene();scene.background=new THREE.Color('#dde2e7');
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.001,100); const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xffffff,0x657080,3));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(2,5,4);scene.add(light);
+const bytes=Uint8Array.from(atob(document.getElementById('glb').textContent.trim()),c=>c.charCodeAt(0));
+new GLTFLoader().parse(bytes.buffer,'',g=>{const root=g.scene;const box=new THREE.Box3().setFromObject(root);const c=box.getCenter(new THREE.Vector3());root.position.sub(c);scene.add(root);camera.position.set(3,1.7,3);controls.target.set(0,0,0);controls.update();document.getElementById('status').textContent='原始 GLB · 3.450 × 2.340 × 0.412 m · 拖动旋转 / 滚轮缩放';document.getElementById('node').onclick=()=>{camera.position.set(1.2,-.45,-.85);controls.target.set(.57,-.21,-.17);controls.update();};},e=>{document.getElementById('status').textContent=String(e);});
+renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});

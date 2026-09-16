@@ -1,0 +1,180 @@
+{
+  "file": "T:\\Fang Tianyuan\\铝型材\\alu-frame.glb",
+  "bytes": 31934412,
+  "sha256": "daecf36badf371b976caaad6e7f7f66e95e7a365015cde6017838223870d3633",
+  "asset": {
+    "version": "2.0"
+  },
+  "extensionsUsed": [
+    "KHR_materials_transmission",
+    "KHR_materials_clearcoat",
+    "KHR_materials_ior",
+    "KHR_materials_specular",
+    "KHR_materials_emissive_strength",
+    "KHR_texture_transform"
+  ],
+  "meshCount": 1208,
+  "nodeCount": 1211,
+  "primitives": 1208,
+  "triangles": 322832,
+  "worldMin": [
+    -106.56493377685547,
+    -0.009999999776482582,
+    -33.414039611816406
+  ],
+  "worldMax": [
+    -103.11493682861328,
+    2.3299999237060547,
+    -33.002044677734375
+  ],
+  "materials": [
+    {
+      "name": "石膏 (3)",
+      "extensions": {
+        "KHR_materials_transmission": {},
+        "KHR_materials_clearcoat": {},
+        "KHR_materials_ior": {
+          "ior": 1.0
+        },
+        "KHR_materials_specular": {
+          "specularFactor": 0.5,
+          "specularColorFactor": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.63204265,
+          0.022012994,
+          0.7742273,
+          1.0
+        ],
+        "metallicFactor": 0.0
+      }
+    },
+    {
+      "name": "金属",
+      "extensions": {
+        "KHR_materials_transmission": {},
+        "KHR_materials_clearcoat": {},
+        "KHR_materials_ior": {
+          "ior": 1.0
+        },
+        "KHR_materials_specular": {
+          "specularFactor": 0.5,
+          "specularColorFactor": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.6523701,
+          0.6523701,
+          0.66611695,
+          1.0
+        ],
+        "roughnessFactor": 0.15
+      }
+    },
+    {
+      "name": "自定义 (5)",
+      "extensions": {
+        "KHR_materials_transmission": {},
+        "KHR_materials_clearcoat": {},
+        "KHR_materials_ior": {
+          "ior": 1.0
+        },
+        "KHR_materials_specular": {
+          "specularFactor": 0.5,
+          "specularColorFactor": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 0,
+          "extensions": {
+            "KHR_texture_transform": {
+              "offset": [
+                0.0,
+                1.0
+              ],
+              "scale": [
+                1.0,
+                -1.0
+              ]
+            }
+          }
+        },
+        "metallicFactor": 0.0
+      }
+    }
+  ],
+  "sizeClusters": [
+    [
+      [
+        0.02,
+        0.02,
+        0.4
+      ],
+      972
+    ],
+    [
+      [
+        0.6,
+        0.01,
+        0.02
+      ],
+      144
+    ],
+    [
+      [
+        0.03,
+        0.03,
+        0.37
+      ],
+      47
+    ],
+    [
+      [
+        0.03,
+        0.43,
+        0.03
+      ],
+      35
+    ],
+    [
+      [
+        0.03,
+        2.33,
+        0.03
+      ],
+      7
+    ],
+    [
+      [
+        0.01253,
+        0.00543,
+        0.01
+      ],
+      2
+    ],
+    [
+      [
+        0.004,
+        0.001,
+        0.004
+      ],
+      1
+    ]
+  ]
+}

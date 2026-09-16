@@ -1,0 +1,10 @@
+import {buildGlbFrame} from '../src/core/buildGlbFrame.js';
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+const scene=new THREE.Scene();scene.background=new THREE.Color('#dde2e7');
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.001,100); const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xffffff,0x657080,3));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(2,5,4);scene.add(light);
+const model=buildGlbFrame();scene.add(model.group);model.group.position.y=-model.layout.H/2;camera.position.set(3,1.7,3);controls.update();document.getElementById('status').textContent='GLB节点位置重建 · 独立测试 · 非采购模型';document.getElementById('node').onclick=()=>{camera.position.set(1.2,-.45,-.85);controls.target.set(.57,-.21,-.17);controls.update();};
+renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});

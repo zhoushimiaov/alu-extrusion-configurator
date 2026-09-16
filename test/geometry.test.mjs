@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {makeTSlotShape,extrudeAlongX,extrudeAlongZ} from '../src/core/profiles.js';
-import {buildShelf} from '../src/core/buildshelf.js';
+import {buildShelf} from '../src/core/buildShelf.js';
 import {DEFAULT_CONFIG,beamCutLength,JOINT_GAP} from '../src/config/product.js';
 // Canvas is only a material texture dependency, not part of geometry under test.
 globalThis.document = {createElement:()=>({getContext:()=>new Proxy({}, {get:(o,k)=>o[k] ?? (()=>{}),set:(o,k,v)=>(o[k]=v,true)})})};

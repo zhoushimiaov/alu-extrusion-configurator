@@ -52,6 +52,10 @@ jobs:
         if: steps.creds.outputs.ready == 'true'
         run: npm ci
 
+      - name: 检查导入路径大小写（跨平台可移植性）
+        if: steps.creds.outputs.ready == 'true'
+        run: node tools/check-import-case.mjs
+
       - name: 运行单元测试
         if: steps.creds.outputs.ready == 'true'
         run: npm test

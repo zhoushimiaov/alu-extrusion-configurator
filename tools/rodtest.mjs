@@ -1,4 +1,4 @@
-import { buildRodRack } from './src/core/buildRodRack.js';
+import { buildRodRack } from '../src/core/buildRodRack.js';
 globalThis.document = { createElement: () => ({ getContext: () => ({ fillRect(){}, set fillStyle(v){}, set strokeStyle(v){}, set lineWidth(v){}, beginPath(){}, moveTo(){}, lineTo(){}, stroke(){} }), width: 0, height: 0 }) };
 const cases = [
   { name: 'default-1.2', cfg: {} },

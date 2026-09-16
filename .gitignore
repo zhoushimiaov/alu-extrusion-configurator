@@ -12,6 +12,7 @@ playwright-report/
 .wrangler/
 
 # ---- 本地工具状态（含凭据缓存与本机绝对路径）----
+.box-agent/
 .openclaw/
 .crush/
 .visual-companion.log

@@ -1,11 +1,27 @@
 name: Deploy to Cloudflare Workers
 
-# 默认手动触发（Actions 页面 → Run workflow）。
-# 需要 push 自动部署时，取消下面 push 段的注释即可。
+# 触发方式：
+#   1. push 到 main（已启用，即“推送即部署”）
+#      - 纯文档改动（.md / docs/ / md/ / LICENSE / .gitignore）不会触发，避免无意义部署
+#   2. 手动触发（Actions 页面 → Run workflow）
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'md/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
-  # push:
-  #   branches: [main]
+
+# 同一时间只跑一个部署；不取消进行中的部署，避免线上出现半截状态
+concurrency:
+  group: deploy-workers
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -18,28 +34,59 @@ jobs:
           node-version: 20
           cache: npm
 
+      # 未配置 Secrets 时不报错、不部署，只给一条提示；配好后自动生效
+      - name: 检查部署凭据
+        id: creds
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::未配置 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID，本次跳过部署。在仓库 Settings → Secrets and variables → Actions 配置后，下次推送将自动部署。"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 安装依赖
+        if: steps.creds.outputs.ready == 'true'
         run: npm ci
 
       - name: 运行单元测试
+        if: steps.creds.outputs.ready == 'true'
         run: npm test
 
       - name: 构建单文件产物
+        if: steps.creds.outputs.ready == 'true'
         run: npm run build
 
-      - name: 生成带真实 KV 绑定的部署配置
+      # 由公开的 wrangler.toml 生成 CI 配置：
+      #   有 MARKET_KV_NAMESPACE_ID → 注入 KV 绑定；没有 → 移除绑定（页面回退内置价格表）
+      - name: 生成部署配置
+        if: steps.creds.outputs.ready == 'true'
         env:
-          KV_NAMESPACE_ID: ${{ secrets.MARKET_KV_NAMESPACE_ID }}
-        run: |
-          if [ -z "$KV_NAMESPACE_ID" ]; then
-            echo "::warning::未设置 MARKET_KV_NAMESPACE_ID，将使用占位符（/api/market 可能不可用）"
-          fi
-          sed -e "s/REPLACE_WITH_YOUR_KV_NAMESPACE_ID/${KV_NAMESPACE_ID}/" wrangler.toml > wrangler.ci.toml
-          grep -n "id = " wrangler.ci.toml
+          MARKET_KV_NAMESPACE_ID: ${{ secrets.MARKET_KV_NAMESPACE_ID }}
+        run: node tools/make-ci-config.mjs
 
       - name: 部署到 Cloudflare Workers
+        if: steps.creds.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4'
           command: deploy --config wrangler.ci.toml
+
+      - name: 写入运行摘要
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          {
+            echo "### 部署完成"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "|---|---|"
+            echo "| Worker | modulo-alu-shelf |"
+            echo "| 提交 | \`${{ github.sha }}\` |"
+            echo "| 触发方式 | ${{ github.event_name }} |"
+            echo "| 线上地址 | https://rack.means.group |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -48,7 +48,7 @@ node tools/qa-export.mjs    # 模型导出形体校验
 
 ## 部署
 
-**推送到本仓库不会触发任何部署**，线上更新需要显式执行：
+推送 `main` 会自动部署到 Cloudflare Workers（GitHub Actions，见下）；也可以在本地手动部署：
 
 ```powershell
 npm run build
@@ -57,7 +57,8 @@ npx wrangler deploy --config wrangler.local.toml
 
 - 线上架构：`rack.means.group` → Vercel 边缘反向代理（纯 rewrite）→ Cloudflare Worker
   （静态资产 + `/api/market` 价格表）。Vercel 那层无需重新部署。
-- 详细步骤、配置文件分工、GitHub Actions 自动部署：见 **[docs/deployment.md](docs/deployment.md)**
+- 自动部署只对「非文档改动」生效，且需要先在仓库配置 2 个 Secrets（缺失时会自动跳过，不报错）
+- 详细步骤、配置文件分工、Secrets 清单：见 **[docs/deployment.md](docs/deployment.md)**
 - 反代架构与踩坑记录：见 [docs/vercel-reverse-proxy.md](docs/vercel-reverse-proxy.md)
 - 出问题怎么退：见 **[docs/rollback.md](docs/rollback.md)**（六个回滚场景）
 

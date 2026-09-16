@@ -59,26 +59,57 @@ npx wrangler kv key put --binding=MARKET_KV price_table --path tools/price_table
 
 ---
 
-## 3. 用 GitHub Actions 自动部署（可选）
+## 3. GitHub Actions 自动部署（已启用）
 
-可以，wrangler 本身就能在 CI 里跑。仓库已提供 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)：
+**推送即部署已开启**：任何推送到 `main` 且改动了非文档文件的提交，都会自动构建并部署到
+Cloudflare Workers。工作流文件：[.github/workflows/deploy.yml](../.github/workflows/deploy.yml)
 
-1. 生成 Cloudflare API Token，权限至少包含 **Workers Scripts: Edit** 与 **Workers KV Storage: Edit**
-2. 仓库 Settings → Secrets and variables → Actions 添加：
-   - `CLOUDFLARE_API_TOKEN`
-   - `CLOUDFLARE_ACCOUNT_ID`
-   - `MARKET_KV_NAMESPACE_ID`（可选，用于把真实 KV 绑定注入 CI 生成的配置）
-3. 工作流默认是**手动触发**（Actions 页面点 Run workflow）；需要 push 自动部署时，
-   取消 `deploy.yml` 里 `push:` 段的注释即可。
+### 3.1 需要先配置的 Secrets
 
-工作流的做法是：检出 → `npm ci` → `npm run build` → 由 `wrangler.toml`
-生成一份带真实 KV id 的临时配置 → `wrangler deploy`。因此 CI 部署不会把
-标识符写回仓库。
+仓库 Settings → Secrets and variables → Actions：
 
-> 不建议使用 Cloudflare 控制台的 Git 集成（Workers Builds）：那会让部署流程分叉，
-> 与本文档记录的命令不一致。
+| Secret | 必填 | 用途 |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | 是 | 部署凭据。权限至少：**Workers Scripts: Edit**、**Workers KV Storage: Edit** |
+| `CLOUDFLARE_ACCOUNT_ID` | 是 | 指定账号（该登录态下有多个账号，非交互环境必须显式指定） |
+| `MARKET_KV_NAMESPACE_ID` | 否 | 价格表 KV 命名空间 id。**不填也能部署**：工作流会移除 KV 绑定，页面自动回退内置价格表 |
 
----
+> 未配置前工作流不会报错：它会打印一条提示并跳过部署。配好之后无需再改代码，下次推送自动生效。
+
+### 3.2 触发条件
+
+| 情况 | 是否触发 |
+|---|---|
+| push 到 `main`，改动了 `src/`、`index.html`、`worker.js`、`wrangler.toml` 等 | ✅ 触发并部署 |
+| push 仅改动文档（`*.md`、`docs/`、`md/`、`LICENSE`、`.gitignore`） | ⛔ 不触发（避免无意义部署） |
+| 其他分支 push | ⛔ 不触发 |
+| Actions 页面手动 Run workflow（`workflow_dispatch`） | ✅ 触发并部署 |
+| PR | ⛔ 不触发（只监听 push） |
+
+### 3.3 工作流做了什么
+
+```
+checkout → setup-node(20, npm cache)
+  → 检查 Secrets（缺失则跳过后续步骤）
+  → npm ci
+  → npm test          # 50 项单元测试，不通过则不部署
+  → npm run build     # 产出单文件 dist/index.html
+  → node tools/make-ci-config.mjs   # 由公开 wrangler.toml 生成 wrangler.ci.toml
+  → wrangler deploy --config wrangler.ci.toml
+  → 写入运行摘要（Worker 名、提交 SHA、触发方式、线上地址）
+```
+
+- 并发策略：`concurrency: deploy-workers`，同一时间只跑一个部署，且**不取消进行中的部署**，
+  避免线上出现半截状态。
+- 凭据只以 Secret 形式注入，生成物 `wrangler.ci.toml` 已被 `.gitignore` 忽略，**不会把标识符写回仓库**。
+- 若只想保留手动部署：把 `deploy.yml` 里的 `push:` 段删除，或用
+  Settings → Actions → 该工作流 → Disable 临时停用。
+
+### 3.4 与 Cloudflare 自带 Git 集成的取舍
+
+不建议使用 Cloudflare 控制台的 **Workers Builds**：它会让部署入口分叉（控制台配置 + 本仓库文档
+记录的命令不一致），且构建环境需要单独配置 KV 绑定。用 GitHub Actions 的好处是
+**构建、测试、部署三步都在同一份可版本化的配置文件里**。
 
 ## 4. 部署后自检
 

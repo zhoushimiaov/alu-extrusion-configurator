@@ -1,0 +1,60 @@
+# ============================================================
+# 公开仓库忽略清单
+# 原则：凭据、本机状态、内部运维文档、大体积生成物一律不入库
+# ============================================================
+
+# ---- 依赖与构建产物 ----
+node_modules/
+dist/
+test-results/
+playwright-report/
+.vercel/
+.wrangler/
+
+# ---- 本地工具状态（含凭据缓存与本机绝对路径）----
+.openclaw/
+.crush/
+.visual-companion.log
+
+# ---- 内部运维文档（含账号标识符、部署流水、运维笔记，不公开）----
+DEPLOYMENTS.md
+TOOLS.md
+
+# ---- 本机部署配置（含真实 account id / KV namespace id）----
+wrangler.local.toml
+wrangler.ci.toml
+
+# ---- 凭据文件（任何形式都不得入库）----
+.env
+.env.*
+auth.json
+credentials.json
+*credential*.json
+*.pem
+*.key
+*.p12
+*.token
+
+# ---- 大体积二进制与生成物 ----
+*.glb
+*.fbx
+*.zip
+*.7z
+model/reference-viewer.html
+model/reference-viewer.bundle.js
+model/glb-node-test.html
+model/glb-node-test.bundle.js
+model/alu-frame.metadata.json
+model/alu-frame.bounds.json
+assets_src/**/*.fbm/
+assets_src/**/*.jpg
+assets_src/**/*.jpeg
+
+# ---- 备份与归档 ----
+backups/
+md/backup-*/
+
+# ---- 系统与编辑器 ----
+.DS_Store
+Thumbs.db
+*.log

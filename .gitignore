@@ -59,3 +59,10 @@ md/backup-*/
 .DS_Store
 Thumbs.db
 *.log
+
+# ---- 仓库根目录本地噪音（用户截图/参考图/快捷方式，不入库）----
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.lnk

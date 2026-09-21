@@ -8,12 +8,17 @@
 //     price 必须是有限非负数；坏数据不回传（宁可 502 让前端回退内置表）
 //   - ETag + Cache API：价格表是人工月度级更新、读频率极高，边缘缓存挡掉重复回源
 
+// 部署指纹：由 CI（tools/make-ci-config.mjs）在构建期覆写为短 SHA；本地手动部署保持此值
+const BUILD_ID = 'dev-local';
+
 const ERR = {
   method: { code: 'method_not_allowed', message: 'Use GET' },
   not_found: { code: 'not_found', message: 'No such endpoint' },
   unbound: { code: 'backend_unavailable', message: 'Price backend not configured' },
   missing: { code: 'price_table_missing', message: 'Price table not provisioned' },
   invalid: { code: 'price_table_invalid', message: 'Price table failed schema validation' },
+  unauthorized: { code: 'unauthorized', message: 'Bad or missing purge token' },
+  purged: { code: 'cache_purged', message: 'Edge cache entry for /api/market cleared' },
   internal: { code: 'internal_error', message: 'Unexpected server error' },
 };
 
@@ -49,6 +54,28 @@ function safeRegExp(src) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    // 版本指纹：部署自检 / 运维排障用（CI 自检脚本与监控直接比对这个值）
+    if (url.pathname === '/api/version') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return jsonError(ERR.method, 405);
+      }
+      return Response.json(
+        { worker: 'modulo-alu-shelf', build: BUILD_ID, kv: !!env.MARKET_KV },
+        { headers: { 'cache-control': 'no-store' } },
+      );
+    }
+
+    // 价格表边缘缓存主动失效：改价（wrangler kv key put）后调用，免等 5 分钟自然过期
+    if (url.pathname === '/api/market/purge') {
+      if (request.method !== 'POST') return jsonError(ERR.method, 405);
+      const token = request.headers.get('authorization') || '';
+      if (!env.PURGE_TOKEN || token !== 'Bearer ' + env.PURGE_TOKEN) {
+        return jsonError(ERR.unauthorized, 401);
+      }
+      await caches.default.delete(new Request(url.origin + '/api/market', { method: 'GET' }));
+      return jsonError(ERR.purged, 200);
+    }
 
     // 静态资产由 assets 绑定优先处理；本脚本只负责 /api/*
     if (url.pathname !== '/api/market') {

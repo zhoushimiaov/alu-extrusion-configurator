@@ -1,0 +1,53 @@
+name: E2E Smoke (Playwright)
+
+# 渲染回归防线：单元测试抓不到的视觉/运行时问题（黑透板、丢件、控制台错误）由这里兜底。
+# 与 deploy.yml 平级独立运行，不阻塞部署（部署门禁仍以 npm test 为准）；
+# 失败时会在 Actions 页面标红，由维护者决定是否回滚。
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'md/**'
+      - 'LICENSE'
+      - '.gitignore'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 构建单文件产物
+        run: npm run build
+
+      - name: 安装 Playwright Chromium（仅浏览器本体，系统依赖预装于 ubuntu-latest 镜像）
+        run: npx playwright install chromium
+
+      - name: 运行冒烟测试
+        run: npm run smoke
+
+      - name: 失败时上传测试报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: test-results/
+          retention-days: 7

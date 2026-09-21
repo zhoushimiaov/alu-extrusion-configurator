@@ -384,8 +384,8 @@ export function buildRodRack(config) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         mats.forEach(m => m && m.dispose());
       });
-      // getRodMaterials 返回的模板材质未直接挂载，也需释放
-      Object.values(mat).forEach(m => m && m.dispose());
+      // 材质由 materials.js 按色值缓存共享，不销毁（dispose 缓存项会导致
+      // 再次切回该颜色时拿到已销毁材质，渲染黑模；2026-09-19 在 cart 上复现并修复）
       while (group.children.length) group.remove(group.children[0]);
     },
   };

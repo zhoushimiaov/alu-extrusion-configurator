@@ -68,7 +68,7 @@ export function getMarket() {
     cache = { ...BUILTIN_MARKET, remoteUpdated: null };
     return Promise.resolve(cache);
   }
-  inflight = fetch(KV_URL, { cache: 'no-store' })
+  inflight = fetch(KV_URL, { cache: 'no-store', signal: AbortSignal.timeout(5000) })
     .then((r) => (r.ok ? r.json() : null))
     .then((remote) => { cache = mergeMarket(remote, BUILTIN_MARKET); return cache; })
     .catch(() => { cache = { ...BUILTIN_MARKET, remoteUpdated: null }; return cache; })

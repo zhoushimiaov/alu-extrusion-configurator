@@ -18,9 +18,16 @@ workers_dev = true
 # 首次部署先创建命名空间，再把返回的 id 填到这里（或 wrangler.local.toml）：
 #   npx wrangler kv namespace create MARKET_KV
 #   npx wrangler kv key put --binding=MARKET_KV price_table --path tools/price_table.json --remote
+# 改价后立即生效（免等 5 分钟边缘缓存过期）：
+#   node tools/update-price.mjs --token <PURGE_TOKEN>
 [[kv_namespaces]]
 binding = "MARKET_KV"
 id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# 缓存主动失效密钥（可选）：设置后启用 POST /api/market/purge。
+# 本地部署可用 [vars] PURGE_TOKEN = "..."；CI 由 tools/make-ci-config.mjs 注入。
+# [vars]
+# PURGE_TOKEN = "REPLACE_WITH_RANDOM_SECRET"
 
 [assets]
 directory = "./dist"

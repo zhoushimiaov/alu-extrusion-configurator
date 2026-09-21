@@ -232,7 +232,7 @@ export function buildWoodCart(config) {
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         mats.forEach(m => m && m.dispose());
       });
-      Object.values(mat).forEach(m => m && m.dispose());
+      // 材质由 woodcartMaterials.js 按色调缓存共享，不销毁（同 buildCartTable.dispose 的教训）
       while (group.children.length) group.remove(group.children[0]);
     },
   };

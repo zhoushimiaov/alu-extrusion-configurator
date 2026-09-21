@@ -96,6 +96,9 @@ export function createAnims(camera, controls) {
   }
 
   // 分组浮现：位移 + 整体缩放（不改材质 opacity —— 材质保持共享，动画结束无需回滚材质状态）
+  // 注意：结束/更新时必须还原「原始 scale.y」而不是写死 1 ——
+  // 部分产品（挂衣架搁板/柜体等）用单位几何 + scale 承载真实尺寸，
+  // 写死 1 会把 3cm 搁板撑成 1m 高箱（2026-09-19 挂衣架复刻时发现）。
   function reveal(parts) {
     if (REDUCED) return;
     const list = Array.isArray(parts) ? parts.map((m, i) => [m.name || ('m' + i), m]) : Object.entries(parts);
@@ -103,15 +106,16 @@ export function createAnims(camera, controls) {
     for (const [name, mesh] of list) {
       if (!mesh || !mesh.isMesh || !mesh.material) continue;
       const baseY = mesh.position.y;
+      const baseScaleY = mesh.scale.y;   // 原始 Y 缩放（可能 ≠1）
       mesh.position.y = baseY - 0.05;
-      mesh.scale.y = 0.001;
+      mesh.scale.y = baseScaleY * 0.001;
       addTween({
         dur: 240, delay: idx * 60,
         onUpdate: (e) => {
           mesh.position.y = baseY - 0.05 * (1 - e);
-          mesh.scale.y = 0.001 + 0.999 * e;
+          mesh.scale.y = baseScaleY * (0.001 + 0.999 * e);
         },
-        onDone: () => { mesh.position.y = baseY; mesh.scale.y = 1; },
+        onDone: () => { mesh.position.y = baseY; mesh.scale.y = baseScaleY; },
       });
       idx++;
     }

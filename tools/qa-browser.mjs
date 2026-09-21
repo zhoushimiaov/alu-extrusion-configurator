@@ -20,6 +20,7 @@ const targets = [
   { hash: '#cart', tag: 'cart', probe: '#gl' },
   { hash: '#crates', tag: 'crates', probe: '#gl' },
   { hash: '#woodcart', tag: 'woodcart', probe: '#gl' },
+  { hash: '#hanger', tag: 'hanger', probe: '#gl' },
 ];
 
 for (const t of targets) {

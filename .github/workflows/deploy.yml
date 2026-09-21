@@ -67,10 +67,13 @@ jobs:
 
       # 由公开的 wrangler.toml 生成 CI 配置：
       #   有 MARKET_KV_NAMESPACE_ID → 注入 KV 绑定；没有 → 移除绑定（页面回退内置价格表）
+      #   有 PURGE_TOKEN → 注入 [vars]，启用 /api/market/purge 缓存主动失效端点
+      #   同时把当前提交短 SHA 烧进 worker.js 的 BUILD_ID（/api/version 指纹）
       - name: 生成部署配置
         if: steps.creds.outputs.ready == 'true'
         env:
           MARKET_KV_NAMESPACE_ID: ${{ secrets.MARKET_KV_NAMESPACE_ID }}
+          PURGE_TOKEN: ${{ secrets.PURGE_TOKEN }}
         run: node tools/make-ci-config.mjs
 
       - name: 部署到 Cloudflare Workers

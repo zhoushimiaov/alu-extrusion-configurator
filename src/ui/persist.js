@@ -8,22 +8,26 @@ const LS_KEY = {
   cart: 'alu.cfg.cart',
   crates: 'alu.cfg.crates',
   woodcart: 'alu.cfg.woodcart',
+  hanger: 'alu.cfg.hanger',
 };
 
-// 持久化字段白名单由配置默认值对象派生 —— 新增配置字段自动纳入，无需手工维护 main.js 的 pick 列表
+// 持久化字段白名单：与各产品 DEFAULT_CONFIG 保持同步（test/persist-schema.test.mjs
+// 断言两者一致，新增配置字段漏登记时测试直接失败，避免「配置写入后被静默丢弃」）。
 const SCHEMA = {
   profile: ['schemaVersion', 'bays', 'levels', 'series', 'frameMode', 'decks', 'bayWidths', 'sidePanels', 'panelColor', 'props', 'color'],
   rod: ['schemaVersion', 'width', 'height', 'style', 'backPanel', 'shelf', 'casters', 'color'],
   cart: ['schemaVersion', 'width', 'depth', 'height', 'glassTop', 'midAcrylic', 'rodRails', 'casters', 'woodFinish'],
   crates: ['schemaVersion', 'width', 'depth', 'height', 'tiers', 'scheme', 'pullOut', 'casters'],
   woodcart: ['schemaVersion', 'width', 'depth', 'height', 'shelves', 'cabinetH', 'pegboard', 'topRail', 'sideRail', 'casters', 'woodTone'],
+  hanger: ['schemaVersion', 'width', 'depth', 'height', 'drawers', 'wheels', 'color'],
 };
 
-const KINDS = ['rod', 'cart', 'crates', 'woodcart'];
+const KINDS = ['rod', 'cart', 'crates', 'woodcart', 'hanger'];
 
-/** 从 hash 解析当前产品 kind（profile 无独立 hash 段，作为兜底） */
+/** 从 hash 解析当前产品 kind（profile 无独立 hash 段，作为兜底）。
+ *  匹配需带边界（`#rod` 命中但 `#rods` / `#rodX` 不命中），防止未来新增前缀冲突。 */
 function kindFromHash(hash) {
-  for (const k of KINDS) if (new RegExp('^#' + k).test(hash)) return k;
+  for (const k of KINDS) if (new RegExp('^#' + k + '(?:[/?#]|$)').test(hash)) return k;
   return 'profile';
 }
 

@@ -9,6 +9,33 @@ export function createHud(hudLeft, hudRight, actions) {
   function syncReadout(c, stats) {
     const nodeButton=hudRight.querySelector('[data-view="node"]');
     if(nodeButton) nodeButton.hidden=c.bays===undefined;
+    // 窄屏（移动端）：HUD 精简为第一行核心读数（去掉自重/总长第二行），
+    // 避免右上角读数块过大压住模型。判断用视口宽（hudLeft 的容器宽）。
+    const narrow = (hudLeft.parentElement?.getBoundingClientRect().width || 9999) < 620;
+    // 窄屏精简：只生成第一行核心读数（无自重/总长第二行），避免右上角读数块过大
+    if (narrow) {
+      const w2 = c.width !== undefined ? `宽 <b>${c.width.toFixed(2)} m</b>` : '';
+      const d2 = c.depth !== undefined ? ` · 深 <b>${c.depth.toFixed(2)} m</b>` : '';
+      const h2 = c.height !== undefined ? ` · 高 <b>${c.height.toFixed(2)} m</b>` : '';
+      if (c.drawers !== undefined) { readout.innerHTML = `光轴挂衣架 · ${w2}${d2}${h2} · <b>${c.drawers} 层抽屉</b>`; return; }
+      if (c.cabinetH !== undefined) { readout.innerHTML = `光轴木展车 · ${w2}${h2} · ${c.shelves} 层板`; return; }
+      if (c.scheme !== undefined) { readout.innerHTML = `周转箱收纳架 · <b>${c.tiers} 层</b> · ${w2}${d2}`; return; }
+      if (c.midAcrylic !== undefined) { readout.innerHTML = `移动边几 · ${w2}${d2}${h2}`; return; }
+      if (c.backPanel !== undefined && c.bays === undefined) { readout.innerHTML = `柱距 <b>${c.width.toFixed(2)}</b> × 柱长 <b>${c.height.toFixed(2)} m</b>`; return; }
+      // 型材架
+      const counts = {};
+      for (const d of c.decks) counts[d] = (counts[d] || 0) + 1;
+      const deckText = Object.keys(counts).length === 1 ? DECK_TYPES[c.decks[0]].label : Object.entries(counts).map(([k, n]) => `${DECK_TYPES[k].label}${n}`).join('/');
+      readout.innerHTML = `网格 <b>${c.bays}×${c.levels}</b> · ${PROFILE_SERIES[c.series].label} · ${deckText}`;
+      return;
+    }
+    if (c.drawers !== undefined) {
+      // 光轴挂衣架
+      readout.innerHTML =
+        `光轴挂衣架 · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b> · <b>${c.drawers} 层抽屉</b> · <b>${c.wheels ? "滚轮" : "地脚"}</b><br>` +
+        `自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b>`;
+      return;
+    }
     if (c.cabinetH !== undefined) {
       // 光轴木展车
       readout.innerHTML =

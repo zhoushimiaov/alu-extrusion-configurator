@@ -10,6 +10,7 @@ function makeCacheStore() {
   return {
     match: async (req) => map.get(req.url) || undefined,
     put: async (req, res) => { map.set(req.url, res); },
+    delete: async (req) => map.delete(req.url),
     _size: () => map.size,
   };
 }
@@ -118,4 +119,62 @@ test('If-None-Match 匹配 → 304（协商缓存）', async () => {
   const second = await worker.fetch(req('/api/market', { headers: { 'if-none-match': etag } }), envWith(VALID_JSON), ctx());
   // 第二次可能命中 Cache API 直接 200，也可能走协商 304 —— 两者都可接受
   assert.ok([200, 304].includes(second.status), `期望 200 或 304，实际 ${second.status}`);
+});
+
+// ---- /api/version ----
+
+test('GET /api/version 返回部署指纹（worker 名 + build + kv 绑定状态）', async () => {
+  const r = await worker.fetch(req('/api/version'), envWith(VALID_JSON), ctx());
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  assert.equal(j.worker, 'modulo-alu-shelf');
+  assert.equal(typeof j.build, 'string');
+  assert.equal(j.kv, true);
+  assert.match(r.headers.get('cache-control') || '', /no-store/);
+});
+
+test('POST /api/version 返回 405（只读端点）', async () => {
+  const r = await worker.fetch(req('/api/version', { method: 'POST' }), envWith(VALID_JSON), ctx());
+  assert.equal(r.status, 405);
+});
+
+// ---- /api/market/purge ----
+
+test('purge 无 token / 错 token → 401，且不清缓存', async () => {
+  globalThis.caches = { default: makeCacheStore() };
+  const env = { ...envWith(VALID_JSON), PURGE_TOKEN: 'secret-abc' };
+  // 先灌入一条缓存
+  await worker.fetch(req('/api/market'), env, ctx());
+  const r1 = await worker.fetch(req('/api/market/purge', { method: 'POST' }), env, ctx());
+  assert.equal(r1.status, 401);
+  assert.equal((await r1.json()).code, 'unauthorized');
+  const r2 = await worker.fetch(req('/api/market/purge', { method: 'POST', headers: { authorization: 'Bearer wrong' } }), env, ctx());
+  assert.equal(r2.status, 401);
+});
+
+test('PURGE_TOKEN 未配置时端点恒 401（不因缺配置变成开放端点）', async () => {
+  const r = await worker.fetch(
+    req('/api/market/purge', { method: 'POST', headers: { authorization: 'Bearer whatever' } }),
+    envWith(VALID_JSON), ctx(),
+  );
+  assert.equal(r.status, 401);
+});
+
+test('GET /api/market/purge → 405（只接受 POST）', async () => {
+  const r = await worker.fetch(req('/api/market/purge'), { ...envWith(VALID_JSON), PURGE_TOKEN: 'x' }, ctx());
+  assert.equal(r.status, 405);
+});
+
+test('正确 token purge 后缓存被清：下一次 /api/market 重新读 KV', async () => {
+  globalThis.caches = { default: makeCacheStore() };
+  let kvReads = 0;
+  const env = { MARKET_KV: { get: async () => { kvReads++; return VALID_JSON; } }, PURGE_TOKEN: 'secret-abc' };
+  await worker.fetch(req('/api/market'), env, ctx());   // 读 KV + 写缓存
+  await worker.fetch(req('/api/market'), env, ctx());   // 命中缓存
+  assert.equal(kvReads, 1);
+  const p = await worker.fetch(req('/api/market/purge', { method: 'POST', headers: { authorization: 'Bearer secret-abc' } }), env, ctx());
+  assert.equal(p.status, 200);
+  assert.equal((await p.json()).code, 'cache_purged');
+  await worker.fetch(req('/api/market'), env, ctx());   // 缓存已清 → 重新读 KV
+  assert.equal(kvReads, 2);
 });

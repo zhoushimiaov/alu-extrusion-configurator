@@ -15,12 +15,15 @@ import { createPanel } from './ui/panel.js';
 import { createRodPanel, rodStore, calcRodPrice } from './ui/rodPanel.js';
 import { createCartPanel, cartStore, calcCartPrice } from './ui/cartPanel.js';
 import { createWoodCartPanel, woodcartStore, calcWoodCartPrice } from './ui/woodCartPanel.js';
+import { createHangerPanel, hangerStore, calcHangerPrice } from './ui/hangerPanel.js';
 import { buildWoodCart } from './core/buildWoodCart.js';
+import { buildHanger } from './core/buildHanger.js';
 import { createCratesPanel, cratesStore, calcCratesPrice } from './ui/cratesPanel.js';
 import { buildCratesRack } from './core/buildCratesRack.js';
 import { buildCartTable } from './core/buildCartTable.js';
 import { createHud } from './ui/hud.js';
 import { downloadCutlist } from './ui/cutlist.js';
+import { registerLabels } from './ui/cutlist.js';
 import { downloadModel } from './ui/modelExport.js';
 import { onMarketRefresh } from './ui/marketPrice.js';
 import { loadSaved, persist } from './ui/persist.js';
@@ -29,16 +32,16 @@ import { INSTALL_STEPS_ROD, BACK_TYPES, SHELF_TYPES, ROD_COLORS } from './config
 import { INSTALL_STEPS_CART, ACRYLIC_TYPES, WOOD_FINISHES } from './config/cart.js';
 import { INSTALL_STEPS_WOODCART, WOOD_TONES } from './config/woodcart.js';
 import { INSTALL_STEPS_CRATES, CRATE_SCHEMES } from './config/crates.js';
+import { INSTALL_STEPS_HANGER, HANGER_COLORS } from './config/hanger.js';
 import { PROFILE_SERIES, DECK_TYPES, COLORS } from './config/product.js';
 
-// 算料单标签文案注入(cutlist 内部惰性读取,避免循环依赖)
-window.__ALU_LABELS = {
-  rodrack: { BACK_TYPES, SHELF_TYPES, ROD_COLORS },
-  product: { PROFILE_SERIES, DECK_TYPES, COLORS },
-  cart: { ACRYLIC_TYPES, WOOD_FINISHES },
-  woodcart: { WOOD_TONES },
-  crates: { CRATE_SCHEMES },
-};
+// 算料单标签文案注入（显式注册 API，替代旧的 window.__ALU_LABELS 全局注入）
+registerLabels('rodrack', { BACK_TYPES, SHELF_TYPES, ROD_COLORS });
+registerLabels('product', { PROFILE_SERIES, DECK_TYPES, COLORS });
+registerLabels('cart', { ACRYLIC_TYPES, WOOD_FINISHES });
+registerLabels('woodcart', { WOOD_TONES });
+registerLabels('crates', { CRATE_SCHEMES });
+registerLabels('hanger', { HANGER_COLORS });
 
 const canvas = document.getElementById('gl');
 const dimSvg = document.getElementById('dim-layer');
@@ -65,21 +68,18 @@ const hotspots = webglFailed ? null : createHotspots(hotspotLayer, camera, rende
 // 光轴展架视口内拖拽箭头（宽 / 高两个方向）
 const rodHandles = webglFailed ? null : createRodHandles(canvas, camera, renderer, controls, rodStore, () => (rodCurrent?.bounds) || { W: 1.0, H: 1.4, D: 0.42 });
 
-let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : 'profile';
+let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : 'profile';
 
 // ---- 配置恢复：分享链接（hash ?c=）优先，其次 localStorage ----
-// 白名单已由 persist.pickPersisted 按产品 schema 统一过滤，这里只做注入
-{
-  const savedProfile = loadSaved('profile');
-  if (savedProfile && Object.keys(savedProfile).length) store.set(savedProfile);
-  const savedRod = loadSaved('rod');
-  if (savedRod && Object.keys(savedRod).length) rodStore.set(savedRod);
-  const savedCart = loadSaved('cart');
-  const savedCrates = loadSaved('crates');
-  const savedWoodCart = loadSaved('woodcart');
-  if (savedWoodCart && Object.keys(savedWoodCart).length) woodcartStore.set(savedWoodCart);
-  if (savedCrates && Object.keys(savedCrates).length) cratesStore.set(savedCrates);
-  if (savedCart && Object.keys(savedCart).length) cartStore.set(savedCart);
+// 白名单已由 persist.pickPersisted 按产品 schema 统一过滤，这里只做注入。
+// 与 PRODUCT_SUBS 共用注册表定义，新增产品只需登记一次（恢复 + 订阅 + persist 自动接线）。
+const PRODUCT_STORES = {
+  profile: store, rod: rodStore, cart: cartStore,
+  crates: cratesStore, woodcart: woodcartStore, hanger: hangerStore,
+};
+for (const [kind, s] of Object.entries(PRODUCT_STORES)) {
+  const saved = loadSaved(kind);
+  if (saved && Object.keys(saved).length) s.set(saved);
 }
 
 let current = null;      // 型材架
@@ -95,9 +95,10 @@ let rodCurrent = null;   // 光轴展架
 let cartCurrent = null;  // 移动边几
 let cratesCurrent = null; // 周转箱收纳架
 let woodCartCurrent = null; // 光轴木展车
+let hangerCurrent = null;   // 光轴挂衣架
 let panel = null;
 const center = new THREE.Vector3(0, 0, 0);
-const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : current);
+const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : current);
 
 // 场景处理：阴影已全局关闭，此处仅按产品包围盒调整主光位置
 function stageProduct(p) {
@@ -176,9 +177,32 @@ function rebuildWoodCart() {
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
 }
 
+function rebuildHanger() {
+  if (webglFailed || productKind !== 'hanger') return;
+  const cfg = hangerStore.get();
+  if (hangerCurrent) { scene.remove(hangerCurrent.group); hangerCurrent.dispose(); }
+  hangerCurrent = buildHanger(cfg);
+  scene.add(hangerCurrent.group);
+  stageProduct(hangerCurrent);
+  if (!anims.REDUCED) anims.revealGroups(hangerCurrent.group.children);
+  hud.syncReadout(cfg, hangerCurrent.stats);
+  panel.updateStats(hangerCurrent.stats);
+  panel.lastStats = hangerCurrent.stats;
+  window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+}
+
 function syncWoodCartStatsOnly() {
   const cfg = woodcartStore.get();
   const b = buildWoodCart(cfg);
+  hud.syncReadout(cfg, b.stats);
+  panel.updateStats(b.stats);
+  panel.lastStats = b.stats;
+  b.dispose();
+}
+
+function syncHangerStatsOnly() {
+  const cfg = hangerStore.get();
+  const b = buildHanger(cfg);
   hud.syncReadout(cfg, b.stats);
   panel.updateStats(b.stats);
   panel.lastStats = b.stats;
@@ -334,6 +358,26 @@ const woodcartActions = {
   },
 };
 
+const hangerActions = {
+  onAdd: (cfg) => showToast(`已加入配置清单 · 挂衣架 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${cfg.drawers} 抽屉 · ¥ ${calcHangerPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`),
+  onExport: (cfg) => {
+    const s = panel.lastStats;
+    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    downloadCutlist(cfg, s, 'hanger');
+    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+  },
+  onExportModel: async () => {
+    if (!hangerCurrent || !hangerCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
+    try {
+      const name = await downloadModel(hangerCurrent.group, 'hanger', hangerStore.get());
+      showToast(`3D 模型已导出 · ${name}`);
+    } catch (err) {
+      console.error('[ALU] hanger model export failed:', err);
+      showToast('模型导出失败,请重试');
+    }
+  },
+};
+
 // ---- 产品挂载 ----
 // panel.dispose() 释放订阅与全局监听；原封的 panel.js 不返回 dispose，
 // 由包装对象以「摘除容器」兜底（DOM 摘除后其 root 级监听器不再可达）。
@@ -361,6 +405,11 @@ function mountActiveProduct() {
     panel = createWoodCartPanel(panelRoot, woodcartActions);
     if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart();
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
+  } else if (productKind === 'hanger') {
+    setInstallSteps(INSTALL_STEPS_HANGER);
+    panel = createHangerPanel(panelRoot, hangerActions);
+    if (webglFailed) syncHangerStatsOnly(); else rebuildHanger();
+    if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else {
     setInstallSteps(INSTALL_STEPS);
     const inner = createPanel(panelRoot, profileActions);
@@ -379,6 +428,7 @@ function unloadAll() {
   if (cartCurrent) { scene.remove(cartCurrent.group); cartCurrent.dispose(); cartCurrent = null; }
   if (cratesCurrent) { scene.remove(cratesCurrent.group); cratesCurrent.dispose(); cratesCurrent = null; }
   if (woodCartCurrent) { scene.remove(woodCartCurrent.group); woodCartCurrent.dispose(); woodCartCurrent = null; }
+  if (hangerCurrent) { scene.remove(hangerCurrent.group); hangerCurrent.dispose(); hangerCurrent = null; }
 }
 function syncSwitchLabel() {
   productTabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.kind === productKind));
@@ -388,7 +438,9 @@ function switchTo(kind) {
   unloadAll();
   productKind = kind;
   history.replaceState(null, '', kind === 'profile' ? '#' : '#' + kind);
-  persist(productKind, productKind === 'rod' ? rodStore.get() : productKind === 'cart' ? cartStore.get() : productKind === 'crates' ? cratesStore.get() : productKind === 'woodcart' ? woodcartStore.get() : store.get());
+  // store 查表（与 PRODUCT_SUBS 同源，新增产品只需登记一处）
+  const sub = PRODUCT_SUBS.find(p => p.kind === productKind);
+  persist(productKind, PRODUCT_STORES[productKind].get());
   syncSwitchLabel();
   mountActiveProduct();
   if (!webglFailed) {
@@ -403,33 +455,31 @@ productTabs.addEventListener('click', (e) => {
 });
 syncSwitchLabel();
 
-// ---- 订阅（两个 store 各自独立防抖，避免快速切产品时互相取消重建）----
+// 防抖（每个 store 独立定时器，避免快速切产品时互相取消重建）
 const debounce = (fn, ms = 80) => {
   let t = 0;
   return () => { clearTimeout(t); t = setTimeout(fn, ms); };
 };
-store.subscribe(debounce(() => {
-  persist('profile', store.get());
-  if (productKind === 'profile') { rebuild(); if (webglFailed) syncStatsOnly(); syncPriceNote(); }
-}));
-rodStore.subscribe(debounce(() => {
-  persist('rod', rodStore.get());
-  if (productKind === 'rod') { rebuildRod(); if (webglFailed) syncRodStatsOnly(); }
-}));
-cartStore.subscribe(debounce(() => {
-  persist('cart', cartStore.get());
-  if (productKind === 'cart') { rebuildCart(); if (webglFailed) syncCartStatsOnly(); }
-}));
-cratesStore.subscribe(debounce(() => {
-  persist('crates', cratesStore.get());
-  if (productKind === 'crates') { rebuildCrates(); if (webglFailed) syncCratesStatsOnly(); }
-}));
-woodcartStore.subscribe(debounce(() => {
-  persist('woodcart', woodcartStore.get());
-  if (productKind === 'woodcart') { rebuildWoodCart(); if (webglFailed) syncWoodCartStatsOnly(); }
-}));
 
-// KV 价格表到达后重刷价格区块（覆盖全部五产品；未配置 KV 时回退内置表也会触发一次，无副作用）
+// 订阅注册表：kind → { store, rebuild, statsOnly, extra }
+// 新增产品只需在此登记，订阅接线（persist → rebuild → stats 兜底）自动完成，
+// 杜绝「数据已写但场景不重建」的假按钮事故（2026-09-15 曾发生 crates/woodcart 漏接）。
+const PRODUCT_SUBS = [
+  { kind: 'profile', store, rebuild: () => rebuild(), statsOnly: () => syncStatsOnly(), extra: () => syncPriceNote() },
+  { kind: 'rod', store: rodStore, rebuild: () => rebuildRod(), statsOnly: () => syncRodStatsOnly() },
+  { kind: 'cart', store: cartStore, rebuild: () => rebuildCart(), statsOnly: () => syncCartStatsOnly() },
+  { kind: 'crates', store: cratesStore, rebuild: () => rebuildCrates(), statsOnly: () => syncCratesStatsOnly() },
+  { kind: 'woodcart', store: woodcartStore, rebuild: () => rebuildWoodCart(), statsOnly: () => syncWoodCartStatsOnly() },
+  { kind: 'hanger', store: hangerStore, rebuild: () => rebuildHanger(), statsOnly: () => syncHangerStatsOnly() },
+];
+for (const { kind, store: s, rebuild, statsOnly, extra } of PRODUCT_SUBS) {
+  s.subscribe(debounce(() => {
+    persist(kind, s.get());
+    if (productKind === kind) { rebuild(); if (webglFailed) statsOnly(); if (extra) extra(); }
+  }));
+}
+
+// KV 价格表到达后重刷价格区块（覆盖全部六产品；未配置 KV 时回退内置表也会触发一次，无副作用）
 onMarketRefresh(() => {
   if (webglFailed) return;
   const a = active();
@@ -437,12 +487,69 @@ onMarketRefresh(() => {
   if (productKind === 'profile') syncPriceNote();
 });
 
+// 远端价格表不可用（KV 未配置 / 坏表被 worker 拒绝）时在品牌区露出内置基准标记，
+// 避免「页面看起来正常但报价其实是旧内置表」的静默降级（2026-09-17 真实事故）。
+function updatePriceSrcBadge(m) {
+  const el2 = document.getElementById('price-src-badge');
+  if (!el2) return;
+  const remote = m && m.remoteUpdated ? `远端价格表 ${m.remoteUpdated}` : null;
+  el2.textContent = remote || `内置基准价 · 更新 ${(m && m.updated) || '—'}`;
+  el2.classList.toggle('fallback', !remote);
+  el2.title = remote
+    ? '价格表来自远端（/api/market），人工核验更新'
+    : '远端价格表不可用，当前显示内置示例基准价（仅供比价参考）';
+}
+onMarketRefresh(updatePriceSrcBadge);
+
 let toastTimer = 0;
 function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+// 诊断信息一键复制：品牌区「悬停 2s（桌面）或长按 1.5s（触屏）」触发，
+// 收集 __ALU_ERRORS / __ALU_READY / UA / 配置 hash，供用户把线上问题现场信息发给维护者。
+// 不做远程上报（无接收端，避免死代码）。
+{
+  const brand = document.querySelector('.brand');
+  if (brand) {
+    brand.style.cursor = 'pointer';
+    const fire = () => {
+      const diag = [
+        '=== MODULO 诊断信息 ===',
+        'UA: ' + navigator.userAgent,
+        'URL: ' + location.href,
+        'READY: ' + JSON.stringify(window.__ALU_READY || null),
+        'FX: ' + JSON.stringify(window.__ALU_FX || null),
+        'ERRORS: ' + JSON.stringify(window.__ALU_ERRORS || []),
+        'TIME: ' + new Date().toISOString(),
+      ].join('\n');
+      const done = () => showToast('诊断信息已复制，请粘贴发送给维护者');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(diag).then(done).catch(() => { console.info(diag); showToast('复制失败，诊断信息已输出到控制台'); });
+      } else {
+        console.info(diag);
+        showToast('诊断信息已输出到控制台（F12 查看）');
+      }
+    };
+    // 桌面：悬停 2s；触屏：长按 1.5s（touchstart 计时，touchend/touchcancel 取消）
+    let hoverTimer = 0, touchTimer = 0;
+    brand.addEventListener('mouseenter', () => { hoverTimer = setTimeout(fire, 2000); });
+    brand.addEventListener('mouseleave', () => clearTimeout(hoverTimer));
+    brand.addEventListener('touchstart', () => { touchTimer = setTimeout(fire, 1500); }, { passive: true });
+    brand.addEventListener('touchend', () => clearTimeout(touchTimer));
+    brand.addEventListener('touchcancel', () => clearTimeout(touchTimer));
+  }
+}
+
+
+// loader 隐藏统一由「首帧渲染完成」驱动（见渲染循环 ready 分支）；
+// 不再用固定 700ms 定时器（慢机闪加载层、快机白等）。8s 超时兜底见文件末尾。
+function hideLoader() {
+  loader.classList.add('hide');
+  setTimeout(() => { loader.style.display = 'none'; }, 450);
 }
 
 // ---- 渲染循环（按需渲染：静止时零 GPU 负载，只有交互/动画/自动旋转时才出帧）----
@@ -530,7 +637,7 @@ if (webglFailed) {
       fpsTime = t;
       if (!ready) {
         ready = true;
-        loader.classList.add('hide');
+        hideLoader();
         window.__ALU_READY = { drawCalls: renderer.info.render.calls, tris: renderer.info.render.triangles };
         console.info('[ALU] ready', window.__ALU_READY);
       }
@@ -561,12 +668,14 @@ if (webglFailed) {
     });
     return { meshes, instances, triangles, drawCalls: renderer.info.render.calls, frameTris: renderer.info.render.triangles };
   };
+  // QA 调试：暴露当前产品 group，供浏览器端逐 mesh 包围盒核查（对抗性审查用）
+  window.__ALU_GROUP = () => active()?.group || null;
 
   mountActiveProduct();
   // QA 直达:#rod/side 或 #rod/front 时用对应静止视角替代入场动画
   const viewMatch = location.hash.startsWith('#node')
     ? [null, 'node']
-    : location.hash.match(/^#(?:rod|cart|crates|woodcart|profile)\/([a-z]+)/);
+    : location.hash.match(/^#(?:rod|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
   if (viewMatch) {
     const vp = anims.viewPos(viewMatch[1], active().bounds);
     camera.position.copy(vp.pos);
@@ -574,7 +683,6 @@ if (webglFailed) {
   } else {
     anims.intro(active().bounds);
   }
-  setTimeout(() => { loader.classList.add('hide'); setTimeout(() => { loader.style.display = 'none'; }, 450); }, 700);
   renderOnce();
 }
 

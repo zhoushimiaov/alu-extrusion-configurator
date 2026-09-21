@@ -92,6 +92,9 @@ export function createDimensions(svg, camera, renderer) {
     const y0 = 0;
     const xL = center.x - W / 2, xR = center.x + W / 2;
     const zF = center.z + D / 2, zB = center.z - D / 2;
+    // 窄屏（移动端）：右下是按钮条，深度标注锚点往模型内侧收，避开按钮
+    const narrow = renderer.domElement.getBoundingClientRect().width < 620;
+    const dOff = narrow ? -0.04 : 0.10;
 
     // 总宽：前底部
     const a1 = project(_a1.set(xL, y0, zF + 0.06));
@@ -101,9 +104,9 @@ export function createDimensions(svg, camera, renderer) {
     const b1 = project(_b1.set(xL - 0.10, 0, zF));
     const b2 = project(_b2.set(xL - 0.10, H, zF));
     setLine('h', b1, b2, H.toFixed(2) + ' m');
-    // 总深：右缘
-    const c1 = project(_c1.set(xR + 0.10, 0.02, zF));
-    const c2 = project(_c2.set(xR + 0.10, 0.02, zB));
+    // 总深：右缘（窄屏往内收）
+    const c1 = project(_c1.set(xR + dOff, 0.02, zF));
+    const c2 = project(_c2.set(xR + dOff, 0.02, zB));
     setLine('d', c1, c2, D.toFixed(2) + ' m');
 
     // 相机背向或过近时淡出
@@ -112,7 +115,7 @@ export function createDimensions(svg, camera, renderer) {
     for (const [id, p3] of [
       ['w', _pw.set(0, y0, zF + 0.06)],
       ['h', _ph.set(xL - 0.10, H / 2, zF)],
-      ['d', _pd.set(xR + 0.10, 0.02, center.z)],
+      ['d', _pd.set(xR + dOff, 0.02, center.z)],
     ]) {
       const s = project(p3);
       const behind = s.z > 1;

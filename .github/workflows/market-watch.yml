@@ -1,0 +1,44 @@
+name: Market API Watch
+
+# 每日巡检价格表接口：KV 坏表会被 worker schema 校验拦成 502，前端静默回退内置表，
+# 页面「看起来正常」但报价是旧数据（2026-09-17 真实事故）。此 workflow 让该状态每日曝光。
+# 也可手动 Run workflow 作为改价后的即时验证。
+on:
+  schedule:
+    - cron: '5 0 * * *'   # 每日 UTC 00:05（北京时间 08:05）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 价格表接口必须为 200 且 schema 完整
+        run: |
+          BODY=$(curl -fsSL --max-time 30 "https://rack.means.group/api/market?cb=$RANDOM") || {
+            echo "::error::/api/market 不可达（前端将静默回退内置价格表）"; exit 1;
+          }
+          echo "$BODY" | node -e "
+            const t = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+            const bad = (r) => !r || typeof r.match !== 'string' || !r.match || !Number.isFinite(r.price) || r.price < 0;
+            if (!Array.isArray(t.rules) || !t.rules.length || t.rules.some(bad)) { console.error('rules 异常'); process.exit(1); }
+            if (!Array.isArray(t.hardware) || !t.hardware.length || t.hardware.some(bad)) { console.error('hardware 异常'); process.exit(1); }
+            console.log('✅ /api/market 正常：rules', t.rules.length, '条 · hardware', t.hardware.length, '条 · updated', t.updated);
+          "
+
+      - name: 版本端点返回部署指纹
+        run: |
+          curl -fsSL --max-time 20 "https://rack.means.group/api/version" || {
+            echo "::warning::/api/version 不可达（旧版 worker 无此端点，属预期；新版部署后应恢复）";
+            exit 0;
+          }
+
+      - name: 五个产品 hash 直达均 200
+        run: |
+          for h in "" "#rod" "#cart" "#crates" "#woodcart"; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "https://rack.means.group/$h")
+            echo "$h → $CODE"
+            [ "$CODE" = "200" ] || { echo "::error::产品入口 $h 返回 $CODE"; exit 1; }
+          done

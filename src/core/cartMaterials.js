@@ -83,7 +83,12 @@ export function getCartMaterials(woodFinish) {
     color: 0x9aa0a6, roughness: 0.45, metalness: 0.7,
   });
 
-  const out = { post, beam, glass, amber, frost, rod, clamp };
+  // 轮胎：黑色橡胶（哑光，参考图轮体）
+  const tire = new THREE.MeshStandardMaterial({
+    color: 0x1c1e21, roughness: 0.88, metalness: 0.05,
+  });
+
+  const out = { post, beam, glass, amber, frost, rod, clamp, tire };
   cache.set(key, out);
   return out;
 }

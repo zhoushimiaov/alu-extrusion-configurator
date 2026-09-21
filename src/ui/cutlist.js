@@ -1,5 +1,20 @@
 // 算料单导出：支持型材架（product.js）与光轴展架（rodrack.js）两种配置
+// 各产品的枚举标签文案由 main.js 通过 registerLabels() 显式注册（替代 window.__ALU_LABELS 全局注入）；
+// 未注册时会抛错并指明缺失的 kind，调用方需保证导出前已注册。
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const LABELS = {};
+/** 注册某产品算料单所需的枚举标签（rodrack: {BACK_TYPES,...} 等）。幂等，可重复调用。 */
+export function registerLabels(kind, labels) {
+  LABELS[kind] = labels;
+}
+function labelsFor(kind) {
+  const l = LABELS[kind];
+  if (!l) throw new Error(`[cutlist] 产品 "${kind}" 的标签未注册：请先调用 registerLabels()`);
+  return l;
+}
+// 兼容旧全局注入路径（早期 main.js 版本）；新代码一律走 registerLabels
+if (typeof window !== 'undefined' && window.__ALU_LABELS) Object.assign(LABELS, window.__ALU_LABELS);
 
 function cell(v, style = '') {
   const t = typeof v === 'number' ? 'Number' : 'String';
@@ -20,7 +35,7 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
 
   let title, configLine, hwRows, extraStats, wText, hText;
   if (kind === 'crates') {
-    const { CRATE_SCHEMES } = window.__ALU_LABELS.crates;
+    const { CRATE_SCHEMES } = labelsFor('crates');
     title = '周转箱收纳架 · 算料单';
     const tags = [];
     if (cfg.casters) tags.push('滚轮');
@@ -33,8 +48,22 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     extraStats = [];
     wText = (cfg.width + 0.06).toFixed(2);
     hText = (cfg.height + 0.20).toFixed(2);
+  } else if (kind === 'hanger') {
+    const { HANGER_COLORS } = labelsFor('hanger');
+    title = '光轴挂衣架 · 算料单';
+    const tags = [];
+    if (cfg.wheels) tags.push('万向轮');
+    tags.push(`${cfg.drawers} 层抽屉`);
+    configLine = `宽 ${cfg.width.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · 总高 ${cfg.height.toFixed(2)} m · ${HANGER_COLORS[cfg.color].label} · ${tags.join(' / ')}`;
+    hwRows = [
+      ['序号', '五金名称', '数量', '单位'],
+      ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, '件']),
+    ];
+    extraStats = [];
+    wText = (cfg.width + 0.03).toFixed(2);
+    hText = (cfg.height + 0.10).toFixed(2);
   } else if (kind === 'woodcart') {
-    const { WOOD_TONES } = window.__ALU_LABELS.woodcart;
+    const { WOOD_TONES } = labelsFor('woodcart');
     title = '光轴木展车 · 算料单';
     const tags = [];
     if (cfg.pegboard) tags.push('洞洞板');
@@ -51,7 +80,7 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     // 真实总高 = 立柱身长 height + 柜体顶 cabinetH(0.72) - 穿入 0.02 + 顶余量 0.06（与 buildWoodCart bounds.H 一致）
     hText = (cfg.height + cfg.cabinetH + 0.04).toFixed(2);
   } else if (kind === 'cart') {
-    const { ACRYLIC_TYPES, WOOD_FINISHES } = window.__ALU_LABELS.cart;
+    const { ACRYLIC_TYPES, WOOD_FINISHES } = labelsFor('cart');
     title = '移动边几 · 算料单';
     const tags = [];
     if (cfg.glassTop) tags.push('玻璃台面');
@@ -67,7 +96,7 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     wText = (cfg.width + 0.06).toFixed(2);
     hText = (cfg.height + 0.16).toFixed(2);
   } else if (kind === 'rod') {
-    const { BACK_TYPES, SHELF_TYPES, ROD_COLORS } = window.__ALU_LABELS.rodrack;
+    const { BACK_TYPES, SHELF_TYPES, ROD_COLORS } = labelsFor('rodrack');
     title = '光轴展架 · 算料单';
     const tags = [BACK_TYPES[cfg.backPanel].label];
     if (cfg.shelf && cfg.shelf !== 'none') tags.push(SHELF_TYPES[cfg.shelf].label);
@@ -82,7 +111,7 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     // 总高 = 立柱长 cfg.height + 柱顶超出 0.142 + 顶部余量 0.04（与 buildRodRack bounds.H 一致）
     hText = (cfg.height + 0.182).toFixed(2);
   } else {
-    const { PROFILE_SERIES, DECK_TYPES, COLORS } = window.__ALU_LABELS.product;
+    const { PROFILE_SERIES, DECK_TYPES, COLORS } = labelsFor('product');
     let deckSummary = {};
     for (const d of cfg.decks) deckSummary[d] = (deckSummary[d] || 0) + 1;
     const deckText = Object.entries(deckSummary).map(([k, n]) => `${DECK_TYPES[k].label}×${n}层`).join('，');
@@ -148,7 +177,7 @@ export function downloadCutlist(cfg, stats, kind = 'profile') {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const name = kind === 'woodcart' ? `光轴木展车算料单.xml` : kind === 'crates' ? \u5468\u8f6c\u7bb1\u6536\u7eb3\u67b6\u7b97\u6599\u5355_层.xml : kind === 'cart' ? `移动边几算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'rod' ? `光轴展架算料单_${cfg.width.toFixed(2)}m.xml` : `铝型材置物架算料单_${cfg.bays}x${cfg.levels}.xml`;
+  const name = kind === 'hanger' ? `挂衣架算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'woodcart' ? `光轴木展车算料单.xml` : kind === 'crates' ? `周转箱收纳架算料单_${cfg.tiers}层.xml` : kind === 'cart' ? `移动边几算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'rod' ? `光轴展架算料单_${cfg.width.toFixed(2)}m.xml` : `铝型材置物架算料单_${cfg.bays}x${cfg.levels}.xml`;
   a.download = name;
   document.body.appendChild(a);
   a.click();

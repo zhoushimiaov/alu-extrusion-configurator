@@ -184,6 +184,23 @@ body {
 }
 #loader.hide { opacity: 0; pointer-events: none; }
 
+/* 价格表来源角标：远端生效时静默，回退内置基准时亮黄提示 */
+.price-src-badge {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+.price-src-badge.fallback {
+  color: #8a6d1a;
+  border-color: #d9c27a;
+  background: #fbf3dc;
+}
+
 /* ---------- 配置面板：纸面编辑风 ---------- */
 #panel {
   border-left: 1px solid var(--rule);
@@ -403,6 +420,18 @@ details.install li b { color: var(--fg); font-weight: 700; margin-right: 6px; }
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- 产品切换 tab 组 ---------- */
+.product-tabs { display: inline-flex; border: 1px solid var(--rule-strong); background: transparent; }
+.product-tabs button {
+  appearance: none; border: 0; background: transparent;
+  color: var(--fg-2, #6b6f76);
+  padding: 8px 16px; font-size: 12.5px; letter-spacing: 0.04em;
+  font-family: inherit; cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.product-tabs button + button { border-left: 1px solid var(--rule); }
+.product-tabs button:hover { color: var(--fg); background: rgba(255,255,255,0.05); }
+.product-tabs button.on { background: var(--fg); color: #ffffff; }
+
 /* ---------- 响应式 ---------- */
 /* 移动端：HUD 读数 / 尺寸标注 / 逐层逐跨按钮等原本压在 10–12px，
    在窄屏上难以辨认。这里统一放大到 ≥13px 的可读区间，并给 3D 视口更多高度。 */
@@ -412,11 +441,15 @@ details.install li b { color: var(--fg); font-weight: 700; margin-right: 6px; }
   .top-note { display: none; }
   .product-tabs { width: 100%; order: 3; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .product-tabs::-webkit-scrollbar { display: none; }
-  .product-tabs button { flex: 1 0 auto; white-space: nowrap; padding: 9px 8px; font-size: 13px; }
+  .product-tabs button { flex: 1 0 auto; white-space: nowrap; padding: 9px 4px; font-size: 11.5px; letter-spacing: 0; }
   /* 视口给更多高度（面板可滚动），HUD 与热点不至于挤出画面 */
   #layout { grid-template-columns: 1fr; grid-template-rows: minmax(46vh, 52vh) 1fr; }
   #viewport { min-height: 0; }
   #panel { border-left: 0; border-top: 1px solid var(--rule); padding: 16px 16px 24px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* 移动端 3D 区图层太挤：HUD 左读数移到视口顶部（模型上方留白），
+     避开底部宽度/深度标注与右下按钮条，三者不再重叠 */
+  #hud-left { top: 104px; bottom: auto; left: auto; right: 8px; font-size: 11.5px; max-width: 46vw; line-height: 1.5; background: rgba(255,255,255,0.85); padding: 4px 7px; border-radius: 3px; text-align: right; }
+  #hud-right { right: 8px; bottom: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 96vw; gap: 6px; }
   .panel-title { font-size: 21px; }
   .panel-title .en { font-size: 13px; }
   .panel-lead { font-size: 14px; }
@@ -445,13 +478,10 @@ details.install li b { color: var(--fg); font-weight: 700; margin-right: 6px; }
   .weight-note { font-size: 12.5px; }
   .action-row { flex-direction: column; gap: 8px; }
   .action-row .cta, .action-row .cta-ghost { width: 100%; font-size: 15px; padding: 14px 0; }
-  /* HUD 读数放大并上移，避免被右下工具栏遮挡 */
-  #hud-left { font-size: 13px; left: 10px; bottom: 96px; max-width: 62vw; line-height: 1.7; }
-  #hud-right { right: 8px; bottom: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 96vw; gap: 6px; }
-  #hud-right .chip { padding: 7px 10px; font-size: 12.5px; }
-  #hud-right .chip-toggle { padding: 7px 10px; font-size: 12.5px; }
   /* 3D 内尺寸标注放大（原本 11px） */
   .dim-label { font-size: 13.5px; }
+  #hud-right .chip { padding: 7px 10px; font-size: 12.5px; }
+  #hud-right .chip-toggle { padding: 7px 10px; font-size: 12.5px; }
   /* 热点（±按钮）放大触控目标 */
   .hotspot { width: 40px; height: 40px; font-size: 19px; }
   .hotspot .tip { font-size: 12.5px; }
@@ -464,21 +494,8 @@ details.install li b { color: var(--fg); font-weight: 700; margin-right: 6px; }
 @media (max-width: 479px) {
   .spec-grid { grid-template-columns: repeat(2, 1fr); }
   .brand-sub { display: none; }
-  #hud-left { max-width: 52vw; font-size: 13px; bottom: 100px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
-
-/* ---------- 产品切换 tab 组 ---------- */
-.product-tabs { display: inline-flex; border: 1px solid var(--rule-strong); background: transparent; }
-.product-tabs button {
-  appearance: none; border: 0; background: transparent;
-  color: var(--fg-2, #6b6f76);
-  padding: 8px 16px; font-size: 12.5px; letter-spacing: 0.04em;
-  font-family: inherit; cursor: pointer; transition: background 0.15s, color 0.15s;
-}
-.product-tabs button + button { border-left: 1px solid var(--rule); }
-.product-tabs button:hover { color: var(--fg); background: rgba(255,255,255,0.05); }
-.product-tabs button.on { background: var(--fg); color: #ffffff; }

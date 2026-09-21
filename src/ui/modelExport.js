@@ -11,6 +11,7 @@ const ROOT_NAMES = {
   cart: 'RollingCart',
   crates: 'CrateRack',
   woodcart: 'WoodCart',
+  hanger: 'ClothesHanger',
 };
 
 function fileNameParts(kind, meta = {}) {
@@ -34,6 +35,11 @@ function fileNameParts(kind, meta = {}) {
     if (w) parts.push('W' + w);
     if (h) parts.push('H' + h);
     if (meta.shelves) parts.push(meta.shelves + 'S');
+  } else if (kind === 'hanger') {
+    const w = num(meta.width); const h = num(meta.height);
+    if (w) parts.push('W' + w);
+    if (h) parts.push('H' + h);
+    if (meta.drawers) parts.push(meta.drawers + 'D');
   } else {
     if (meta.bays) parts.push(meta.bays + 'b');
     if (meta.levels) parts.push(meta.levels + 'L');

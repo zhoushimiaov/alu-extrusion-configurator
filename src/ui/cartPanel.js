@@ -44,7 +44,7 @@ export function createCartPanel(root, actions) {
   mount.appendChild(el('div', 'panel-title',
     `移动边几<span class="en">ROLLING CART TABLE</span>`));
   mount.appendChild(el('p', 'panel-lead',
-    '铝型材移动边几：木纹立柱 + 钢化玻璃台面 + 橙色亚克力中板 + 光轴挂杆，四轮推行。'));
+    '铝型材移动边几：木纹板+型材组合腿 + 钢化玻璃台面 + 橙色亚克力中板 + 光轴挂杆，四轮推行。'));
 
   const spec = el('div', 'spec-grid', `
     <div class="spec-cell"><div class="k">宽 W</div><div class="v" data-spec="w">0.54<small>m</small></div></div>

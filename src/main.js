@@ -6,6 +6,7 @@ import { createPostFX } from './core/postfx.js';
 import { buildShelf } from './core/buildShelf.js';
 import { buildGlbFrame } from './core/buildGlbFrame.js';
 import { retreatShelfBackPanels } from './core/shelfBackPanel.js';
+import { declutterProps } from './core/propsDeclutter.js';
 import { buildRodRack } from './core/buildRodRack.js';
 import { createAnims } from './core/anims.js';
 import { createDimensions } from './core/dimensions.js';
@@ -114,6 +115,7 @@ function rebuild() {
   if (current) { scene.remove(current.group); current.dispose(); }
   current = cfg.frameMode === 'glb' ? buildGlbFrame(cfg) : buildShelf(cfg, cfg.props);
   retreatShelfBackPanels(current);
+  declutterProps(current);
   scene.add(current.group);
   stageProduct(current);
   if (!anims.REDUCED) anims.reveal(current.groups);

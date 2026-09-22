@@ -5,6 +5,7 @@ import { createScene } from './core/scene.js';
 import { createPostFX } from './core/postfx.js';
 import { buildShelf } from './core/buildShelf.js';
 import { buildGlbFrame } from './core/buildGlbFrame.js';
+import { retreatShelfBackPanels } from './core/shelfBackPanel.js';
 import { buildRodRack } from './core/buildRodRack.js';
 import { createAnims } from './core/anims.js';
 import { createDimensions } from './core/dimensions.js';
@@ -106,11 +107,13 @@ function stageProduct(p) {
   if (p.bounds) fitShadow(p.bounds);
 }
 
+
 function rebuild() {
   if (webglFailed || productKind !== 'profile') return;
   const cfg = store.get();
   if (current) { scene.remove(current.group); current.dispose(); }
   current = cfg.frameMode === 'glb' ? buildGlbFrame(cfg) : buildShelf(cfg, cfg.props);
+  retreatShelfBackPanels(current);
   scene.add(current.group);
   stageProduct(current);
   if (!anims.REDUCED) anims.reveal(current.groups);
@@ -620,12 +623,18 @@ if (webglFailed) {
       return;
     }
     controls.update();
+    // DOM 尺寸线/± 热点没有深度遮挡：转到产品背面时整体隐藏，避免标注像穿在背板里。
+    const backView = camera.position.z < controls.target.z - 0.03;
+    dimSvg.style.opacity = backView ? '0' : '';
+    hotspotLayer.style.display = backView ? 'none' : '';
     postfx.render();
     const a = active();
-    if (a) {
+    if (a && !backView) {
       dims.update(a.bounds, center);
       if (productKind === 'profile') hotspots.sync();
       else rodHandles.sync();
+    } else if (a && productKind !== 'profile') {
+      rodHandles.sync();
     }
     hotspotsDirty = false;
     needsRender = false;

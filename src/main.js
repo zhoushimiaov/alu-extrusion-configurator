@@ -7,6 +7,7 @@ import { buildShelf } from './core/buildShelf.js';
 import { buildGlbFrame } from './core/buildGlbFrame.js';
 import { retreatShelfBackPanels } from './core/shelfBackPanel.js';
 import { declutterProps } from './core/propsDeclutter.js';
+import { decoratePanel } from './ui/panelDecor.js';
 import { buildRodRack } from './core/buildRodRack.js';
 import { createAnims } from './core/anims.js';
 import { createDimensions } from './core/dimensions.js';
@@ -263,6 +264,21 @@ const hud = createHud(hudLeft, hudRight, {
 });
 const hudRod = hud;
 
+// ---- 视口左侧浮动工具条：缩放 / 全屏 ----
+document.getElementById('view-tools')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.dataset.zoom) {
+    if (webglFailed) return;
+    const f = btn.dataset.zoom === 'in' ? 0.82 : 1.22;
+    camera.position.sub(controls.target).multiplyScalar(f).add(controls.target);
+    window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  } else if (btn.dataset.fullscreen != null) {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.();
+  }
+});
+
 // ---- 动作 ----
 const profileActions = {
   onAdd: (cfg) => showToast(`已加入配置清单 · ${cfg.bays} 跨 × ${cfg.levels} 层 · ${fmtPrice(calcPrice(cfg, panel.lastStats))}`),
@@ -418,6 +434,7 @@ function mountActiveProduct() {
   } else {
     setInstallSteps(INSTALL_STEPS);
     const inner = createPanel(panelRoot, profileActions);
+    decoratePanel(panelRoot); // 分区标题/行布局（panel.js 原封，装饰在接线层注入）
     panel = { ...inner, dispose() { /* 原封 panel.js 无显式资源；容器已由上方 innerHTML 清空 */ } };
     syncPriceNote();
     if (webglFailed) syncStatsOnly(); else rebuild();

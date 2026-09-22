@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -13,31 +13,35 @@
   <meta property="og:url" content="https://rack.means.group/" />
   <meta property="og:image" content="https://rack.means.group/og-cover.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="theme-color" content="#17181c" />
+  <meta name="theme-color" content="#f5f3ef" />
 </head>
 <body>
   <div id="app">
-    <header id="topbar">
-      <div class="brand">
-        <span class="brand-name">MODULO</span>
-        <span class="brand-sub">模数 · 铝型材系统</span>
-      </div>
-      <div class="top-note">参数化实时渲染 · THREE.JS</div>
-      <div id="price-src-badge" class="price-src-badge" title=""></div>
-      <nav id="product-tabs" class="product-tabs" style="margin-left:16px" aria-label="产品切换">
-        <button data-kind="profile">铝型材置物架</button>
-        <button data-kind="rod">光轴展架</button>
-        <button data-kind="cart">移动边几</button>
-        <button data-kind="crates">周转箱架</button>
-        <button data-kind="woodcart">木展车</button>
-        <button data-kind="hanger">挂衣架</button>
-      </nav>
-    </header>
     <main id="layout">
       <section id="viewport" aria-label="3D 预览">
         <canvas id="gl"></canvas>
         <svg id="dim-layer" aria-hidden="true"></svg>
         <div id="hotspot-layer"></div>
+        <header class="brand-overlay">
+          <div class="brand">
+            <span class="brand-name">MODULO</span>
+            <span class="brand-sub">铝型材置物架系统</span>
+          </div>
+          <div id="price-src-badge" class="price-src-badge" title=""></div>
+        </header>
+        <nav id="product-tabs" class="product-tabs" aria-label="产品切换">
+          <button data-kind="profile" aria-label="切换到铝型材置物架">铝型材置物架</button>
+          <button data-kind="rod" aria-label="切换到光轴展架">光轴展架</button>
+          <button data-kind="cart" aria-label="切换到移动边几">移动边几</button>
+          <button data-kind="crates" aria-label="切换到周转箱架">周转箱架</button>
+          <button data-kind="woodcart" aria-label="切换到木展车">木展车</button>
+          <button data-kind="hanger" aria-label="切换到挂衣架">挂衣架</button>
+        </nav>
+        <div id="view-tools">
+          <button data-zoom="in" aria-label="放大" title="放大"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M11 8.5v5M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
+          <button data-zoom="out" aria-label="缩小" title="缩小"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
+          <button data-fullscreen aria-label="全屏" title="全屏"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
         <div id="hud-left" class="mono"></div>
         <div id="hud-right"></div>
         <div id="loader">正在生成骨架 …</div>

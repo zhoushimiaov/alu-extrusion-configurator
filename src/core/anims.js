@@ -125,6 +125,8 @@ export function createAnims(camera, controls) {
   let exploded = false;
   function explode(parts, on) {
     exploded = on;
+    // 标准架（buildShelf）与 GLB 同构装配（buildGlbFrame）的组名不同，两份键位都给：
+    // 缺哪个键跳过即可。props（摆件）跟随层板一起动，否则爆炸后摆件悬空。
     const moves = [
       ['beamsB', new THREE.Vector3(0, 0, -0.32)],
       ['beamsRail', new THREE.Vector3(0, 0, 0.34)],
@@ -132,6 +134,13 @@ export function createAnims(camera, controls) {
       ['panels', new THREE.Vector3(0, 0, -0.55)],
       ['brkV', new THREE.Vector3(0, 0, 0.30)],
       ['brkH', new THREE.Vector3(0, 0, 0.34)],
+      // GLB 同构装配键位
+      ['strips', new THREE.Vector3(0, -0.45, 0.18)],   // 层板条 ≈ deck
+      ['battens', new THREE.Vector3(0, -0.28, 0.30)],  // 板下横条
+      ['segments', new THREE.Vector3(0, 0, 0.34)],     // 正面分段立柱 ≈ beamsRail
+      ['depth', new THREE.Vector3(0, 0.12, 0.30)],     // 进深梁
+      // 摆件跟随层板位移（两条路径同名）
+      ['props', new THREE.Vector3(0, -0.45, 0.18)],
     ];
     const conn = parts.conn;
     if (REDUCED) {

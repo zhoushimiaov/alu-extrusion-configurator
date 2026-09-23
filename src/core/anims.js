@@ -136,6 +136,7 @@ export function createAnims(camera, controls) {
       ['brkH', new THREE.Vector3(0, 0, 0.34)],
       // GLB 同构装配键位
       ['strips', new THREE.Vector3(0, -0.45, 0.18)],   // 层板条 ≈ deck
+      ['pane', new THREE.Vector3(0, -0.45, 0.18)],     // 磨砂亚克力整板（标准/GLB 同名）
       ['battens', new THREE.Vector3(0, -0.28, 0.30)],  // 板下横条
       ['segments', new THREE.Vector3(0, 0, 0.34)],     // 正面分段立柱 ≈ beamsRail
       ['depth', new THREE.Vector3(0, 0.12, 0.30)],     // 进深梁

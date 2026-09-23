@@ -114,7 +114,7 @@ export function computeShelfStats(cfg, q) {
 
 export function buildShelf(config, withProps = true) {
   const cfg = normalizeConfig(config);
-  const { bays, levels, series, decks, bayWidths, sidePanels, color } = cfg;
+  const { bays, levels, series, decks, backs, bayWidths, sidePanels, color } = cfg;
   const prof = PROFILE_SERIES[series] || PROFILE_SERIES['2040'];
   const postProf = PROFILE_SERIES['2020'];
 
@@ -287,7 +287,7 @@ export function buildShelf(config, withProps = true) {
   const panelRows = [];
   if (sidePanels) {
     for (let k = 0; k < levels; k++) {
-      if (decks[k] === 'none') continue;
+      if (backs[k] === 'none') continue; // 逐层背板：该层留空
       const y = 0.02 + k * LEVEL_PITCH + BEAM_TOP; // 从背梁顶面起，避开梁体
       for (let p = 0; p < postXs.length - 1; p++) {
         const wNext = bayWidths[p];

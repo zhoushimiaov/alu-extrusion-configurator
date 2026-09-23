@@ -9,7 +9,7 @@ import {
   extrudeAlongX,
 } from './profiles.js';
 import { COLORS, PANEL_COLORS } from '../config/product.js';
-import { getPropMaterials } from './materials.js';
+import { getPropMaterials, getAcrylicMaterial } from './materials.js';
 
 // 世界坐标系定义（与标准货架对齐）：
 // +Z: 正面/外侧/开放取物侧 (Z = +0.20)
@@ -26,10 +26,13 @@ const DEPTH_FRONT_Z = 0.20;
 const DEPTH_BACK_Z = -0.17;
 const WALL_BACK_Z = -0.20;
 
-export function glbLayout({ bayWidths = [.57, .57, .57, .57, .57, .57], levels = 5 } = {}) {
+export function glbLayout({ bayWidths = [.57, .57, .57, .57, .57, .57], levels = 5, decks = null } = {}) {
   if (!Array.isArray(bayWidths) || !bayWidths.length || bayWidths.some(w => !Number.isFinite(w) || w < .3 || w > 1.2) || !Number.isInteger(levels) || levels < 1 || levels > 8) {
     throw Error('Invalid reference dimensions');
   }
+  // 逐层层板配置：'rib' 铺板条 / 'acrylic' 改整板（此处不排板条）/ 'none' 空层。
+  // 不带 decks 的旧调用保持原行为（全层铺板条，含顶层封面）。
+  const decksValid = Array.isArray(decks) && decks.length >= levels;
   const W = bayWidths.reduce((a, b) => a + b, 0);
   const H = levels * .46 + .03;
   const xs = [-W / 2];
@@ -44,7 +47,9 @@ export function glbLayout({ bayWidths = [.57, .57, .57, .57, .57, .57], levels =
     for (let k = 0; k <= levels; k++) rows.depth.push([x, k * .46 + .015, DEPTH_FRONT_Z]);
   }
   for (let k = 0; k <= levels; k++) {
-    for (let b = 0; b < bayWidths.length; b++) {
+    // 有 decks 时顶层不铺板（与标准参数架一致：顶层只有围梁）；'acrylic'/'none' 层不排板条
+    const stripLevel = decksValid ? k < levels && decks[k] === 'rib' : true;
+    if (stripLevel) for (let b = 0; b < bayWidths.length; b++) {
       const n = Math.floor((bayWidths[b] - .03) / .02 + 1e-7);
       const start = (xs[b] + xs[b + 1]) / 2 - (n - 1) * .01;
       for (let r = 0; r < n; r++) {
@@ -69,11 +74,17 @@ export function glbLayout({ bayWidths = [.57, .57, .57, .57, .57, .57], levels =
   };
 }
 
-// 背板：通高整板，覆盖墙面侧全高（不再按层分段、不随逐层层板配置缺层）
+// 背板：逐层分段（backs[k]==='none' 的层留空），每块覆盖该层层高区间
 function glbBackPanelRows(config) {
   const levels = config.levels || 1;
-  const H = levels * .46 + .03;
-  return [[0, H / 2, -0.206, H]];
+  const backs = Array.isArray(config.backs) ? config.backs : null;
+  const rows = [];
+  for (let k = 0; k < levels; k++) {
+    if (backs && backs[k] === 'none') continue;
+    // 层区间：底梁顶面 (k*.46+.03) 到上层梁底面 ((k+1)*.46)，高 .43
+    rows.push([0, k * .46 + .245, -0.206, .43]);
+  }
+  return rows;
 }
 
 /**
@@ -130,7 +141,8 @@ function buildGlbProps(layout, config) {
   );
 
   const kinds = ['elMagStack', 'elMagStanding', 'sculpture', 'tallVase', 'geometricVase'];
-  const deckTopY = k => k * .46 + .01 + .02;
+  // 摆件落点：型材层板条顶面 .03；磨砂亚克力整板顶面 .038（板厚 8mm 压在梁顶）
+  const deckTopY = k => k * .46 + (decks[k] === 'acrylic' ? .038 : .03);
 
   for (let k = 0; k < levels; k++) {
     if (decks[k] === 'none') continue;
@@ -208,7 +220,7 @@ function buildGlbProps(layout, config) {
   return { root, geometries: geometriesToDispose, materials: [...elCoverMats, elSpineMat, ...artSculptureMats, ...vaseMats] };
 }
 
-function makeGlbStats(layout) {
+function makeGlbStats(layout, config) {
   const cutList = [];
   const addCut = (spec, section, len, qty, span = len) => {
     const prev = cutList.find(c => c.spec === spec && c.section === section && Math.abs(c.len - len) < 1e-6);
@@ -227,21 +239,31 @@ function makeGlbStats(layout) {
   addCut('GLB 20×20 精确层板条', '20×20', .4, strips);
   addCut('GLB 20×10 板下横条', '20×10', layout.W + .03, battens);
 
+  // 磨砂亚克力整板：面积计入 panes（与标准参数架同口径，市场价可计价）
+  const decks = Array.isArray(config?.decks) ? config.decks : [];
+  const bayWidths = Array.isArray(config?.bayWidths) ? config.bayWidths : [];
+  let paneCount = 0, paneArea = 0;
+  decks.forEach((d, k) => {
+    if (k >= (config?.levels || 0) || d !== 'acrylic') return;
+    for (const w of bayWidths) { paneArea += Math.max(0, w - .035) * .36; paneCount++; }
+  });
+
   const sectionAreas = {
     '30×30': 1.8e-4,
     '20×20': 1.18e-4,
     '20×10': 5.9e-5,
   };
   const profileLengthM = cutList.reduce((sum, c) => sum + c.len * c.qty, 0);
-  const weightKg = cutList.reduce((sum, c) => sum + c.len * c.qty * sectionAreas[c.section], 0) * 2700;
+  const weightKg = cutList.reduce((sum, c) => sum + c.len * c.qty * sectionAreas[c.section], 0) * 2700
+    + paneArea * .008 * 1180; // 亚克力整板自重（8mm × 1180 kg/m³）
 
   return {
     cutList,
     hardware: [
       { name: 'GLB 精确节点连接方式（未核价）', qty: depth },
     ],
-    panes: [],
-    partCount: posts + segments + depth + strips + battens,
+    panes: paneCount ? [{ label: '磨砂亚克力层板', areaM2: +paneArea.toFixed(3), kind: 'acrylic' }] : [],
+    partCount: posts + segments + depth + strips + battens + paneCount,
     profileLengthM: +profileLengthM.toFixed(1),
     weightKg: +weightKg.toFixed(1),
     referenceOnly: true,
@@ -308,6 +330,7 @@ export function buildGlbFrame(config) {
     battens: cachedGeometry(geometryKeys.battens, () => extrudeAlongX(makeTSlotShape(.02, .01), layout.W + .03)),
   };
   const panelGeoKey = `panel:${layout.W - .03}`;
+  const paneGeoKey = 'glbpane:unit';
   const hasPanels = !!(config?.sidePanels && glbBackPanelRows(config).length);
   for (const [key, rows] of Object.entries(layout.rows)) {
     const mesh = new THREE.InstancedMesh(geometries[key], [cap.clone(), side.clone()], rows.length);
@@ -336,6 +359,34 @@ export function buildGlbFrame(config) {
       groups.panels = mesh;
     }
   }
+  // 磨砂亚克力整板：逐层逐跨一块（decks[k]==='acrylic'），压在进深梁顶面
+  const decksCfg = Array.isArray(config?.decks) ? config.decks : [];
+  const bayW = Array.isArray(config?.bayWidths) ? config.bayWidths : [];
+  const paneRows = []; // [cx, y, w]
+  {
+    const xs = [-layout.W / 2];
+    for (const w of bayW) xs.push(xs.at(-1) + w);
+    for (let k = 0; k < (config?.levels || 0); k++) {
+      if (decksCfg[k] !== 'acrylic') continue;
+      for (let b = 0; b < bayW.length; b++) {
+        paneRows.push([(xs[b] + xs[b + 1]) / 2, k * .46 + .034, Math.max(.05, bayW[b] - .035)]);
+      }
+    }
+  }
+  if (paneRows.length) {
+    const paneGeometry = cachedGeometry(paneGeoKey, () => new THREE.BoxGeometry(1, .008, .36));
+    geometries.pane = paneGeometry;
+    const mesh = new THREE.InstancedMesh(paneGeometry, getAcrylicMaterial().clone(), paneRows.length);
+    mesh.name = 'pane';
+    paneRows.forEach(([cx, y, w], i) => {
+      const m = new THREE.Matrix4().makeScale(w, 1, 1);
+      m.setPosition(cx, y, 0);
+      mesh.setMatrixAt(i, m);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    group.add(mesh);
+    groups.pane = mesh;
+  }
   let propsAssets = null;
   if (config?.props) {
     propsAssets = buildGlbProps(layout, config);
@@ -344,7 +395,7 @@ export function buildGlbFrame(config) {
       groups.props = propsAssets.root;
     }
   }
-  const stats = makeGlbStats(layout);
+  const stats = makeGlbStats(layout, config);
   const bounds = {
     W: layout.W,
     H: layout.H,
@@ -362,6 +413,7 @@ export function buildGlbFrame(config) {
       // 缓存池几何：引用计数释放（rebuild 复用时保持存活）；其余资源直接销毁
       for (const key of Object.keys(geometryKeys)) releaseGeometry(geometryKeys[key]);
       if (geometries.panels) releaseGeometry(panelGeoKey);
+      if (geometries.pane) releaseGeometry(paneGeoKey);
       for (const mesh of Object.values(groups)) {
         if (!mesh.isInstancedMesh) continue;
         for (const mat of (Array.isArray(mesh.material) ? mesh.material : [mesh.material])) mat.dispose();

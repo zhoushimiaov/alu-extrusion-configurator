@@ -1,5 +1,6 @@
 // 入口:场景 → 双产品(型材架 / 光轴展架)参数化装配 → UI 接线 → 渲染循环
 import * as THREE from 'three';
+import './fonts.css';
 import './styles.css';
 import { createScene } from './core/scene.js';
 import { createPostFX } from './core/postfx.js';

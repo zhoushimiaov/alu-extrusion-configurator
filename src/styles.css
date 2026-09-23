@@ -145,19 +145,38 @@ button { font-family: inherit; cursor: pointer; }
 #view-tools svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 
-/* ---------- 左下读数：无框小字 ---------- */
+/* ---------- 左下读数：三行极简层级（配置 / 体量 / 免责） ---------- */
 #hud-left {
   position: absolute;
-  left: 24px; bottom: 18px;
+  left: 26px; bottom: 20px;
   z-index: 4;
-  font-size: 11.5px;
-  line-height: 1.8;
-  color: var(--meta);
-  letter-spacing: 0.02em;
+  font-family: var(--font-mix);
   pointer-events: none;
 }
-#hud-left b { color: var(--fg-2); font-weight: 600; }
-#hud-left span { color: var(--caption); font-size: 10.5px; }
+#hud-left .rl-a {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+#hud-left .rl-a b { font-weight: 500; color: var(--fg); }
+#hud-left .rl-b {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  color: var(--meta);
+  font-variant-numeric: tabular-nums;
+}
+#hud-left .rl-b b { font-weight: 500; color: var(--fg-3); }
+#hud-left .rl-c {
+  margin-top: 7px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--caption);
+}
 
 /* ---------- 底部居中浮动控件条 ---------- */
 #hud-right {
@@ -191,23 +210,26 @@ button { font-family: inherit; cursor: pointer; }
 .chip svg, .chip-toggle svg { width: 18px; height: 18px; }
 .chip[hidden] { display: none; }
 
-/* ---------- 尺寸标注（建筑图纸风：细线 + 数字压线） ---------- */
-.dim-line, .dim-tick { stroke: rgba(10, 10, 10, 0.45); stroke-width: 0.75; }
-.dim-label { font-family: var(--font-mono); font-weight: 500; font-size: 12px; fill: var(--fg); letter-spacing: 0.02em; }
-.dim-label-bg { fill: rgba(255, 255, 255, 0.92); stroke: none; }
+/* ---------- 尺寸标注（极简图纸风：细线 + 圆点端子 + 白底胶囊数字） ---------- */
+.dim-line { stroke: rgba(10, 10, 10, 0.38); stroke-width: 0.75; }
+.dim-dot { fill: var(--fg); }
+.dim-label {
+  font-family: var(--font-mix);
+  font-weight: 500;
+  font-size: 13.5px;
+  fill: var(--fg);
+  letter-spacing: 0.03em;
+}
+.dim-label-bg { fill: rgba(255, 255, 255, 0.92); stroke: rgba(0, 0, 0, 0.10); stroke-width: 0.5; }
 
-/* ---------- 热点按钮（图纸线框符号） ---------- */
+/* ---------- 热点按钮（细线 ± 图纸符号） ---------- */
 .hotspot {
   position: absolute;
-  width: 30px; height: 30px;
+  width: 28px; height: 28px;
   border-radius: 50%;
-  border: 1px solid rgba(10, 10, 10, 0.72);
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--fg);
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 15px;
-  line-height: 1;
+  border: 1px solid rgba(10, 10, 10, 0.55);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--fg-2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   pointer-events: auto;
@@ -215,6 +237,8 @@ button { font-family: inherit; cursor: pointer; }
   transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background 0.16s, border-color 0.16s, opacity 0.2s;
   user-select: none;
 }
+.hotspot svg { width: 12px; height: 12px; }
+.hotspot > span { display: flex; align-items: center; justify-content: center; }
 .hotspot:hover { transform: translate(-50%, -50%) scale(1.08); background: #ffffff; border-color: var(--fg); }
 .hotspot:active { transform: translate(-50%, -50%) scale(0.97); }
 .hotspot[disabled] { opacity: 0.25; cursor: default; }
@@ -307,8 +331,16 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
   gap: 20px 16px;
 }
 .spec-cell .k { font-size: 12px; color: var(--caption); letter-spacing: 0.04em; }
-.spec-cell .v { margin-top: 2px; font-size: 26px; font-weight: 750; color: var(--fg); line-height: 1.2; }
-.spec-cell .v small { margin-left: 3px; font-size: 13px; font-weight: 500; color: var(--caption); }
+.spec-cell .v {
+  margin-top: 2px;
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.spec-cell .v small { margin-left: 3px; font-size: 13px; font-weight: 400; color: var(--caption); }
 
 /* 字段标签 / 行布局 */
 .field-label {
@@ -332,32 +364,57 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
 .field-row .field-label { margin-bottom: 0; font-size: 13px; color: var(--fg-2); }
 #panel > div { margin-top: 4px; }
 
-/* 步进器：白胶囊 */
+/* 步进器：白胶囊 + 细线 ±（CSS 绘制，非字符） */
 .stepper {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  min-width: 152px;
-  height: 40px;
-  padding: 0 4px;
+  min-width: 148px;
+  height: 38px;
+  padding: 0 5px;
   background: var(--card);
   border: 1px solid var(--hairline);
   border-radius: 999px;
 }
 .stepper button {
-  width: 32px; height: 32px;
+  position: relative;
+  width: 30px; height: 30px;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  font-size: 17px;
-  line-height: 1;
-  color: var(--fg-2);
-  transition: background 0.15s;
+  font-size: 0; /* 隐藏字符 glyph，± 由伪元素细线绘制 */
+  color: var(--fg-3);
+  transition: background 0.15s, color 0.15s;
 }
-.stepper button:hover { background: rgba(0,0,0,0.06); }
-.stepper button:disabled { opacity: 0.28; cursor: default; }
+.stepper button::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 11px; height: 1.3px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+.stepper button[data-act$="+"]::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 1.3px; height: 11px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+.stepper button:hover { background: rgba(0,0,0,0.05); color: var(--fg); }
+.stepper button:disabled { opacity: 0.25; cursor: default; }
 .stepper button:disabled:hover { background: transparent; }
-.stepper .num { min-width: 30px; text-align: center; font-size: 15px; font-weight: 700; color: var(--fg); }
+.stepper .num {
+  min-width: 30px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
 
 /* 分段选择：胶囊组，选中灰绿 */
 .seg { display: flex; gap: 8px; margin-bottom: 6px; }
@@ -383,6 +440,23 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
 .level-row .lv-name, .bay-row .bay-name { flex: none; width: 54px; font-size: 13px; color: var(--fg-3); }
 .level-row .seg { flex: 1; gap: 6px; margin-bottom: 0; }
 .level-row .seg button { height: 32px; padding: 0 6px; font-size: 12px; }
+/* 逐层背板小胶囊：选中实心墨绿灰，未选留白描边 */
+.back-toggle {
+  flex: none;
+  width: 52px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--caption);
+  transition: background 0.16s, color 0.16s, border-color 0.16s, opacity 0.16s;
+}
+.back-toggle:hover { border-color: rgba(0,0,0,0.22); }
+.back-toggle.on { background: var(--fg-2); border-color: var(--fg-2); color: #fff; }
+.back-toggle:disabled { opacity: 0.35; cursor: default; }
+.back-toggle:disabled:hover { border-color: var(--hairline); }
 .bay-row input {
   width: 96px;
   height: 36px;
@@ -390,9 +464,10 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
   background: var(--card);
   border: 1px solid var(--hairline);
   border-radius: 999px;
-  font-family: var(--font-mono);
+  font-family: var(--font-mix);
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--fg);
   text-align: right;
   outline: none;
@@ -466,7 +541,7 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
 /* ---------- 价格区 ---------- */
 .price-block { margin-top: 4px; }
 .price-line { display: flex; align-items: baseline; gap: 10px; }
-.price-line .price { font-size: 30px; font-weight: 750; color: var(--fg); letter-spacing: 0.01em; }
+.price-line .price { font-size: 30px; font-weight: 600; color: var(--fg); letter-spacing: 0.01em; font-variant-numeric: tabular-nums; }
 .price-note { font-size: 11.5px; color: var(--caption); }
 .price-src { margin-top: 8px; font-size: 11px; color: var(--caption); line-height: 1.6; }
 .price-breakdown { margin-top: 6px; font-size: 12.5px; color: var(--fg-3); line-height: 1.8; }
@@ -545,7 +620,9 @@ details.install li b { color: var(--fg); font-weight: 600; }
   #view-tools button { width: 38px; height: 38px; }
   /* 3D 区图层太挤：HUD 左读数移到视口顶部（模型上方留白），
      避开底部宽度/深度标注与底部控件条，三者不再重叠 */
-  #hud-left { top: 64px; bottom: auto; left: auto; right: 10px; font-size: 11.5px; max-width: 52vw; line-height: 1.6; background: rgba(255,255,255,0.85); padding: 4px 8px; border-radius: 8px; text-align: right; }
+  #hud-left { top: 64px; bottom: auto; left: auto; right: 10px; max-width: 56vw; background: rgba(255,255,255,0.85); padding: 6px 10px; border-radius: 10px; text-align: right; }
+  #hud-left .rl-a { font-size: 12.5px; }
+  #hud-left .rl-b { font-size: 11.5px; }
   #hud-right { bottom: 14px; max-width: 96vw; }
   .chip, .chip-toggle { width: 40px; height: 40px; }
   #panel { border-left: 0; border-top: 1px solid var(--hairline); padding: 24px 18px 32px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -560,12 +637,13 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .field-label { font-size: 13.5px; }
   .field-row .field-label { font-size: 13.5px; }
   .stepper { min-width: 140px; height: 44px; }
-  .stepper button { width: 40px; font-size: 19px; }
+  .stepper button { width: 40px; height: 40px; }
   .stepper .num { font-size: 16px; }
   .seg { flex-wrap: wrap; }
   .seg button { flex: 1 1 40%; font-size: 13.5px; height: 44px; }
   .level-row .lv-name { font-size: 13px; width: 58px; }
   .level-row .seg button { font-size: 13px; height: 38px; }
+  .back-toggle { height: 38px; width: 58px; font-size: 13px; }
   .bay-row .bay-name { font-size: 13px; width: 58px; }
   .bay-row input { font-size: 15px; height: 40px; }
   .bay-row .unit { font-size: 12.5px; }
@@ -580,10 +658,11 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .weight-note { font-size: 12.5px; }
   .action-row .cta, .action-row .cta-ghost { width: 100%; font-size: 15px; height: 48px; }
   .action-row .cta-ghost { height: 44px; font-size: 14px; }
-  /* 3D 内尺寸标注放大（原本 11px） */
-  .dim-label { font-size: 13.5px; }
+  /* 3D 内尺寸标注放大 */
+  .dim-label { font-size: 15px; }
   /* 热点（±按钮）放大触控目标 */
-  .hotspot { width: 40px; height: 40px; font-size: 19px; }
+  .hotspot { width: 40px; height: 40px; }
+  .hotspot svg { width: 15px; height: 15px; }
   .hotspot .tip { font-size: 12.5px; }
   .install { font-size: 13.5px; }
   details.install summary { font-size: 14px; }

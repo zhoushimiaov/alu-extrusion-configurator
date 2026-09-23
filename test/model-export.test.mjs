@@ -16,8 +16,8 @@ test('levels can go down to the new minimum of 2 and still build finite geometry
         : [];
       assert.ok(arr.every(Number.isFinite));
     }
-    // 2 层时背板仍为通高整板
-    assert.equal(built.groups.panels.count, 1);
+    // 背板逐层分段：默认每层一块
+    assert.equal(built.groups.panels.count, levels);
     built.dispose();
   }
 });

@@ -14,7 +14,7 @@ const LS_KEY = {
 // 持久化字段白名单：与各产品 DEFAULT_CONFIG 保持同步（test/persist-schema.test.mjs
 // 断言两者一致，新增配置字段漏登记时测试直接失败，避免「配置写入后被静默丢弃」）。
 const SCHEMA = {
-  profile: ['schemaVersion', 'bays', 'levels', 'series', 'frameMode', 'decks', 'bayWidths', 'sidePanels', 'panelColor', 'props', 'color'],
+  profile: ['schemaVersion', 'bays', 'levels', 'series', 'frameMode', 'decks', 'backs', 'bayWidths', 'sidePanels', 'panelColor', 'props', 'color'],
   rod: ['schemaVersion', 'width', 'height', 'style', 'backPanel', 'shelf', 'casters', 'color'],
   cart: ['schemaVersion', 'width', 'depth', 'height', 'glassTop', 'midAcrylic', 'rodRails', 'casters', 'woodFinish'],
   crates: ['schemaVersion', 'width', 'depth', 'height', 'tiers', 'scheme', 'pullOut', 'casters'],

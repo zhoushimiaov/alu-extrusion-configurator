@@ -1,6 +1,12 @@
 // 悬浮 ± 热点：3D 锚点每帧重投影，点击写入 store
 import * as THREE from 'three';
 
+// 细线 ± 图标（stroke=currentColor），替代全角字符 glyph：更轻、更极简
+const GLYPH = {
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 6.5v11M6.5 12h11"/></svg>',
+  minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6.5 12h11"/></svg>',
+};
+
 export function createHotspots(layer, camera, renderer, store, getBounds) {
   const items = [];
   const v = new THREE.Vector3();
@@ -36,11 +42,11 @@ export function createHotspots(layer, camera, renderer, store, getBounds) {
   };
 
   // 跨：宽度轴两端（减左加右）
-  addHotspot('bay-', () => widthAxisEnd(-1), '－', '减少一跨', () => store.set({ bays: store.get().bays - 1 }));
-  addHotspot('bay+', () => widthAxisEnd(1), '＋', '增加一跨', () => store.set({ bays: store.get().bays + 1 }));
+  addHotspot('bay-', () => widthAxisEnd(-1), GLYPH.minus, '减少一跨', () => store.set({ bays: store.get().bays - 1 }));
+  addHotspot('bay+', () => widthAxisEnd(1), GLYPH.plus, '增加一跨', () => store.set({ bays: store.get().bays + 1 }));
   // 层：沿高度轴上下成对
-  addHotspot('level+', () => heightAxis(true), '＋', '增加一层', () => store.set({ levels: store.get().levels + 1 }));
-  addHotspot('level-', () => heightAxis(false), '－', '减少一层', () => store.set({ levels: store.get().levels - 1 }));
+  addHotspot('level+', () => heightAxis(true), GLYPH.plus, '增加一层', () => store.set({ levels: store.get().levels + 1 }));
+  addHotspot('level-', () => heightAxis(false), GLYPH.minus, '减少一层', () => store.set({ levels: store.get().levels - 1 }));
 
   function sync() {
     const rect = renderer.domElement.getBoundingClientRect();

@@ -9,7 +9,8 @@ export const DEFAULT_CONFIG = {
   levels: 6,
   series: '2040',
   frameMode: 'glb', // 'standard' | 'glb'：GLB同构装配，价格未知项单独提示
-  decks: null,        // 逐层层板数组 ['rib'|'glass'|'none']，null 时按 levels 全 'rib'
+  decks: null,        // 逐层层板数组 ['rib'|'acrylic'|'none']，null 时按 levels 全 'rib'
+  backs: null,        // 逐层背板数组 ['panel'|'none']，null 时按 levels 全 'panel'
   bayWidths: null,    // 逐跨宽度数组（米），null 时按 bays 全 DEFAULT_BAY_WIDTH
   sidePanels: true,
   panelColor: 'galv', // 背板配色，见 PANEL_COLORS
@@ -85,6 +86,11 @@ export function normalizeConfig(cfg) {
     const decks = [];
     for (let i = 0; i < c.levels; i++) decks.push(c.decks && c.decks[i] ? c.decks[i] : 'rib');
     c.decks = decks;
+  }
+  if (!Array.isArray(c.backs) || c.backs.length !== c.levels) {
+    const backs = [];
+    for (let i = 0; i < c.levels; i++) backs.push(c.backs && c.backs[i] === 'none' ? 'none' : 'panel');
+    c.backs = backs;
   }
   if (!Array.isArray(c.bayWidths) || c.bayWidths.length !== c.bays) {
     const bw = [];

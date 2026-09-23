@@ -55,7 +55,7 @@ test('GLB exact mode props switch creates deterministic display-only props on de
   off.dispose();
 });
 
-test('GLB exact mode sidePanels switch places one full-height back panel on wall side only', () => {
+test('GLB exact mode sidePanels places per-level back panels on wall side only', () => {
   const cfg = {
     bayWidths: [.57, .57],
     levels: 3,
@@ -66,8 +66,8 @@ test('GLB exact mode sidePanels switch places one full-height back panel on wall
   };
   const built = buildGlbFrame(cfg);
   assert.ok(built.groups.panels);
-  // 通高整板：单块，覆盖全高，不随 decks='none' 缺层
-  assert.equal(built.groups.panels.count, 1);
+  // 逐层分段：每块覆盖本层层高区间（.43），默认全层有背板
+  assert.equal(built.groups.panels.count, 3);
   const matrix = new THREE.Matrix4();
   built.groups.panels.getMatrixAt(0, matrix);
   const pos = new THREE.Vector3().setFromMatrixPosition(matrix);
@@ -75,8 +75,12 @@ test('GLB exact mode sidePanels switch places one full-height back panel on wall
   assert.ok(pos.z > -.25);
   built.groups.panels.geometry.computeBoundingBox();
   const box = built.groups.panels.geometry.boundingBox.clone().applyMatrix4(matrix);
-  assert.ok(Math.abs(box.min.y - 0) < 1e-6);
-  assert.ok(Math.abs(box.max.y - built.layout.H) < 1e-6);
+  assert.ok(Math.abs(box.min.y - .03) < 1e-6);
+  assert.ok(Math.abs(box.max.y - .46) < 1e-6);
+
+  // 逐层背板：backs[k]==='none' 的层不出背板
+  const partial = buildGlbFrame({ ...cfg, backs: ['panel', 'none', 'panel'] });
+  assert.equal(partial.groups.panels.count, 2);
 
   // 背板颜色可选：默认镀锌银灰，可切换哑黑
   assert.equal(built.groups.panels.material.color.getHex(), 0xc7cdd1);
@@ -87,7 +91,25 @@ test('GLB exact mode sidePanels switch places one full-height back panel on wall
   const off = buildGlbFrame({ ...cfg, sidePanels: false });
   assert.equal(off.groups.panels, undefined);
   built.dispose();
+  partial.dispose();
   off.dispose();
+});
+
+test('GLB exact mode respects per-level decks: none skips strips, acrylic adds panes', () => {
+  const cfg = { bayWidths: [.57, .57], levels: 3, decks: ['rib', 'acrylic', 'none'], props: false, sidePanels: false };
+  const built = buildGlbFrame(cfg);
+  // 仅第 1 层铺板条：每跨 floor((.57-.03)/.02)=27 根 × 2 跨
+  assert.equal(built.groups.strips.count, 27 * 2);
+  // 第 2 层改磨砂亚克力整板：2 跨 → 2 块
+  assert.ok(built.groups.pane);
+  assert.equal(built.groups.pane.count, 2);
+  assert.ok(built.stats.panes.length > 0);
+  // 无层板配置（兼容旧调用）：全层铺板条（含顶层封面）
+  const legacy = buildGlbFrame({ bayWidths: [.57, .57], levels: 3, props: false, sidePanels: false });
+  assert.equal(legacy.groups.strips.count, 27 * 2 * 4);
+  assert.equal(legacy.groups.pane, undefined);
+  built.dispose();
+  legacy.dispose();
 });
 
 test('GLB exact mode marks its price as a partial reference estimate', async () => {

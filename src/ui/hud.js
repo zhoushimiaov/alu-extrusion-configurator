@@ -30,45 +30,45 @@ export function createHud(hudLeft, hudRight, actions) {
       const w2 = c.width !== undefined ? `宽 <b>${c.width.toFixed(2)} m</b>` : '';
       const d2 = c.depth !== undefined ? ` · 深 <b>${c.depth.toFixed(2)} m</b>` : '';
       const h2 = c.height !== undefined ? ` · 高 <b>${c.height.toFixed(2)} m</b>` : '';
-      if (c.drawers !== undefined) { readout.innerHTML = `光轴挂衣架 · ${w2}${d2}${h2} · <b>${c.drawers} 层抽屉</b>`; return; }
-      if (c.cabinetH !== undefined) { readout.innerHTML = `光轴木展车 · ${w2}${h2} · ${c.shelves} 层板`; return; }
-      if (c.scheme !== undefined) { readout.innerHTML = `周转箱收纳架 · <b>${c.tiers} 层</b> · ${w2}${d2}`; return; }
-      if (c.midAcrylic !== undefined) { readout.innerHTML = `移动边几 · ${w2}${d2}${h2}`; return; }
-      if (c.backPanel !== undefined && c.bays === undefined) { readout.innerHTML = `柱距 <b>${c.width.toFixed(2)}</b> × 柱长 <b>${c.height.toFixed(2)} m</b>`; return; }
+      if (c.drawers !== undefined) { readout.innerHTML = `<div class="rl rl-a">光轴挂衣架 · ${w2}${d2}${h2} · <b>${c.drawers} 层抽屉</b></div>`; return; }
+      if (c.cabinetH !== undefined) { readout.innerHTML = `<div class="rl rl-a">光轴木展车 · ${w2}${h2} · ${c.shelves} 层板</div>`; return; }
+      if (c.scheme !== undefined) { readout.innerHTML = `<div class="rl rl-a">周转箱收纳架 · <b>${c.tiers} 层</b> · ${w2}${d2}</div>`; return; }
+      if (c.midAcrylic !== undefined) { readout.innerHTML = `<div class="rl rl-a">移动边几 · ${w2}${d2}${h2}</div>`; return; }
+      if (c.backPanel !== undefined && c.bays === undefined) { readout.innerHTML = `<div class="rl rl-a">柱距 <b>${c.width.toFixed(2)}</b> × 柱长 <b>${c.height.toFixed(2)} m</b></div>`; return; }
       // 型材架
       const counts = {};
       for (const d of c.decks) counts[d] = (counts[d] || 0) + 1;
-      const deckText = Object.keys(counts).length === 1 ? DECK_TYPES[c.decks[0]].label : Object.entries(counts).map(([k, n]) => `${DECK_TYPES[k].label}${n}`).join('/');
-      readout.innerHTML = `网格 <b>${c.bays}×${c.levels}</b> · ${PROFILE_SERIES[c.series].label} · ${deckText}`;
+      const deckText = Object.keys(counts).length === 1 ? DECK_TYPES[c.decks[0]].label : Object.entries(counts).map(([k, n]) => `${DECK_TYPES[k].label}${n}`).join(' / ');
+      readout.innerHTML = `<div class="rl rl-a"><b>${c.bays} × ${c.levels}</b> 网格 · ${PROFILE_SERIES[c.series].label} · ${deckText}</div>`;
       return;
     }
     if (c.drawers !== undefined) {
       // 光轴挂衣架
       readout.innerHTML =
-        `光轴挂衣架 · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b> · <b>${c.drawers} 层抽屉</b> · <b>${c.wheels ? "滚轮" : "地脚"}</b><br>` +
-        `自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b>`;
+        `<div class="rl rl-a">光轴挂衣架 · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b> · ${c.drawers} 层抽屉 · ${c.wheels ? "滚轮" : "地脚"}</div>` +
+        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>`;
       return;
     }
     if (c.cabinetH !== undefined) {
       // 光轴木展车
       readout.innerHTML =
-        `光轴木展车 · 宽 <b>${c.width.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b> · ${c.shelves} 块层板${c.pegboard ? ' · 洞洞板' : ''}${c.topRail ? ' · 顶挂杆' : ''}<br>` +
-        `自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b>`;
+        `<div class="rl rl-a">光轴木展车 · 宽 <b>${c.width.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b> · ${c.shelves} 块层板${c.pegboard ? ' · 洞洞板' : ''}${c.topRail ? ' · 顶挂杆' : ''}</div>` +
+        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>`;
       return;
     }
     if (c.scheme !== undefined) {
       // 周转箱收纳架
       readout.innerHTML =
-        `周转箱收纳架 · <b>${c.tiers} 层</b> · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · <b>${c.casters ? "滚轮" : "地脚"}</b><br>` +
-        `自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 型材总长 <b>${stats.profileLengthM.toFixed(1)} m</b>`;
+        `<div class="rl rl-a">周转箱收纳架 · ${c.tiers} 层 · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · ${c.casters ? "滚轮" : "地脚"}</div>` +
+        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 型材总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>`;
       return;
     }
     if (c.midAcrylic !== undefined) {
       // 移动边几
       readout.innerHTML =
-        `移动边几 · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b>` +
-        `${c.glassTop ? ' · 玻璃台面' : ''}${c.midAcrylic !== 'none' ? ' · 中板' : ''}${c.rodRails ? ' · 挂杆' : ''}<br>` +
-        `自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 型材总长 <b>${stats.profileLengthM.toFixed(1)} m</b>`;
+        `<div class="rl rl-a">移动边几 · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b>` +
+        `${c.glassTop ? ' · 玻璃台面' : ''}${c.midAcrylic !== 'none' ? ' · 中板' : ''}${c.rodRails ? ' · 挂杆' : ''}</div>` +
+        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 型材总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>`;
       return;
     }
     if (c.backPanel !== undefined && c.bays === undefined) {
@@ -77,19 +77,22 @@ export function createHud(hudLeft, hudRight, actions) {
       if (c.shelf && c.shelf !== 'none') tags.push(SHELF_TYPES[c.shelf].label);
       if (c.casters) tags.push('滚轮');
       readout.innerHTML =
-        `光轴展架 · 柱距 <b>${c.width.toFixed(2)} m</b> · 柱长 <b>${c.height.toFixed(2)} m</b> · <b>${tags.join(' / ')}</b><br>` +
-        `自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b>`;
+        `<div class="rl rl-a">光轴展架 · 柱距 <b>${c.width.toFixed(2)} m</b> · 柱长 <b>${c.height.toFixed(2)} m</b> · ${tags.join(' / ')}</div>` +
+        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>`;
       return;
     }
-    // 型材架
+    // 型材架：三行极简层级——配置 / 体量 / 免责
     const counts = {};
     for (const d of c.decks) counts[d] = (counts[d] || 0) + 1;
     const deckText = Object.keys(counts).length === 1
       ? DECK_TYPES[c.decks[0]].label
-      : Object.entries(counts).map(([k, n]) => `${DECK_TYPES[k].label} ${n} 层`).join(' / ');
+      : Object.entries(counts).map(([k, n]) => `${DECK_TYPES[k].label} ×${n}`).join(' / ');
+    const backCount = (c.backs || []).filter(x => x !== 'none').length;
+    const backText = c.sidePanels ? (backCount === c.levels ? '背板 全' : `背板 ${backCount}/${c.levels}`) : '无背板';
     readout.innerHTML =
-      `网格 <b>${c.bays} 跨 × ${c.levels} 层</b> · 型材 <b>${PROFILE_SERIES[c.series].label}</b> · 层板 <b>${deckText}</b><br>` +
-      `自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 主型材总长 <b>${stats.profileLengthM.toFixed(1)} m</b><br><span>节点与隐藏连接为示意 · 不作为加工、采购或承重依据</span>`;
+      `<div class="rl rl-a"><b>${c.bays} × ${c.levels}</b> 网格 · ${PROFILE_SERIES[c.series].label} 型材 · 层板 ${deckText} · ${backText}</div>` +
+      `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 主型材总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>` +
+      `<div class="rl rl-c">节点与隐藏连接为示意 · 不作为加工、采购或承重依据</div>`;
   }
 
   // 底部居中浮动控件条：视角图标组 + 爆炸 / 自转开关

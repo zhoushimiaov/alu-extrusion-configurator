@@ -13,12 +13,13 @@ export function createDimensions(svg, camera, renderer) {
     l.setAttribute('class', 'dim-line');
     svg.appendChild(l);
     lines[id] = { line: l, ticks: [null, null] };
-    // 端部斜 45° 短划（建筑标注特征）：每条尺寸线两端各一根
+    // 端部圆点收口（极简标注特征）：每条尺寸线两端各一枚实心圆点
     for (let k = 0; k < 2; k++) {
-      const tick = document.createElementNS(NS, 'line');
-      tick.setAttribute('class', 'dim-tick');
-      svg.appendChild(tick);
-      lines[id].ticks[k] = tick;
+      const dot = document.createElementNS(NS, 'circle');
+      dot.setAttribute('class', 'dim-dot');
+      dot.setAttribute('r', '3');
+      svg.appendChild(dot);
+      lines[id].ticks[k] = dot;
     }
     const t = document.createElementNS(NS, 'text');
     t.setAttribute('class', 'dim-label');
@@ -45,38 +46,36 @@ export function createDimensions(svg, camera, renderer) {
     };
   }
 
-  // 端部斜短划：沿尺寸线方向垂直切 45°，长 TICK px（建筑标注的斜杠收口）
-  const TICK = 7;
+  // 端部圆点直接落在尺寸线端点上（圆心即端点，视觉即“测量点”）
   function setLine(id, a, b, text) {
     const { line: l, ticks } = lines[id];
     l.setAttribute('x1', a.x); l.setAttribute('y1', a.y);
     l.setAttribute('x2', b.x); l.setAttribute('y2', b.y);
 
-    // 两端各画一根 45° 斜短划（dx/dy 方向与尺寸线正交无关，固定斜 45° 更符合建筑制图）
     const ends = [a, b];
     for (let k = 0; k < 2; k++) {
-      const p = ends[k];
-      ticks[k].setAttribute('x1', p.x - TICK / 2); ticks[k].setAttribute('y1', p.y - TICK / 2);
-      ticks[k].setAttribute('x2', p.x + TICK / 2); ticks[k].setAttribute('y2', p.y + TICK / 2);
+      ticks[k].setAttribute('cx', ends[k].x);
+      ticks[k].setAttribute('cy', ends[k].y);
     }
 
-    // 数字压线：在尺寸线中点开一个小口（bg），文字居中压在线上
+    // 数字压线：白底胶囊托底，文字居中压在线上
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     const t = labels[id].text;
     t.textContent = text;
-    const pad = 5;
-    const w = text.length * 6.8 + pad * 2;
-    t.setAttribute('x', mx); t.setAttribute('y', my + 4);
+    const pad = 9;
+    const w = text.length * 8.2 + pad * 2;
+    t.setAttribute('x', mx); t.setAttribute('y', my + 4.5);
     t.setAttribute('text-anchor', 'middle');
     let bg = labels[id].bg;
     if (!bg) {
       bg = document.createElementNS(NS, 'rect');
       bg.setAttribute('class', 'dim-label-bg');
+      bg.setAttribute('rx', '10');
       svg.insertBefore(bg, t);
       labels[id].bg = bg;
     }
-    bg.setAttribute('x', mx - w / 2); bg.setAttribute('y', my - 9);
-    bg.setAttribute('width', w); bg.setAttribute('height', 18);
+    bg.setAttribute('x', mx - w / 2); bg.setAttribute('y', my - 10);
+    bg.setAttribute('width', w); bg.setAttribute('height', 20);
   }
 
   function fade(id, opacity) {

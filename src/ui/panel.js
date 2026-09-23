@@ -85,7 +85,7 @@ export function createPanel(root, actions) {
   root.appendChild(bayField);
 
   // 侧挡板
-  const sideRow = el('div', 'switch-row', '<span class="label">背面侧挡板（通高整板）</span>');
+  const sideRow = el('div', 'switch-row', '<span class="label">背板总开关（逐层可选）</span>');
   const sw = el('div', 'switch');
   sw.setAttribute('role', 'switch');
   sideRow.appendChild(sw);
@@ -162,6 +162,15 @@ export function createPanel(root, actions) {
         seg.appendChild(b);
       }
       row.appendChild(seg);
+      // 逐层背板开关（背板总开关关闭时禁用）
+      const backOn = c.backs && c.backs[k] !== 'none';
+      const bk = el('button', 'back-toggle' + (backOn ? ' on' : ''), '背板');
+      bk.dataset.backIdx = k;
+      bk.title = `第 ${k + 1} 层背板`;
+      bk.setAttribute('aria-label', `第 ${k + 1} 层背板`);
+      bk.setAttribute('aria-pressed', String(backOn));
+      if (!c.sidePanels) bk.disabled = true;
+      row.appendChild(bk);
       levelList.appendChild(row);
     });
     const counts = {};
@@ -212,6 +221,12 @@ export function createPanel(root, actions) {
       const decks = [...store.get().decks];
       decks[+btn.dataset.deckIdx] = btn.dataset.deckVal;
       store.set({ decks });
+    }
+    if (btn.dataset.backIdx != null) {
+      const backs = [...store.get().backs];
+      const i = +btn.dataset.backIdx;
+      backs[i] = backs[i] === 'none' ? 'panel' : 'none';
+      store.set({ backs });
     }
     if (btn.dataset.color) store.set({ color: btn.dataset.color });
     if (btn.dataset.pcolor) store.set({ panelColor: btn.dataset.pcolor });

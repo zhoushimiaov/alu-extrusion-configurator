@@ -34,10 +34,14 @@ export function decoratePanel(root) {
   const baysField = root.querySelector('.stepper[data-step="bays"]')?.parentElement;
   before(baysField, head('层级配置', 'GRID'));
 
-  // 型材系列 / 装配模型：原标题与分区标题重复，移除原 field-label
+  // 型材系列：原标题与分区标题重复，移除原 field-label；装配模型为内部对比项，前台隐藏保持 GLB 精确装配
   for (const [segKey, text, en] of [['series', '型材系列', 'PROFILE'], ['frameMode', '装配模型', 'ASSEMBLY']]) {
     const field = root.querySelector(`[data-seg="${segKey}"]`)?.closest('.seg')?.parentElement;
     if (!field) continue;
+    if (segKey === 'frameMode') {
+      field.style.display = 'none';
+      continue;
+    }
     before(field, rule(), head(text, en));
     field.querySelector(':scope > .field-label')?.remove();
   }

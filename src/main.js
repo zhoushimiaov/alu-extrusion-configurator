@@ -91,7 +91,12 @@ const PRODUCT_STORES = {
 };
 for (const [kind, s] of Object.entries(PRODUCT_STORES)) {
   const saved = loadSaved(kind);
-  if (saved && Object.keys(saved).length) s.set(saved);
+  if (saved && Object.keys(saved).length) {
+    if (kind === 'profile' && saved.frameMode === 'standard') {
+      saved.frameMode = 'glb';
+    }
+    s.set(saved);
+  }
 }
 
 let current = null;      // 型材架

@@ -15,6 +15,7 @@ export const PRICE_MARKET_HTML = `
 
 /** 用最新算料 stats 刷新价格区块。返回市场报价 quote。 */
 export function updatePriceBlock(priceBlock, stats) {
+  const q = calcMarketPrice(stats);
   const pEl = priceBlock.querySelector('[data-price]');
   if (pEl) {
     pEl.textContent = fmtPrice(q.total);

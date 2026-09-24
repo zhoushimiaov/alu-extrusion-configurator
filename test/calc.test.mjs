@@ -66,3 +66,28 @@ test('LIMITS 边界：跨宽上下限下料长仍为正值', () => {
   assert.ok(beamCutLength(min) > 0.2, '最小跨下料长应合理');
   assert.ok(beamCutLength(max) < max, '最大跨必须扣除节点占位');
 });
+
+test('updatePriceBlock 正常运行并填充价格与明细，无未定义变量异常', async () => {
+  const { updatePriceBlock } = await import('../src/ui/priceview.js');
+  const div = {
+    querySelector: () => ({
+      textContent: '',
+      innerHTML: '',
+      append: () => {},
+      appendChild: () => {},
+      classList: { remove: () => {}, add: () => {} },
+      offsetWidth: 100,
+    }),
+  };
+  globalThis.document = {
+    createElement: () => ({
+      className: '',
+      textContent: '',
+      append: () => {},
+      appendChild: () => {},
+    }),
+  };
+  const stats = { cutList: [{ spec: '梁', section: '20×40', len: 1, qty: 2 }], hardware: [], panes: [] };
+  const q = updatePriceBlock(div, stats);
+  assert.ok(q && Number.isFinite(q.total));
+});

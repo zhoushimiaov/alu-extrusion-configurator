@@ -305,6 +305,29 @@ document.getElementById('view-tools')?.addEventListener('click', (e) => {
   }
 });
 
+// ---- 移动端全屏查看 3D 模型模式 ----
+const btnMobileFs = document.getElementById('btn-mobile-fullscreen');
+const layoutEl = document.getElementById('layout');
+if (btnMobileFs && layoutEl) {
+  const labelSpan = btnMobileFs.querySelector('.btn-text');
+  function toggleMobileFs(force) {
+    const isNow = force !== undefined ? force : !layoutEl.classList.contains('mode-fullscreen-model');
+    layoutEl.classList.toggle('mode-fullscreen-model', isNow);
+    if (labelSpan) labelSpan.textContent = isNow ? '返回编辑' : '全屏看模型';
+    btnMobileFs.setAttribute('aria-label', isNow ? '返回编辑面板' : '全屏看模型');
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+    }, 40);
+  }
+  btnMobileFs.addEventListener('click', () => toggleMobileFs());
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && layoutEl.classList.contains('mode-fullscreen-model')) {
+      toggleMobileFs(false);
+    }
+  });
+}
+
 // ---- 动作 ----
 const profileActions = {
   onAdd: (cfg) => {

@@ -148,6 +148,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 #view-tools button:hover { background: rgba(0,0,0,0.06); }
 #view-tools svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.btn-mobile-fullscreen { display: none; }
 
 
 /* ---------- 左下读数：三行极简层级（配置 / 体量 / 免责） ---------- */
@@ -831,6 +832,62 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .chip-group { padding-right: 2px; gap: 2px; }
   .chip, .chip-toggle { width: 32px; height: 32px; }
   .chip svg, .chip-toggle svg { width: 15px; height: 15px; }
+
+  /* 移动端全屏查看 3D 模型浮动按钮 */
+  .btn-mobile-fullscreen {
+    position: absolute;
+    right: 12px;
+    bottom: 54px;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.90);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    color: var(--fg);
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .btn-mobile-fullscreen svg {
+    width: 13px;
+    height: 13px;
+  }
+  .btn-mobile-fullscreen .icon-compress { display: none; }
+  .btn-mobile-fullscreen .icon-expand { display: block; }
+
+  /* 全屏沉浸模式：占满 100dvh，彻底消灭下方文字面板遮挡 */
+  .mode-fullscreen-model #layout {
+    grid-template-rows: 100dvh 0 !important;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .mode-fullscreen-model #panel {
+    display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+  }
+  .mode-fullscreen-model #viewport {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+  .mode-fullscreen-model .btn-mobile-fullscreen {
+    bottom: 56px;
+    background: #000000;
+    color: #ffffff;
+    border-color: #000000;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+  .mode-fullscreen-model .btn-mobile-fullscreen .icon-expand { display: none; }
+  .mode-fullscreen-model .btn-mobile-fullscreen .icon-compress { display: block; }
 
   /* 3D 尺寸标注精简 */
   .dim-label { font-size: 12px; padding: 2px 5px; }

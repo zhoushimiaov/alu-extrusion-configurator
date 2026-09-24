@@ -186,14 +186,6 @@ export function createRodPanel(root, actions) {
     if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(rodStore.get());
   });
 
-  // 可拖拽视觉提示（样式幂等注入：只挂一次，切产品不再累积）
-  if (!document.getElementById('drag-num-style')) {
-    const style = document.createElement('style');
-    style.id = 'drag-num-style';
-    style.textContent = '.stepper .num[data-drag] { cursor: ew-resize; } .stepper .num[data-drag]:hover { background: #f7f4ec; }';
-    document.head.appendChild(style);
-  }
-
   function syncSpecs(c) {
     spec.querySelector('[data-spec="w"]').innerHTML = (c.width + 0.12).toFixed(2) + '<small>m</small>';
     spec.querySelector('[data-spec="h"]').innerHTML = (c.height + 0.18).toFixed(2) + '<small>m</small>';

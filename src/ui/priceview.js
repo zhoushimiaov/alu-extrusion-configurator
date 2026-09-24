@@ -15,8 +15,13 @@ export const PRICE_MARKET_HTML = `
 
 /** 用最新算料 stats 刷新价格区块。返回市场报价 quote。 */
 export function updatePriceBlock(priceBlock, stats) {
-  const q = calcMarketPrice(stats);
-  priceBlock.querySelector('[data-price]').textContent = fmtPrice(q.total);
+  const pEl = priceBlock.querySelector('[data-price]');
+  if (pEl) {
+    pEl.textContent = fmtPrice(q.total);
+    pEl.classList.remove('num-updated');
+    void pEl.offsetWidth;
+    pEl.classList.add('num-updated');
+  }
   priceBlock.querySelector('[data-mkt-src]').textContent =
     `${q.source} · 表版本 ${q.updated}${q.complete ? "" : " · 有未计价项：" + q.unpriced.join("、")}`;
   priceBlock.querySelector('[data-mkt-breakdown]').textContent =

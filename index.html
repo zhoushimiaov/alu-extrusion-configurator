@@ -13,7 +13,7 @@
   <meta property="og:url" content="https://rack.means.group/" />
   <meta property="og:image" content="https://rack.means.group/og-cover.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="theme-color" content="#f5f3ef" />
+  <meta name="theme-color" content="#eceff1" />
 </head>
 <body>
   <div id="app">
@@ -29,18 +29,18 @@
           </div>
           <div id="price-src-badge" class="price-src-badge" title=""></div>
         </header>
-        <nav id="product-tabs" class="product-tabs" aria-label="产品切换">
-          <button data-kind="profile" aria-label="切换到铝型材置物架">铝型材置物架</button>
-          <button data-kind="rod" aria-label="切换到光轴展架">光轴展架</button>
-          <button data-kind="cart" aria-label="切换到移动边几">移动边几</button>
-          <button data-kind="crates" aria-label="切换到周转箱架">周转箱架</button>
-          <button data-kind="woodcart" aria-label="切换到木展车">木展车</button>
-          <button data-kind="hanger" aria-label="切换到挂衣架">挂衣架</button>
+        <nav id="product-tabs" class="product-tabs" role="tablist" aria-label="产品切换">
+          <button role="tab" data-kind="profile" aria-label="切换到铝型材置物架">铝型材置物架</button>
+          <button role="tab" data-kind="rod" aria-label="切换到光轴展架">光轴展架</button>
+          <button role="tab" data-kind="cart" aria-label="切换到移动边几">移动边几</button>
+          <button role="tab" data-kind="crates" aria-label="切换到周转箱架">周转箱架</button>
+          <button role="tab" data-kind="woodcart" aria-label="切换到木展车">木展车</button>
+          <button role="tab" data-kind="hanger" aria-label="切换到挂衣架">挂衣架</button>
         </nav>
         <div id="view-tools">
-          <button data-zoom="in" aria-label="放大" title="放大"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M11 8.5v5M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
-          <button data-zoom="out" aria-label="缩小" title="缩小"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
-          <button data-fullscreen aria-label="全屏" title="全屏"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+          <button data-zoom="in" aria-label="放大" data-tip="放大"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M11 8.5v5M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
+          <button data-zoom="out" aria-label="缩小" data-tip="缩小"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
+          <button data-fullscreen aria-label="全屏" data-tip="全屏"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
         </div>
         <div id="hud-left"></div>
         <div id="hud-right"></div>

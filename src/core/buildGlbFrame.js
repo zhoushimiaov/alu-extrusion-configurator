@@ -141,8 +141,8 @@ function buildGlbProps(layout, config) {
   );
 
   const kinds = ['elMagStack', 'elMagStanding', 'sculpture', 'tallVase', 'geometricVase'];
-  // 摆件落点：型材层板条顶面 .03；磨砂亚克力整板顶面 .038（板厚 8mm 压在梁顶）
-  const deckTopY = k => k * .46 + (decks[k] === 'acrylic' ? .038 : .03);
+  // 摆件落点：型材层板条顶面 .03；磨砂亚克力整板顶面 .008（板厚 8mm 贴合座落在下层支承条顶面）
+  const deckTopY = k => k * .46 + (decks[k] === 'acrylic' ? .008 : .03);
 
   for (let k = 0; k < levels; k++) {
     if (decks[k] === 'none') continue;
@@ -364,7 +364,7 @@ export function buildGlbFrame(config) {
       groups.panels = mesh;
     }
   }
-  // 磨砂亚克力整板：逐层逐跨一块（decks[k]==='acrylic'），压在进深梁顶面
+  // 磨砂亚克力整板：逐层逐跨一块（decks[k]==='acrylic'），严密座落于支承条顶面（消灭悬空）
   const decksCfg = Array.isArray(config?.decks) ? config.decks : [];
   const bayW = Array.isArray(config?.bayWidths) ? config.bayWidths : [];
   const paneRows = []; // [cx, y, w]
@@ -374,7 +374,7 @@ export function buildGlbFrame(config) {
     for (let k = 0; k < (config?.levels || 0); k++) {
       if (decksCfg[k] !== 'acrylic') continue;
       for (let b = 0; b < bayW.length; b++) {
-        paneRows.push([(xs[b] + xs[b + 1]) / 2, k * .46 + .034, Math.max(.05, bayW[b] - .035)]);
+        paneRows.push([(xs[b] + xs[b + 1]) / 2, k * .46 + .004, Math.max(.05, bayW[b] - .032)]);
       }
     }
   }

@@ -103,7 +103,7 @@ export function createHud(hudLeft, hudRight, actions) {
     const b = document.createElement('button');
     b.className = 'chip' + (key === 'iso' ? ' on' : '');
     b.innerHTML = ICONS[key];
-    b.title = label;
+    b.dataset.tip = label;
     b.setAttribute('aria-label', label);
     b.dataset.view = key;
     b.addEventListener('click', () => {
@@ -117,8 +117,8 @@ export function createHud(hudLeft, hudRight, actions) {
   const boom = document.createElement('button');
   boom.className = 'chip-toggle';
   boom.innerHTML = ICONS.explode;
-  boom.title = '爆炸';
-  boom.setAttribute('aria-label', '爆炸');
+  boom.dataset.tip = '爆炸分解';
+  boom.setAttribute('aria-label', '爆炸分解');
   boom.addEventListener('click', () => {
     const on = !boom.classList.contains('on');
     boom.classList.toggle('on', on);
@@ -129,8 +129,8 @@ export function createHud(hudLeft, hudRight, actions) {
   const spin = document.createElement('button');
   spin.className = 'chip-toggle';
   spin.innerHTML = ICONS.spin;
-  spin.title = '自转';
-  spin.setAttribute('aria-label', '自转');
+  spin.dataset.tip = '自动旋转';
+  spin.setAttribute('aria-label', '自动旋转');
   spin.addEventListener('click', () => {
     const on = !spin.classList.contains('on');
     spin.classList.toggle('on', on);

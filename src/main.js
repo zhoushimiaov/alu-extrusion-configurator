@@ -70,6 +70,13 @@ try {
 const anims = webglFailed ? null : createAnims(camera, controls);
 const dims = webglFailed ? null : createDimensions(dimSvg, camera, renderer);
 const hotspots = webglFailed ? null : createHotspots(hotspotLayer, camera, renderer, store, () => active()?.bounds || { W: 3.4, H: 2.3, D: 0.4 });
+hotspotLayer?.addEventListener('touchstart', (e) => {
+  const btn = e.target.closest('.hotspot');
+  if (btn) {
+    btn.classList.add('show-tip');
+    setTimeout(() => btn.classList.remove('show-tip'), 1800);
+  }
+}, { passive: true });
 // 光轴展架视口内拖拽箭头（宽 / 高两个方向）
 const rodHandles = webglFailed ? null : createRodHandles(canvas, camera, renderer, controls, rodStore, () => (rodCurrent?.bounds) || { W: 1.0, H: 1.4, D: 0.42 });
 
@@ -118,6 +125,9 @@ function rebuild({ isEntrance = false } = {}) {
   const cfg = store.get();
   if (current) { scene.remove(current.group); current.dispose(); }
   current = cfg.frameMode === 'glb' ? buildGlbFrame(cfg) : buildShelf(cfg, cfg.props);
+  if (current.groups?.pads && !current.group.children.includes(current.groups.pads)) {
+    current.group.add(current.groups.pads);
+  }
   retreatShelfBackPanels(current);
   declutterProps(current);
   scene.add(current.group);

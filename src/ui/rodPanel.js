@@ -116,7 +116,14 @@ export function createRodPanel(root, actions) {
   const casterRow = el('div', 'switch-row', `<span class="label">滚轮底盘（取消则用调平地脚）</span>`);
   const casterSw = el('div', 'switch');
   casterSw.setAttribute('role', 'switch');
+  casterSw.tabIndex = 0;
   casterSw.dataset.sw = 'casters';
+  casterSw.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      casterSw.click();
+    }
+  });
   casterRow.appendChild(casterSw);
   mount.appendChild(casterRow);
 
@@ -141,7 +148,7 @@ export function createRodPanel(root, actions) {
     <div class="weight-note" data-weight>自重计算中 …</div>
     <div class="action-row">
       <button class="cta" data-cta>加入配置清单</button>
-      <button class="cta-ghost" data-export>导出算料单 Excel</button>
+      <button class="cta-ghost" data-export title="SpreadsheetML 算料单，支持 Excel / WPS 打开">导出算料单</button>
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
     </div>
     <div class="panel-disclaimer">承重与报价为演示示例，实际以工程图纸与正式报价单为准。</div>`);
@@ -155,6 +162,10 @@ export function createRodPanel(root, actions) {
       ${INSTALL_STEPS_ROD.map(s => `<li><b>${s.t}</b>${s.d}</li>`).join('')}
     </ol>`;
   mount.appendChild(install);
+
+  const diagWrap = el('div', 'panel-diag-row', `<button type="button" class="btn-diag" aria-label="一键复制系统诊断信息">复制系统诊断信息</button>`);
+  diagWrap.querySelector('.btn-diag').addEventListener('click', () => { window.__ALU_COPY_DIAG && window.__ALU_COPY_DIAG(); });
+  mount.appendChild(diagWrap);
 
   mount.addEventListener('click', (e) => {
     const btn = e.target.closest('button, .switch');
@@ -197,13 +208,35 @@ export function createRodPanel(root, actions) {
     hField.querySelector('[data-num="h"]').textContent = c.height.toFixed(2) + ' m';
     hField.querySelector('[data-act="h-"]').disabled = c.height <= rodStore.limits.height[0];
     hField.querySelector('[data-act="h+"]').disabled = c.height >= rodStore.limits.height[1];
-    styleSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === c.style));
+    styleSeg.setAttribute('role', 'radiogroup');
+    backSeg.setAttribute('role', 'radiogroup');
+    shelfSeg.setAttribute('role', 'radiogroup');
+    styleSeg.querySelectorAll('button').forEach(b => {
+      b.setAttribute('role', 'radio');
+      const on = b.dataset.val === c.style;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+    });
     backField.style.display = (c.style === 'poster') ? '' : 'none';
-    backSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === c.backPanel));
-    shelfSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.val === c.shelf));
+    backSeg.querySelectorAll('button').forEach(b => {
+      b.setAttribute('role', 'radio');
+      const on = b.dataset.val === c.backPanel;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+    });
+    shelfSeg.querySelectorAll('button').forEach(b => {
+      b.setAttribute('role', 'radio');
+      const on = b.dataset.val === c.shelf;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+    });
     casterSw.classList.toggle('on', c.casters);
     casterSw.setAttribute('aria-checked', String(c.casters));
-    swatches.querySelectorAll('.swatch').forEach(s => s.classList.toggle('on', s.dataset.color === c.color));
+    swatches.querySelectorAll('.swatch').forEach(s => {
+      const on = s.dataset.color === c.color;
+      s.classList.toggle('on', on);
+      s.setAttribute('aria-pressed', String(on));
+    });
     // 报价由当前算料快照更新。
   }
   syncSpecs(state);

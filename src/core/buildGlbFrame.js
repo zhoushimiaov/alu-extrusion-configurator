@@ -270,6 +270,11 @@ function makeGlbStats(layout, config) {
   };
 }
 
+export function computeGlbStats(config) {
+  const layout = glbLayout(config);
+  return makeGlbStats(layout, config);
+}
+
 function orientDepthGeometry(geometry) {
   // 绕 Y 轴旋转 180°，使得原局部 z=0 端的端盖朝向 +Z 迎面（开放外侧），同时几何从 z=0 延伸至 z=-0.37
   geometry.rotateY(Math.PI);

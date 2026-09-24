@@ -61,4 +61,43 @@ export function decoratePanel(root) {
 
   // 价格
   before(root.querySelector('.price-block'), rule(), head('价格', 'PRICE'));
+
+  // ---- 键盘可访问性与语义注入（panel.js 原封，在装饰层统一增强）----
+  const switches = root.querySelectorAll('.switch[role="switch"]');
+  switches.forEach(sw => {
+    sw.tabIndex = 0;
+    const syncChecked = () => sw.setAttribute('aria-checked', String(sw.classList.contains('on')));
+    syncChecked();
+    sw.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        sw.click();
+        syncChecked();
+      }
+    });
+  });
+
+  const segs = root.querySelectorAll('.seg');
+  segs.forEach(seg => {
+    seg.setAttribute('role', 'radiogroup');
+    const syncRadio = () => {
+      seg.querySelectorAll('button').forEach(btn => {
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', String(btn.classList.contains('on')));
+      });
+    };
+    syncRadio();
+    seg.addEventListener('click', () => setTimeout(syncRadio, 0));
+  });
+
+  // 系统诊断信息按钮挂入文末
+  if (!root.querySelector('#btn-diag-copy')) {
+    const diagWrap = document.createElement('div');
+    diagWrap.className = 'panel-diag-row';
+    diagWrap.innerHTML = `<button type="button" class="btn-diag" id="btn-diag-copy" aria-label="一键复制系统诊断信息">复制系统诊断信息</button>`;
+    diagWrap.querySelector('#btn-diag-copy').addEventListener('click', () => {
+      window.__ALU_COPY_DIAG && window.__ALU_COPY_DIAG();
+    });
+    root.appendChild(diagWrap);
+  }
 }

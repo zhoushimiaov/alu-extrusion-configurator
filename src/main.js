@@ -5,10 +5,11 @@ import './styles.css';
 import { createScene } from './core/scene.js';
 import { createPostFX } from './core/postfx.js';
 import { buildShelf } from './core/buildShelf.js';
-import { buildGlbFrame } from './core/buildGlbFrame.js';
+import { buildGlbFrame, computeGlbStats } from './core/buildGlbFrame.js';
 import { retreatShelfBackPanels } from './core/shelfBackPanel.js';
 import { declutterProps } from './core/propsDeclutter.js';
 import { decoratePanel } from './ui/panelDecor.js';
+import { initConfigList, addConfigItem } from './ui/configList.js';
 import { buildRodRack } from './core/buildRodRack.js';
 import { createAnims } from './core/anims.js';
 import { createDimensions } from './core/dimensions.js';
@@ -111,8 +112,9 @@ function stageProduct(p) {
 }
 
 
-function rebuild() {
+function rebuild({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'profile') return;
+  const t0 = performance.now();
   const cfg = store.get();
   if (current) { scene.remove(current.group); current.dispose(); }
   current = cfg.frameMode === 'glb' ? buildGlbFrame(cfg) : buildShelf(cfg, cfg.props);
@@ -120,82 +122,99 @@ function rebuild() {
   declutterProps(current);
   scene.add(current.group);
   stageProduct(current);
-  if (!anims.REDUCED) anims.reveal(current.groups);
+  if (!anims.REDUCED && isEntrance) anims.reveal(current.groups);
   hud.syncReadout(cfg, current.stats);
   panel.updateStats(current.stats);
   panel.lastStats = current.stats;
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  const cost = performance.now() - t0;
+  if (cost > 10) console.debug(`[ALU] rebuild profile: ${cost.toFixed(1)}ms`);
 }
 
-function rebuildRod() {
+function rebuildRod({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'rod') return;
+  const t0 = performance.now();
   const cfg = rodStore.get();
   if (rodCurrent) { scene.remove(rodCurrent.group); rodCurrent.dispose(); }
   rodCurrent = buildRodRack(cfg);
   scene.add(rodCurrent.group);
   stageProduct(rodCurrent);
-  if (!anims.REDUCED) anims.revealGroups(rodCurrent.group.children);
+  if (!anims.REDUCED && isEntrance) anims.revealGroups(rodCurrent.group.children);
   rodHandles.sync();
   hudRod.syncReadout(cfg, rodCurrent.stats);
   panel.updateStats(rodCurrent.stats);
   panel.lastStats = rodCurrent.stats;
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  const cost = performance.now() - t0;
+  if (cost > 10) console.debug(`[ALU] rebuild rod: ${cost.toFixed(1)}ms`);
 }
 
-function rebuildCart() {
+function rebuildCart({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'cart') return;
+  const t0 = performance.now();
   const cfg = cartStore.get();
   if (cartCurrent) { scene.remove(cartCurrent.group); cartCurrent.dispose(); }
   cartCurrent = buildCartTable(cfg);
   scene.add(cartCurrent.group);
   stageProduct(cartCurrent);
-  if (!anims.REDUCED) anims.revealGroups(cartCurrent.group.children);
+  if (!anims.REDUCED && isEntrance) anims.revealGroups(cartCurrent.group.children);
   hud.syncReadout(cfg, cartCurrent.stats);
   panel.updateStats(cartCurrent.stats);
   panel.lastStats = cartCurrent.stats;
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  const cost = performance.now() - t0;
+  if (cost > 10) console.debug(`[ALU] rebuild cart: ${cost.toFixed(1)}ms`);
 }
 
-function rebuildCrates() {
+function rebuildCrates({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'crates') return;
+  const t0 = performance.now();
   const cfg = cratesStore.get();
   if (cratesCurrent) { scene.remove(cratesCurrent.group); cratesCurrent.dispose(); }
   cratesCurrent = buildCratesRack(cfg);
   scene.add(cratesCurrent.group);
   stageProduct(cratesCurrent);
-  if (!anims.REDUCED) anims.revealGroups(cratesCurrent.group.children);
+  if (!anims.REDUCED && isEntrance) anims.revealGroups(cratesCurrent.group.children);
   hud.syncReadout(cfg, cratesCurrent.stats);
   panel.updateStats(cratesCurrent.stats);
   panel.lastStats = cratesCurrent.stats;
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  const cost = performance.now() - t0;
+  if (cost > 10) console.debug(`[ALU] rebuild crates: ${cost.toFixed(1)}ms`);
 }
 
-function rebuildWoodCart() {
+function rebuildWoodCart({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'woodcart') return;
+  const t0 = performance.now();
   const cfg = woodcartStore.get();
   if (woodCartCurrent) { scene.remove(woodCartCurrent.group); woodCartCurrent.dispose(); }
   woodCartCurrent = buildWoodCart(cfg);
   scene.add(woodCartCurrent.group);
   stageProduct(woodCartCurrent);
-  if (!anims.REDUCED) anims.revealGroups(woodCartCurrent.group.children);
+  if (!anims.REDUCED && isEntrance) anims.revealGroups(woodCartCurrent.group.children);
   hud.syncReadout(cfg, woodCartCurrent.stats);
   panel.updateStats(woodCartCurrent.stats);
   panel.lastStats = woodCartCurrent.stats;
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  const cost = performance.now() - t0;
+  if (cost > 10) console.debug(`[ALU] rebuild woodcart: ${cost.toFixed(1)}ms`);
 }
 
-function rebuildHanger() {
+function rebuildHanger({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'hanger') return;
+  const t0 = performance.now();
   const cfg = hangerStore.get();
   if (hangerCurrent) { scene.remove(hangerCurrent.group); hangerCurrent.dispose(); }
   hangerCurrent = buildHanger(cfg);
   scene.add(hangerCurrent.group);
   stageProduct(hangerCurrent);
-  if (!anims.REDUCED) anims.revealGroups(hangerCurrent.group.children);
+  if (!anims.REDUCED && isEntrance) anims.revealGroups(hangerCurrent.group.children);
   hud.syncReadout(cfg, hangerCurrent.stats);
   panel.updateStats(hangerCurrent.stats);
   panel.lastStats = hangerCurrent.stats;
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  const cost = performance.now() - t0;
+  if (cost > 10) console.debug(`[ALU] rebuild hanger: ${cost.toFixed(1)}ms`);
 }
 
 function syncWoodCartStatsOnly() {
@@ -218,11 +237,17 @@ function syncHangerStatsOnly() {
 
 function syncStatsOnly() {
   const cfg = store.get();
-  const b = cfg.frameMode === 'glb' ? buildGlbFrame(cfg) : buildShelf(cfg, false);
-  hud.syncReadout(cfg, b.stats);
-  panel.updateStats(b.stats);
-  panel.lastStats = b.stats;
-  b.dispose();
+  let stats;
+  if (cfg.frameMode === 'glb') {
+    stats = computeGlbStats(cfg);
+  } else {
+    const b = buildShelf(cfg, false);
+    stats = b.stats;
+    b.dispose();
+  }
+  hud.syncReadout(cfg, stats);
+  panel.updateStats(stats);
+  panel.lastStats = stats;
 }
 
 function syncRodStatsOnly() {
@@ -282,7 +307,18 @@ document.getElementById('view-tools')?.addEventListener('click', (e) => {
 
 // ---- 动作 ----
 const profileActions = {
-  onAdd: (cfg) => showToast(`已加入配置清单 · ${cfg.bays} 跨 × ${cfg.levels} 层 · ${fmtPrice(calcPrice(cfg, panel.lastStats))}`),
+  onAdd: (cfg) => {
+    const p = fmtPrice(calcPrice(cfg, panel.lastStats));
+    const summary = `${cfg.bays} 跨 × ${cfg.levels} 层 · ${cfg.series} 系列`;
+    const { totalCount } = addConfigItem({
+      kind: 'profile',
+      title: '工业铝型材置物架',
+      summary,
+      priceText: p,
+      cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
+  },
   onExport: (cfg) => {
     const s = panel.lastStats;
     if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
@@ -301,7 +337,18 @@ const profileActions = {
   },
 };
 const rodActions = {
-  onAdd: (cfg) => showToast(`已加入配置清单 · 柱距 ${cfg.width.toFixed(2)} m · 柱长 ${cfg.height.toFixed(2)} m · ¥ ${calcRodPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`),
+  onAdd: (cfg) => {
+    const p = `¥ ${calcRodPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = `柱距 ${cfg.width.toFixed(2)} m · 柱长 ${cfg.height.toFixed(2)} m · ${cfg.style === 'poster' ? '海报架' : '挂画架'}`;
+    const { totalCount } = addConfigItem({
+      kind: 'rod',
+      title: '光轴展架',
+      summary,
+      priceText: p,
+      cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
+  },
   onExport: (cfg) => {
     const s = panel.lastStats;
     if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
@@ -321,7 +368,18 @@ const rodActions = {
 };
 
 const cartActions = {
-  onAdd: (cfg) => showToast(`已加入配置清单 · 宽 ${cfg.width.toFixed(2)} m × 深 ${cfg.depth.toFixed(2)} m · ¥ ${calcCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`),
+  onAdd: (cfg) => {
+    const p = `¥ ${calcCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = `宽 ${cfg.width.toFixed(2)} m × 深 ${cfg.depth.toFixed(2)} m`;
+    const { totalCount } = addConfigItem({
+      kind: 'cart',
+      title: '移动边几',
+      summary,
+      priceText: p,
+      cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
+  },
   onExport: (cfg) => {
     const s = panel.lastStats;
     if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
@@ -341,7 +399,18 @@ const cartActions = {
 };
 
 const cratesActions = {
-  onAdd: (cfg) => showToast(`已加入配置清单 · ${cfg.tiers} 层周转箱 · 宽 ${cfg.width.toFixed(2)} m · ¥ ${calcCratesPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`),
+  onAdd: (cfg) => {
+    const p = `¥ ${calcCratesPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = `${cfg.tiers} 层周转箱 · 宽 ${cfg.width.toFixed(2)} m`;
+    const { totalCount } = addConfigItem({
+      kind: 'crates',
+      title: '周转箱架',
+      summary,
+      priceText: p,
+      cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
+  },
   onExport: (cfg) => {
     const s = panel.lastStats;
     if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
@@ -361,7 +430,18 @@ const cratesActions = {
 };
 
 const woodcartActions = {
-  onAdd: (cfg) => showToast(`已加入配置清单 · 木展车 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ¥ ${calcWoodCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`),
+  onAdd: (cfg) => {
+    const p = `¥ ${calcWoodCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = `木展车 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m`;
+    const { totalCount } = addConfigItem({
+      kind: 'woodcart',
+      title: '木展车',
+      summary,
+      priceText: p,
+      cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
+  },
   onExport: (cfg) => {
     const s = panel.lastStats;
     if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
@@ -381,7 +461,18 @@ const woodcartActions = {
 };
 
 const hangerActions = {
-  onAdd: (cfg) => showToast(`已加入配置清单 · 挂衣架 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${cfg.drawers} 抽屉 · ¥ ${calcHangerPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`),
+  onAdd: (cfg) => {
+    const p = `¥ ${calcHangerPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = `挂衣架 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${cfg.drawers} 抽屉`;
+    const { totalCount } = addConfigItem({
+      kind: 'hanger',
+      title: '挂衣架',
+      summary,
+      priceText: p,
+      cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
+  },
   onExport: (cfg) => {
     const s = panel.lastStats;
     if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
@@ -411,26 +502,26 @@ function mountActiveProduct() {
   if (productKind === 'rod') {
     setInstallSteps(INSTALL_STEPS_ROD);
     panel = createRodPanel(panelRoot, rodActions);
-    if (webglFailed) syncRodStatsOnly(); else { rebuildRod(); if (rodCurrent && !scene.children.includes(rodHandles.group)) scene.add(rodHandles.group); }
+    if (webglFailed) syncRodStatsOnly(); else { rebuildRod({ isEntrance: true }); if (rodCurrent && !scene.children.includes(rodHandles.group)) scene.add(rodHandles.group); }
   } else if (productKind === 'cart') {
     setInstallSteps(INSTALL_STEPS_CART);
     panel = createCartPanel(panelRoot, cartActions);
-    if (webglFailed) syncCartStatsOnly(); else rebuildCart();
+    if (webglFailed) syncCartStatsOnly(); else rebuildCart({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'crates') {
     setInstallSteps(INSTALL_STEPS_CRATES);
     panel = createCratesPanel(panelRoot, cratesActions);
-    if (webglFailed) syncCratesStatsOnly(); else rebuildCrates();
+    if (webglFailed) syncCratesStatsOnly(); else rebuildCrates({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'woodcart') {
     setInstallSteps(INSTALL_STEPS_WOODCART);
     panel = createWoodCartPanel(panelRoot, woodcartActions);
-    if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart();
+    if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'hanger') {
     setInstallSteps(INSTALL_STEPS_HANGER);
     panel = createHangerPanel(panelRoot, hangerActions);
-    if (webglFailed) syncHangerStatsOnly(); else rebuildHanger();
+    if (webglFailed) syncHangerStatsOnly(); else rebuildHanger({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else {
     setInstallSteps(INSTALL_STEPS);
@@ -438,7 +529,7 @@ function mountActiveProduct() {
     decoratePanel(panelRoot); // 分区标题/行布局（panel.js 原封，装饰在接线层注入）
     panel = { ...inner, dispose() { /* 原封 panel.js 无显式资源；容器已由上方 innerHTML 清空 */ } };
     syncPriceNote();
-    if (webglFailed) syncStatsOnly(); else rebuild();
+    if (webglFailed) syncStatsOnly(); else rebuild({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   }
 }
@@ -454,7 +545,14 @@ function unloadAll() {
   if (hangerCurrent) { scene.remove(hangerCurrent.group); hangerCurrent.dispose(); hangerCurrent = null; }
 }
 function syncSwitchLabel() {
-  productTabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.kind === productKind));
+  productTabs.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.kind === productKind;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+    if (on) {
+      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  });
 }
 function switchTo(kind) {
   if (kind === productKind) return;
@@ -478,8 +576,15 @@ productTabs.addEventListener('click', (e) => {
 });
 syncSwitchLabel();
 
-// 防抖（每个 store 独立定时器，避免快速切产品时互相取消重建）
-const debounce = (fn, ms = 80) => {
+// 初始化配置清单系统
+initConfigList((kind, cfg) => {
+  switchTo(kind);
+  const targetStore = PRODUCT_STORES[kind];
+  if (targetStore && cfg) targetStore.set(cfg);
+});
+
+// 防抖（每个 store 独立定时器，参数微调只重构终态，不触发入场动画）
+const debounce = (fn, ms = 60) => {
   let t = 0;
   return () => { clearTimeout(t); t = setTimeout(fn, ms); };
 };
@@ -488,18 +593,22 @@ const debounce = (fn, ms = 80) => {
 // 新增产品只需在此登记，订阅接线（persist → rebuild → stats 兜底）自动完成，
 // 杜绝「数据已写但场景不重建」的假按钮事故（2026-09-15 曾发生 crates/woodcart 漏接）。
 const PRODUCT_SUBS = [
-  { kind: 'profile', store, rebuild: () => rebuild(), statsOnly: () => syncStatsOnly(), extra: () => syncPriceNote() },
-  { kind: 'rod', store: rodStore, rebuild: () => rebuildRod(), statsOnly: () => syncRodStatsOnly() },
-  { kind: 'cart', store: cartStore, rebuild: () => rebuildCart(), statsOnly: () => syncCartStatsOnly() },
-  { kind: 'crates', store: cratesStore, rebuild: () => rebuildCrates(), statsOnly: () => syncCratesStatsOnly() },
-  { kind: 'woodcart', store: woodcartStore, rebuild: () => rebuildWoodCart(), statsOnly: () => syncWoodCartStatsOnly() },
-  { kind: 'hanger', store: hangerStore, rebuild: () => rebuildHanger(), statsOnly: () => syncHangerStatsOnly() },
+  { kind: 'profile', store, rebuild: (opts) => rebuild(opts), statsOnly: () => syncStatsOnly(), extra: () => syncPriceNote() },
+  { kind: 'rod', store: rodStore, rebuild: (opts) => rebuildRod(opts), statsOnly: () => syncRodStatsOnly() },
+  { kind: 'cart', store: cartStore, rebuild: (opts) => rebuildCart(opts), statsOnly: () => syncCartStatsOnly() },
+  { kind: 'crates', store: cratesStore, rebuild: (opts) => rebuildCrates(opts), statsOnly: () => syncCratesStatsOnly() },
+  { kind: 'woodcart', store: woodcartStore, rebuild: (opts) => rebuildWoodCart(opts), statsOnly: () => syncWoodCartStatsOnly() },
+  { kind: 'hanger', store: hangerStore, rebuild: (opts) => rebuildHanger(opts), statsOnly: () => syncHangerStatsOnly() },
 ];
 for (const { kind, store: s, rebuild, statsOnly, extra } of PRODUCT_SUBS) {
   s.subscribe(debounce(() => {
     persist(kind, s.get());
-    if (productKind === kind) { rebuild(); if (webglFailed) statsOnly(); if (extra) extra(); }
-  }));
+    if (productKind === kind) {
+      rebuild({ isEntrance: false });
+      if (webglFailed) statsOnly();
+      if (extra) extra();
+    }
+  }, 60));
 }
 
 // KV 价格表到达后重刷价格区块（覆盖全部六产品；未配置 KV 时回退内置表也会触发一次，无副作用）
@@ -532,31 +641,32 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
 }
 
-// 诊断信息一键复制：品牌区「悬停 2s（桌面）或长按 1.5s（触屏）」触发，
+// 诊断信息一键复制：品牌区「悬停 2s（桌面）或长按 1.5s（触屏）」或点击文末按钮触发，
 // 收集 __ALU_ERRORS / __ALU_READY / UA / 配置 hash，供用户把线上问题现场信息发给维护者。
 // 不做远程上报（无接收端，避免死代码）。
 {
+  const fire = () => {
+    const diag = [
+      '=== MODULO 诊断信息 ===',
+      'UA: ' + navigator.userAgent,
+      'URL: ' + location.href,
+      'READY: ' + JSON.stringify(window.__ALU_READY || null),
+      'FX: ' + JSON.stringify(window.__ALU_FX || null),
+      'ERRORS: ' + JSON.stringify(window.__ALU_ERRORS || []),
+      'TIME: ' + new Date().toISOString(),
+    ].join('\n');
+    const done = () => showToast('诊断信息已复制，请粘贴发送给维护者');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(diag).then(done).catch(() => { console.info(diag); showToast('复制失败，诊断信息已输出到控制台'); });
+    } else {
+      console.info(diag);
+      showToast('诊断信息已输出到控制台（F12 查看）');
+    }
+  };
+  window.__ALU_COPY_DIAG = fire;
   const brand = document.querySelector('.brand');
   if (brand) {
     brand.style.cursor = 'pointer';
-    const fire = () => {
-      const diag = [
-        '=== MODULO 诊断信息 ===',
-        'UA: ' + navigator.userAgent,
-        'URL: ' + location.href,
-        'READY: ' + JSON.stringify(window.__ALU_READY || null),
-        'FX: ' + JSON.stringify(window.__ALU_FX || null),
-        'ERRORS: ' + JSON.stringify(window.__ALU_ERRORS || []),
-        'TIME: ' + new Date().toISOString(),
-      ].join('\n');
-      const done = () => showToast('诊断信息已复制，请粘贴发送给维护者');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(diag).then(done).catch(() => { console.info(diag); showToast('复制失败，诊断信息已输出到控制台'); });
-      } else {
-        console.info(diag);
-        showToast('诊断信息已输出到控制台（F12 查看）');
-      }
-    };
     // 桌面：悬停 2s；触屏：长按 1.5s（touchstart 计时，touchend/touchcancel 取消）
     let hoverTimer = 0, touchTimer = 0;
     brand.addEventListener('mouseenter', () => { hoverTimer = setTimeout(fire, 2000); });

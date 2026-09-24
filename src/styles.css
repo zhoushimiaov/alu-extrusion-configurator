@@ -11,8 +11,8 @@
   --fg: #1c1c1e;
   --fg-2: #333333;
   --fg-3: #666666;
-  --meta: #777777;
-  --caption: #999999;
+  --meta: #595959;            /* 提升对比度：符合 WCAG AA 4.5:1 */
+  --caption: #737373;         /* 提升对比度：符合 WCAG AA 3:1+ */
   --hairline: rgba(0, 0, 0, 0.08);
   --accent: #7e8f63;          /* 灰绿（装配模型选中态等） */
   --accent-ink: #ffffff;
@@ -23,6 +23,11 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 html, body { height: 100%; }
 
@@ -598,80 +603,307 @@ details.install ol { padding: 0 0 8px 18px; }
 details.install li { font-size: 13px; color: var(--fg-3); margin: 6px 0; line-height: 1.8; }
 details.install li b { color: var(--fg); font-weight: 600; }
 
+/* ---------- 配置清单抽屉 (Drawer) ---------- */
+.config-list-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+  cursor: pointer;
+  transition: all 0.18s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.config-list-btn:hover { background: #ffffff; }
+.config-list-btn .badge-num {
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  min-width: 16px;
+  text-align: center;
+}
+.config-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0.25s;
+}
+.config-drawer-root.open {
+  pointer-events: auto;
+  visibility: visible;
+}
+.drawer-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.config-drawer-root.open .drawer-mask { opacity: 1; }
+.drawer-panel {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 380px;
+  max-width: 88vw;
+  background: var(--panel-bg);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.config-drawer-root.open .drawer-panel { transform: translateX(0); }
+.drawer-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dh-title { font-size: 16px; font-weight: 600; color: var(--fg); }
+.dh-count { font-size: 13px; font-weight: 400; color: var(--meta); }
+.drawer-close {
+  border: 0; background: transparent; font-size: 16px; color: var(--meta); cursor: pointer; padding: 4px;
+}
+.drawer-body {
+  flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;
+}
+.drawer-empty {
+  text-align: center; padding: 60px 20px; color: var(--meta);
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--fg-2); margin-bottom: 6px; }
+.empty-desc { font-size: 12.5px; line-height: 1.6; color: var(--caption); }
+.drawer-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.dc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.dc-tag { font-size: 11px; font-weight: 600; background: #eef2eb; color: #51633d; padding: 2px 7px; border-radius: 4px; }
+.dc-time { font-size: 11px; color: var(--caption); }
+.dc-summary { font-size: 13px; font-weight: 500; color: var(--fg); margin-bottom: 10px; line-height: 1.5; }
+.dc-bottom { display: flex; justify-content: space-between; align-items: center; }
+.dc-price { font-size: 16px; font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
+.dc-actions { display: flex; gap: 6px; }
+.dc-btn {
+  border: 1px solid var(--hairline); background: #ffffff; font-size: 11.5px; padding: 4px 8px; border-radius: 4px; color: var(--fg-2); cursor: pointer;
+}
+.dc-btn:hover { background: #f5f5f5; }
+.dc-load { background: var(--fg); color: #fff; border-color: var(--fg); }
+.dc-load:hover { background: #333; }
+.drawer-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--hairline);
+  background: rgba(255,255,255,0.7);
+}
+.df-row { display: flex; gap: 10px; }
+.df-btn {
+  flex: 1; height: 38px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.df-clear { border: 1px solid var(--hairline); background: #ffffff; color: #c0392b; }
+.df-copy { border: 1px solid var(--hairline); background: var(--fg); color: #ffffff; }
+
+/* 诊断信息按钮 */
+.panel-diag-row {
+  margin-top: 24px;
+  text-align: center;
+}
+.btn-diag {
+  background: transparent;
+  border: 1px dashed var(--hairline);
+  color: var(--caption);
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.16s;
+}
+.btn-diag:hover { color: var(--fg); border-color: var(--meta); }
+
 /* ---------- 响应式 ---------- */
-/* 移动端：HUD 读数 / 尺寸标注 / 逐层逐跨按钮等原本压在 10–12px，
-   在窄屏上难以辨认。这里统一放大到 ≥13px 的可读区间，并给 3D 视口更多高度。 */
+/* 移动端彻底优化：
+   1. 3D 视口中央彻底清空，产品切换移至顶部导航条，再也不横切模型！
+   2. 隐藏冗余的侧边缩放按钮（移动端天然支持捏合手势），消灭左侧对模型的压迫遮挡。
+   3. 读数与视角控件分别收敛至视口两底角，留出 100% 完整的 3D 模型视觉空间。
+   4. 下方配置面板紧凑化，从“大段导语+巨型网格”重构为精炼横向指标栏，控件立即可见。 */
 @media (max-width: 919px) {
-  #layout { grid-template-columns: 1fr; grid-template-rows: minmax(46vh, 52vh) 1fr; height: 100dvh; }
-  #viewport { min-height: 0; }
-  .brand-overlay { top: 14px; left: 16px; }
-  .brand-name { font-size: 17px; letter-spacing: 0.26em; }
-  .brand-sub { font-size: 11px; }
+  #layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 52dvh 48dvh;
+    height: 100dvh;
+  }
+  #viewport {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+  /* 品牌与右上角清单按钮行 */
+  .brand-overlay {
+    top: 10px; left: 14px; right: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: auto;
+  }
+  .brand-name { font-size: 16px; letter-spacing: 0.22em; }
+  .brand-sub { display: none; }
   .price-src-badge { display: none; }
+  .config-list-btn { padding: 4px 10px; font-size: 11.5px; }
+
+  /* 产品切换：移动端置顶，紧随品牌栏下方，彻底移出 3D 视口中央！
+     再也不会横跨、遮挡 3D 主体模型！ */
   .product-tabs {
-    top: auto; bottom: 76px;
-    max-width: calc(100vw - 32px);
+    position: absolute;
+    top: 42px; bottom: auto; left: 12px; right: 12px;
+    transform: none;
+    max-width: calc(100vw - 24px);
+    margin: 0 auto;
+    padding: 3px 4px;
+    display: flex;
+    gap: 4px;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    z-index: 6;
   }
   .product-tabs::-webkit-scrollbar { display: none; }
-  .product-tabs button { font-size: 12px; padding: 7px 11px; }
-  #view-tools { left: 12px; }
-  #view-tools button { width: 38px; height: 38px; }
-  /* 3D 区图层太挤：HUD 左读数移到视口顶部（模型上方留白），
-     避开底部宽度/深度标注与底部控件条，三者不再重叠 */
-  #hud-left { top: 64px; bottom: auto; left: auto; right: 10px; max-width: 56vw; background: rgba(255,255,255,0.85); padding: 6px 10px; border-radius: 10px; text-align: right; }
-  #hud-left .rl-a { font-size: 12.5px; }
-  #hud-left .rl-b { font-size: 11.5px; }
-  #hud-right { bottom: 14px; max-width: 96vw; }
-  .chip, .chip-toggle { width: 40px; height: 40px; }
-  #panel { border-left: 0; border-top: 1px solid var(--hairline); padding: 24px 18px 32px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .panel-title { font-size: 22px; }
-  .panel-title .en { font-size: 11px; }
-  .panel-lead { font-size: 13.5px; }
-  .spec-grid { grid-template-columns: repeat(2, 1fr); gap: 14px 10px; }
-  .spec-cell .k { font-size: 12.5px; }
-  .spec-cell .v { font-size: 22px; }
-  .spec-cell .v small { font-size: 13px; }
-  .sec-head .t { font-size: 15px; }
-  .field-label { font-size: 13.5px; }
-  .field-row .field-label { font-size: 13.5px; }
-  .stepper { min-width: 140px; height: 44px; }
-  .stepper button { width: 40px; height: 40px; }
-  .stepper .num { font-size: 16px; }
-  .seg { flex-wrap: wrap; }
-  .seg button { flex: 1 1 40%; font-size: 13.5px; height: 44px; }
-  .level-row .lv-name { font-size: 13px; width: 58px; }
-  .level-row .seg button { font-size: 13px; height: 38px; }
-  .back-toggle { height: 38px; width: 58px; font-size: 13px; }
-  .bay-row .bay-name { font-size: 13px; width: 58px; }
-  .bay-row input { font-size: 15px; height: 40px; }
-  .bay-row .unit { font-size: 12.5px; }
-  .switch-row .label { font-size: 14px; }
-  .price-line .price { font-size: 27px; }
-  .price-note { font-size: 12px; }
-  .price-src { font-size: 12px; }
-  .price-breakdown { font-size: 12.5px; }
-  .price-detail summary { font-size: 13px; }
-  .pl-label, .pl-detail { font-size: 12.5px; }
-  .pl-links a { font-size: 12.5px; }
-  .weight-note { font-size: 12.5px; }
-  .action-row .cta, .action-row .cta-ghost { width: 100%; font-size: 15px; height: 48px; }
-  .action-row .cta-ghost { height: 44px; font-size: 14px; }
-  /* 3D 内尺寸标注放大 */
-  .dim-label { font-size: 15px; }
-  /* 热点（±按钮）放大触控目标 */
-  .hotspot { width: 40px; height: 40px; }
-  .hotspot svg { width: 15px; height: 15px; }
-  .hotspot .tip { font-size: 12.5px; }
-  .install { font-size: 13.5px; }
-  details.install summary { font-size: 14px; }
-  details.install summary .en { font-size: 12px; }
-  details.install li { font-size: 13.5px; }
-  .panel-disclaimer { font-size: 12px; }
+  .product-tabs button {
+    font-size: 12px;
+    padding: 5px 11px;
+    flex-shrink: 0;
+  }
+
+  /* 移动端原生支持触屏捏合手势缩放，隐藏遮挡模型的侧边浮动缩放工具条 */
+  #view-tools { display: none; }
+
+  /* 3D 读数：小巧置于视口左下角，不遮挡模型主干 */
+  #hud-left {
+    position: absolute;
+    top: auto; bottom: 12px; left: 12px; right: auto;
+    max-width: 48vw;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--hairline);
+    text-align: left;
+    z-index: 4;
+  }
+  #hud-left .rl-a { font-size: 11px; line-height: 1.3; }
+  #hud-left .rl-b { font-size: 10px; line-height: 1.2; margin-top: 2px; }
+  #hud-left .rl-c { display: none; }
+
+  /* 视图切换按钮：紧凑置于视口右下角 */
+  #hud-right {
+    position: absolute;
+    top: auto; bottom: 12px; right: 12px; left: auto;
+    transform: none;
+    max-width: 48vw;
+    padding: 3px;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--hairline);
+    z-index: 4;
+  }
+  .chip-group { padding-right: 2px; gap: 2px; }
+  .chip, .chip-toggle { width: 32px; height: 32px; }
+  .chip svg, .chip-toggle svg { width: 15px; height: 15px; }
+
+  /* 3D 尺寸标注精简 */
+  .dim-label { font-size: 12px; padding: 2px 5px; }
+
+  /* 配置面板：紧凑化，消灭无意义大空白，让关键控件触手可及 */
+  #panel {
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+    padding: 16px 14px 40px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--panel-bg);
+  }
+  .panel-title { font-size: 18px; margin-bottom: 2px; }
+  .panel-title .en { font-size: 9.5px; opacity: 0.6; }
+  .panel-lead { font-size: 12px; line-height: 1.5; color: var(--meta); margin-bottom: 10px; }
+
+  /* 规格网格：紧凑的横向卡片，从 120px 压至 46px，节约宝贵屏幕高度 */
+  .spec-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 8px 10px;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+    margin-bottom: 12px;
+  }
+  .spec-cell .k { font-size: 10px; color: var(--meta); margin-bottom: 2px; }
+  .spec-cell .v { font-size: 15px; font-weight: 600; }
+  .spec-cell .v small { font-size: 10.5px; margin-left: 1px; }
+
+  .sec-head { margin-top: 12px; margin-bottom: 6px; }
+  .sec-head .t { font-size: 13.5px; }
+  .sec-head .en { font-size: 9px; }
+  .sec-rule { margin: 10px 0; }
+
+  .field-label { font-size: 12.5px; margin-bottom: 6px; }
+  .field-row { margin-bottom: 8px; }
+  .field-row .field-label { font-size: 12.5px; }
+
+  .stepper { min-width: 120px; height: 38px; }
+  .stepper button { width: 36px; height: 36px; font-size: 16px; }
+  .stepper .num { font-size: 14px; min-width: 44px; }
+
+  .seg { gap: 4px; }
+  .seg button { font-size: 12px; height: 36px; padding: 0 8px; }
+
+  .level-row .lv-name { font-size: 12px; width: 50px; }
+  .level-row .seg button { font-size: 11.5px; height: 32px; }
+  .back-toggle { height: 32px; width: 50px; font-size: 11.5px; }
+  .bay-row .bay-name { font-size: 12px; width: 50px; }
+  .bay-row input { font-size: 13.5px; height: 34px; }
+  .bay-row .unit { font-size: 11px; }
+
+  .switch-row { padding: 6px 0; }
+  .switch-row .label { font-size: 13px; }
+
+  .price-block {
+    margin-top: 14px;
+    padding: 14px;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+  }
+  .price-line .price { font-size: 26px; }
+  .price-note { font-size: 11px; }
+  .price-breakdown { font-size: 11.5px; }
+  .action-row .cta { height: 44px; font-size: 14px; }
+  .action-row .cta-ghost { height: 40px; font-size: 13px; }
 }
+
 @media (max-width: 479px) {
-  .spec-grid { grid-template-columns: repeat(2, 1fr); }
+  .spec-grid { grid-template-columns: repeat(4, 1fr); }
   .brand-sub { display: none; }
 }
 

@@ -44,6 +44,7 @@ export function buildRodRack(config) {
   const mat = getRodMaterials(color);
 
   const group = new THREE.Group();
+  const groups = {};
   const stats = { profileLengthM: 0, weightKg: 0, partCount: 0, cutList: [], hardware: [] };
 
   // ---- 布局（参考模型 H=1.2：各档位高度按立柱长度等比映射）----
@@ -83,6 +84,7 @@ export function buildRodRack(config) {
   setMT(0, posts, postXs[0], yPost0 + postLen / 2, 0, ROD_D / 2, postLen, ROD_D / 2);
   setMT(1, posts, postXs[1], yPost0 + postLen / 2, 0, ROD_D / 2, postLen, ROD_D / 2);
   group.add(posts);
+  groups.posts = posts;
 
   // ---- 锥套（立柱底部插入底叉的过渡件）----
   const sockGeo = new THREE.CylinderGeometry(0.024, 0.028, 0.05, 14);
@@ -90,6 +92,7 @@ export function buildRodRack(config) {
   setMT(0, socks, postXs[0], 0.12, 0, 1, 1, 1);
   setMT(1, socks, postXs[1], 0.12, 0, 1, 1, 1);
   group.add(socks);
+  groups.socks = socks;
 
   // ---- 置物框双杆 + 中档 + 顶档（⌀12 × W±0.08）----
   const railLen = W + 0.08;
@@ -99,22 +102,26 @@ export function buildRodRack(config) {
   setMT(2, rails, 0, yMid, 0, railLen, RAIL_D / 2, RAIL_D / 2);
   setMT(3, rails, 0, yTop, 0, railLen, RAIL_D / 2, RAIL_D / 2);
   group.add(rails);
+  groups.rails = rails;
 
   // ---- 框侧连接短轴（⌀12 × 框深，左右各一）----
   const frameEnds = instanced(railZGeo, mat.rod, 2);
   setMT(0, frameEnds, postXs[0], yFrame, 0, RAIL_D / 2, RAIL_D / 2, zFrame * 2);
   setMT(1, frameEnds, postXs[1], yFrame, 0, RAIL_D / 2, RAIL_D / 2, zFrame * 2);
   group.add(frameEnds);
+  groups.frameEnds = frameEnds;
 
   // ---- 底盘：每柱一根 ⌀20×0.4 Z 向底叉长杆 + 双 X 横轴 ----
   const forks = instanced(railZGeo, mat.rod, 2);
   setMT(0, forks, postXs[0], yFork, 0, ROD_D / 2, ROD_D / 2, forkHalf);
   setMT(1, forks, postXs[1], yFork, 0, ROD_D / 2, ROD_D / 2, forkHalf);
   group.add(forks);
+  groups.forks = forks;
   const axles = instanced(railXGeo, mat.rod, 2);
   setMT(0, axles, 0, yAxle, axleOff, W + 0.02, ROD_D / 2, ROD_D / 2);
   setMT(1, axles, 0, yAxle, -axleOff, W + 0.02, ROD_D / 2, ROD_D / 2);
   group.add(axles);
+  groups.axles = axles;
   // 立柱与底叉交接的锥套座（柱底两侧短轴）
   const forkZs = instanced(railZGeo, mat.rod, 4);
   setMT(0, forkZs, postXs[0], yPost0 - 0.02, axleOff / 2, ROD_D / 2, RAIL_D / 2, axleOff + 0.05);
@@ -122,6 +129,7 @@ export function buildRodRack(config) {
   setMT(2, forkZs, postXs[1], yPost0 - 0.02, axleOff / 2, ROD_D / 2, RAIL_D / 2, axleOff + 0.05);
   setMT(3, forkZs, postXs[1], yPost0 - 0.02, -axleOff / 2, ROD_D / 2, RAIL_D / 2, axleOff + 0.05);
   group.add(forkZs);
+  groups.forkZs = forkZs;
 
   // ---- 斜撑 ×4：立柱上部（y≈0.24）斜插到底叉端头（y≈0.04，z≈±0.20），真实三角承力 ----
   const nDiag = 4;
@@ -146,6 +154,7 @@ export function buildRodRack(config) {
     _s.set(1, 1, 1);
   }
   group.add(diags);
+  groups.diags = diags;
 
   // ---- 斜撑卡箍：斜撑与底叉交叉处、斜撑与立柱相交处 ----
   const diagBlocks = instanced(blockGeo, mat.block, 8);
@@ -163,6 +172,7 @@ export function buildRodRack(config) {
     }
   }
   group.add(diagBlocks);
+  groups.diagBlocks = diagBlocks;
 
   // ---- 面板体系（按样式分派）----
   let boardCount = 0;
@@ -178,6 +188,7 @@ export function buildRodRack(config) {
     setMT(0, panels, -(W / 4 + 0.01), panelY, -0.012, panelW, panelH, 1);
     setMT(1, panels, (W / 4 + 0.01), panelY, -0.012, panelW, panelH, 1);
     group.add(panels);
+    groups.panels = panels;
     boardCount += 2;
     // 板夹（每板上下各一对）
     const clipGeo = new THREE.BoxGeometry(0.05, 0.035, 0.03);
@@ -190,6 +201,7 @@ export function buildRodRack(config) {
       }
     }
     group.add(clips);
+    groups.clips = clips;
     boardCount += 8;
     stats.panes = [{ label: '双联展板（白）', areaM2: +(2 * panelW * panelH).toFixed(3), kind: 'panel' }];
   } else if (style === 'acrylic') {
@@ -203,6 +215,7 @@ export function buildRodRack(config) {
     const acr = instanced(acrGeo, mat.acrylicClear, 1);
     setMT(0, acr, 0, acrY, -0.014, acrW, acrH, 1);
     group.add(acr);
+    groups.acr = acr;
     boardCount += 1;
     // 丝印文字条（白底黑字示意：两条半透明白条）
     const stripGeo = new THREE.BoxGeometry(1, 1, 0.001);
@@ -210,6 +223,7 @@ export function buildRodRack(config) {
     setMT(0, strips, 0, acrY + acrH * 0.18, -0.018, acrW * 0.82, 0.05, 1);
     setMT(1, strips, 0, acrY + acrH * 0.08, -0.018, acrW * 0.62, 0.035, 1);
     group.add(strips);
+    groups.printStrips = strips;
     boardCount += 2;
     // 板夹（左右各两组）
     const clipGeo = new THREE.BoxGeometry(0.05, 0.035, 0.032);
@@ -221,6 +235,7 @@ export function buildRodRack(config) {
       }
     }
     group.add(clips);
+    groups.clips = clips;
     boardCount += 4;
     stats.panes = [{ label: '亚克力展示屏（透明 8mm）', areaM2: +(acrW * acrH).toFixed(3), kind: 'acrylic' }];
   } else if (backPanel !== 'none') {
@@ -231,11 +246,13 @@ export function buildRodRack(config) {
     const board = instanced(boardVGeo, backPanel === 'zinc' ? mat.zinc : mat.poster, 1);
     setMT(0, board, 0, yB, zB, boardW, boardH, 1);
     group.add(board);
+    groups.board = board;
     // 左右包边
     const trims = instanced(trimGeo, mat.block, 2);
     setMT(0, trims, -(boardW / 2 + 0.006), yB, zB - 0.002, 1, boardH, 1);
     setMT(1, trims, boardW / 2 + 0.006, yB, zB - 0.002, 1, boardH, 1);
     group.add(trims);
+    groups.trims = trims;
     boardCount = 3;
     if (backPanel === 'poster') {
       // 海报 3 张（按模型拼贴坐标随板宽等比映射）
@@ -246,6 +263,7 @@ export function buildRodRack(config) {
       setMT(1, papers, 0.168 * k2, yB + 0.064 * k2, zP, 0.303 * k2, 0.422 * k2, 1);
       setMT(2, papers, -0.178 * k2, yB + 0.053 * k2, zP, 0.297 * k2, 0.210 * k2, 1);
       group.add(papers);
+      groups.papers = papers;
       boardCount += 3;
     }
     stats.panes = [];
@@ -256,17 +274,21 @@ export function buildRodRack(config) {
     const tray = instanced(boardHGeo, mat.zinc, 1);
     setMT(0, tray, 0, yFrame + 0.008, 0, W - 0.13, 1, 0.15);
     group.add(tray);
+    groups.tray = tray;
     boardCount += 1;
   } else if (shelf === 'deck') {
     // 全深层板：铺满双杆框（W-0.06 × 0.17），略超出框沿便于搭放
     const deck = instanced(boardHGeo, mat.zinc, 1);
     setMT(0, deck, 0, yFrame + 0.010, 0, W - 0.06, 1, zFrame * 2 + 0.03);
     group.add(deck);
+    groups.rodDeck = deck;
     // 层板托梁 ×2（⌀12，X 向，位于层板下方前后）
     const joists = instanced(railXGeo, mat.rod, 2);
     setMT(0, joists, 0, yFrame - 0.012, zFrame - 0.02, W - 0.06, RAIL_D / 2, RAIL_D / 2);
     setMT(1, joists, 0, yFrame - 0.012, -zFrame + 0.02, W - 0.06, RAIL_D / 2, RAIL_D / 2);
     group.add(joists);
+    groups.rodJoists = joists;
+    groups.joists = joists;
     boardCount += 1;
     stats.profileLengthM += 2 * (W - 0.06);
   }
@@ -289,6 +311,7 @@ export function buildRodRack(config) {
     setMT(bi++, blocks, px, yAxle, -axleOff);
   }
   group.add(blocks);
+  groups.blocks = blocks;
 
   // ---- 滚轮 / 地脚（轮在底叉端头 z=±0.20）----
   let wheelParts = 0;
@@ -305,6 +328,8 @@ export function buildRodRack(config) {
     }
     group.add(wheels);
     group.add(brks);
+    groups.wheels = wheels;
+    groups.brks = brks;
     wheelParts = 8;
   } else {
     const feet = instanced(footGeo, mat.block, 4);
@@ -315,6 +340,7 @@ export function buildRodRack(config) {
       }
     }
     group.add(feet);
+    groups.feet = feet;
     wheelParts = 4;
   }
 
@@ -374,6 +400,7 @@ export function buildRodRack(config) {
 
   return {
     group,
+    groups,
     stats,
     bounds: { W: W + 0.12, H: yTopCap + 0.04, D: 0.42 },
     config: cfg,

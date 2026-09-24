@@ -32,6 +32,7 @@ export function buildCartTable(config) {
   const mat = getCartMaterials(woodFinish);
 
   const group = new THREE.Group();
+  const groups = {};
   const stats = { profileLengthM: 0, weightKg: 0, partCount: 0, cutList: [], hardware: [] };
 
   const W = width;    // 柱心距 X
@@ -95,6 +96,8 @@ export function buildCartTable(config) {
   }
   group.add(aluPosts);
   group.add(woodPosts);
+  groups.aluPosts = aluPosts;
+  groups.woodPosts = woodPosts;
 
   // ---- 外露螺栓头 ×24（4 腿 × 3 层 × 2）：打在木纹板外侧面、每层框高度上（参考图特征）----
   {
@@ -109,6 +112,7 @@ export function buildCartTable(config) {
       }
     }
     group.add(bolts);
+    groups.bolts = bolts;
   }
 
   // ---- 三层方框（每层 2×X 梁 + 2×Z 梁）----
@@ -118,16 +122,22 @@ export function buildCartTable(config) {
   const frameLenZ = D + 2 * (LEG_ALU_D / 2 + BEAM);                  // Z 梁长（贴型材外侧，端抵 X 梁外侧面）
   const zBeamX = pz + LEG_ALU_D / 2 + legGap + BEAM / 2;             // X 梁中心离柱心 0.034（>型材半深 0.02，不穿模）
   const xBeamZ = px + LEG_ALU_T / 2 + BEAM / 2;                      // Z 梁中心离柱心 0.021
+  const beamsXGroup = new THREE.Group();
+  const beamsZGroup = new THREE.Group();
   for (const y of [yBottomFrame, yMidFrame, yTopFrame]) {
     const f = instanced(beamXGeo, mat.beam, 2);
     setMT(0, f, 0, y, -zBeamX, frameLenX, 1, 1);
     setMT(1, f, 0, y, zBeamX, frameLenX, 1, 1);
-    group.add(f);
+    beamsXGroup.add(f);
     const fz = instanced(beamZGeo, mat.beam, 2);
     setMT(0, fz, -xBeamZ, y, 0, 1, 1, frameLenZ);
     setMT(1, fz, xBeamZ, y, 0, 1, 1, frameLenZ);
-    group.add(fz);
+    beamsZGroup.add(fz);
   }
+  group.add(beamsXGroup);
+  group.add(beamsZGroup);
+  groups.beamsX = beamsXGroup;
+  groups.beamsZ = beamsZGroup;
   stats.profileLengthM += 3 * (2 * frameLenX + 2 * frameLenZ);
 
   // ---- 贴地踏杆 ×2（参考图轮叉上方的前后横梁，连接四条腿的底部）----
@@ -136,6 +146,7 @@ export function buildCartTable(config) {
     setMT(0, kicks, 0, yKick, -zBeamX, frameLenX - 0.03, 1, 1);
     setMT(1, kicks, 0, yKick, zBeamX, frameLenX - 0.03, 1, 1);
     group.add(kicks);
+    groups.kicks = kicks;
   }
   stats.profileLengthM += 2 * (frameLenX - 0.03);
 
@@ -145,6 +156,7 @@ export function buildCartTable(config) {
     const g = instanced(boardGeo, mat.glass, 1);
     setMT(0, g, 0, yTopFrame + BEAM / 2 + 0.004, 0, frameLenX + 0.05, 0.008, frameLenZ + 0.05);
     group.add(g);
+    groups.glass = g;
     panes.push({ label: '钢化玻璃台面', areaM2: +(((frameLenX + 0.05) * (frameLenZ + 0.05))).toFixed(3), kind: 'glass' });
   }
 
@@ -153,6 +165,7 @@ export function buildCartTable(config) {
     const a = instanced(boardGeo, midAcrylic === 'amber' ? mat.amber : mat.frost, 1);
     setMT(0, a, 0, yMidFrame + BEAM / 2 + 0.003, 0, frameLenX - 0.01, 0.006, frameLenZ - 0.01);
     group.add(a);
+    groups.acrylic = a;
     const area = ((frameLenX - 0.01) * (frameLenZ - 0.01));
     panes.push({
       label: midAcrylic === 'amber' ? '橙色亚克力中板' : '磨砂亚克力中板',
@@ -178,6 +191,7 @@ export function buildCartTable(config) {
       }
     }
     group.add(rails);
+    groups.rails = rails;
     // T 型夹块：夹在木纹板上（跨板面到杆），每根杆两端各一个
     const clamps = instanced(clampGeo, mat.clamp, railYs.length * 2 * 2);
     let ci = 0;
@@ -189,6 +203,7 @@ export function buildCartTable(config) {
       }
     }
     group.add(clamps);
+    groups.clamps = clamps;
   }
 
   // ---- 角部连接板 ×12（每层 ×4 角，贴型材 X 外侧面、包住梁柱节点，参考图侧面银色连接板）----
@@ -203,6 +218,7 @@ export function buildCartTable(config) {
       }
     }
     group.add(corners);
+    groups.corners = corners;
   }
 
 
@@ -232,6 +248,10 @@ export function buildCartTable(config) {
       }
     }
     group.add(wheels); group.add(hubs); group.add(forks); group.add(mounts);
+    groups.wheels = wheels;
+    groups.hubs = hubs;
+    groups.forks = forks;
+    groups.mounts = mounts;
     wheelParts = 20;
   } else {
     // 调平地脚：腿底小圆柱垫脚
@@ -242,6 +262,7 @@ export function buildCartTable(config) {
       setMT(fi++, feet, x, yLeg0 / 2, z);
     }
     group.add(feet);
+    groups.feet = feet;
     wheelParts = 4;
   }
 
@@ -292,6 +313,7 @@ export function buildCartTable(config) {
 
   return {
     group,
+    groups,
     stats,
     bounds: {
       W: frameLenX + 0.16,

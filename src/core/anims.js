@@ -125,23 +125,84 @@ export function createAnims(camera, controls) {
   let exploded = false;
   function explode(parts, on) {
     exploded = on;
-    // 标准架（buildShelf）与 GLB 同构装配（buildGlbFrame）的组名不同，两份键位都给：
-    // 缺哪个键跳过即可。props（摆件）跟随层板一起动，否则爆炸后摆件悬空。
+    if (!parts) return;
+    // 全品类零件爆炸位移字典：
+    // 缺哪个键自动跳过，各品类部件按物理装配逻辑向外浮动展开
     const moves = [
+      // ---- 工业铝型材置物架（标准架 buildShelf 与 GLB 同构 buildGlbFrame）----
       ['beamsB', new THREE.Vector3(0, 0, -0.32)],
       ['beamsRail', new THREE.Vector3(0, 0, 0.34)],
       ['deck', new THREE.Vector3(0, -0.45, 0.18)],
       ['panels', new THREE.Vector3(0, 0, -0.55)],
       ['brkV', new THREE.Vector3(0, 0, 0.30)],
       ['brkH', new THREE.Vector3(0, 0, 0.34)],
-      // GLB 同构装配键位
       ['strips', new THREE.Vector3(0, -0.45, 0.18)],   // 层板条 ≈ deck
-      ['pane', new THREE.Vector3(0, -0.45, 0.18)],     // 磨砂亚克力整板（标准/GLB 同名）
+      ['pane', new THREE.Vector3(0, -0.45, 0.18)],     // 磨砂亚克力整板
       ['battens', new THREE.Vector3(0, -0.28, 0.30)],  // 板下横条
       ['segments', new THREE.Vector3(0, 0, 0.34)],     // 正面分段立柱 ≈ beamsRail
       ['depth', new THREE.Vector3(0, 0.12, 0.30)],     // 进深梁
-      // 摆件跟随层板位移（两条路径同名）
-      ['props', new THREE.Vector3(0, -0.45, 0.18)],
+      ['props', new THREE.Vector3(0, -0.45, 0.18)],    // 摆件跟随层板
+
+      // ---- 光轴展架（buildRodRack）----
+      ['rails', new THREE.Vector3(0, 0.12, 0.28)],
+      ['frameEnds', new THREE.Vector3(0, 0.12, 0.28)],
+      ['board', new THREE.Vector3(0, 0, -0.38)],
+      ['trims', new THREE.Vector3(0, 0, -0.40)],
+      ['papers', new THREE.Vector3(0, 0, -0.36)],
+      ['acr', new THREE.Vector3(0, 0, -0.38)],
+      ['printStrips', new THREE.Vector3(0, 0, -0.36)],
+      ['clips', new THREE.Vector3(0, 0, -0.32)],
+      ['tray', new THREE.Vector3(0, -0.15, 0.32)],
+      ['rodDeck', new THREE.Vector3(0, -0.15, 0.32)],
+      ['rodJoists', new THREE.Vector3(0, -0.18, 0.32)],
+      ['diags', new THREE.Vector3(0, 0.05, 0.18)],
+      ['diagBlocks', new THREE.Vector3(0, 0.05, 0.18)],
+      ['blocks', new THREE.Vector3(0, 0.08, 0.14)],
+      ['forks', new THREE.Vector3(0, -0.10, 0)],
+      ['axles', new THREE.Vector3(0, -0.10, 0)],
+      ['forkZs', new THREE.Vector3(0, -0.10, 0)],
+      ['brks', new THREE.Vector3(0, -0.15, 0)],
+
+      // ---- 移动边几（buildCartTable）----
+      ['glass', new THREE.Vector3(0, 0.35, 0)],
+      ['acrylic', new THREE.Vector3(0, -0.10, 0.32)],
+      ['clamps', new THREE.Vector3(0, 0.08, 0.30)],
+      ['bolts', new THREE.Vector3(0, 0, 0.15)],
+      ['corners', new THREE.Vector3(0, 0.05, -0.18)],
+      ['kicks', new THREE.Vector3(0, -0.08, 0)],
+      ['beamsX', new THREE.Vector3(0, 0, 0.20)],
+      ['beamsZ', new THREE.Vector3(0.18, 0, 0)],
+      ['hubs', new THREE.Vector3(0, -0.15, 0)],
+      ['mounts', new THREE.Vector3(0, -0.15, 0)],
+
+      // ---- 周转箱收纳架（buildCratesRack）----
+      ['crates', new THREE.Vector3(0, 0, 0.40)],
+      ['tierBeams', new THREE.Vector3(0, 0, 0.22)],
+      ['frameX', new THREE.Vector3(0, 0, 0.22)],
+      ['frameZ', new THREE.Vector3(0.18, 0, 0)],
+
+      // ---- 光轴木展车（buildWoodCart）----
+      ['shelfBoards', new THREE.Vector3(0, 0, 0.32)],
+      ['shelfClamps', new THREE.Vector3(0, 0, 0.34)],
+      ['sideRails', new THREE.Vector3(0, 0, -0.22)],
+      ['peg', new THREE.Vector3(0, 0, -0.32)],
+      ['top', new THREE.Vector3(0, 0.20, 0)],
+      ['bottom', new THREE.Vector3(0, -0.12, 0)],
+      ['divider', new THREE.Vector3(0, 0, 0.20)],
+      ['flanges', new THREE.Vector3(0, 0.10, 0)],
+
+      // ---- 光轴挂衣架（buildHanger）----
+      ['topRail', new THREE.Vector3(0, 0.28, 0)],
+      ['zRails', new THREE.Vector3(0, 0.20, 0)],
+      ['shelf', new THREE.Vector3(0, 0, 0.30)],
+      ['doors', new THREE.Vector3(0, 0, 0.40)],
+      ['openBox', new THREE.Vector3(0, 0, 0.28)],
+      ['topPanel', new THREE.Vector3(0, 0.15, 0)],
+      ['braces', new THREE.Vector3(0, 0, -0.25)],
+
+      // ---- 通用部件（脚轮 / 地脚）----
+      ['wheels', new THREE.Vector3(0, -0.15, 0)],
+      ['feet', new THREE.Vector3(0, -0.12, 0)],
     ];
     const conn = parts.conn;
     if (REDUCED) {

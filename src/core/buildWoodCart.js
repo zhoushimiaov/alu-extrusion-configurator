@@ -31,6 +31,7 @@ export function buildWoodCart(config) {
   const mat = getWoodCartMaterials(woodTone);
 
   const group = new THREE.Group();
+  const groups = {};
   const stats = { profileLengthM: 0, weightKg: 0, partCount: 0, cutList: [], hardware: [] };
 
   const W = width, D = depth, H = height;
@@ -63,21 +64,26 @@ export function buildWoodCart(config) {
   setMT(0, sides, -px + BOARD_T / 2, cabinetH / 2, 0);
   setMT(1, sides, px - BOARD_T / 2, cabinetH / 2, 0);
   group.add(sides);
+  groups.sides = sides;
   const bottom = instanced(cabinetBottomGeo, mat.wood, 1);
   setMT(0, bottom, 0, BOARD_T / 2 + 0.01, 0);
   group.add(bottom);
+  groups.bottom = bottom;
   const top = instanced(cabinetTopGeo, mat.wood, 1);
   setMT(0, top, 0, cabTop - BOARD_T / 2, 0);
   group.add(top);
+  groups.top = top;
   if (pegboard) {
     const peg = instanced(pegGeo, mat.pegboard, 1);
     setMT(0, peg, 0, cabinetH / 2, -pz + BOARD_T / 2 + 0.005);
     group.add(peg);
+    groups.peg = peg;
   }
   // 柜体内部分隔（中部竖隔板）
   const divider = instanced(new THREE.BoxGeometry(BOARD_T, cabinetH - BOARD_T * 2, D - 0.06), mat.wood, 1);
   setMT(0, divider, 0, cabinetH / 2, 0);
   group.add(divider);
+  groups.divider = divider;
 
   // ---- 立柱 ×4（⌀16 光轴，穿柜角法兰到顶）----
   const postLen = H + 0.06;
@@ -87,6 +93,7 @@ export function buildWoodCart(config) {
     setMT(i++, posts, x, yPost0 + H / 2, z, ROD_D / 2, postLen, ROD_D / 2);
   }
   group.add(posts);
+  groups.posts = posts;
   stats.profileLengthM += 4 * postLen;
   // 法兰 ×4（柜顶面）
   const flanges = instanced(flangeGeo, mat.clamp, 4);
@@ -95,6 +102,7 @@ export function buildWoodCart(config) {
     setMT(fi++, flanges, x, cabTop + 0.006, z);
   }
   group.add(flanges);
+  groups.flanges = flanges;
 
   // ---- 中间层板 ×shelves（套柱，光轴夹块定位）----
   const shelfYs = [];
@@ -107,6 +115,7 @@ export function buildWoodCart(config) {
     setMT(si++, shelfBoards, 0, sy, 0, W - 0.02, 1, 1);
   }
   group.add(shelfBoards);
+  groups.shelfBoards = shelfBoards;
   // 层板夹块 ×4/层
   const shelfClamps = instanced(clampGeo, mat.clamp, shelves * 4);
   let sci = 0;
@@ -118,6 +127,7 @@ export function buildWoodCart(config) {
     }
   }
   group.add(shelfClamps);
+  groups.shelfClamps = shelfClamps;
 
   // ---- 顶部挂杆（横跨两前柱 + 两后柱，各 1 根 ⌀12）----
   let railCount = 0;
@@ -131,6 +141,7 @@ export function buildWoodCart(config) {
       railCount++;
     }
     group.add(rails);
+    groups.rails = rails;
     // 挂杆端夹块（各 2）
     const railClamps = instanced(clampGeo, mat.clamp, 4);
     let rci = 0;
@@ -140,6 +151,7 @@ export function buildWoodCart(config) {
       }
     }
     group.add(railClamps);
+    groups.railClamps = railClamps;
   }
 
   // ---- 侧向挂杆（左右各 1 根，Z 向）----
@@ -153,6 +165,7 @@ export function buildWoodCart(config) {
       railCount++;
     }
     group.add(sideRails);
+    groups.sideRails = sideRails;
   }
 
   // ---- 万向轮 / 地脚 ×4 ----
@@ -170,6 +183,8 @@ export function buildWoodCart(config) {
     }
     group.add(wheels);
     group.add(forks);
+    groups.wheels = wheels;
+    groups.forks = forks;
     wheelParts = 8;
   } else {
     const feet = instanced(forkGeo, mat.clamp, 4);
@@ -180,6 +195,7 @@ export function buildWoodCart(config) {
       }
     }
     group.add(feet);
+    groups.feet = feet;
     wheelParts = 4;
   }
 
@@ -222,6 +238,7 @@ export function buildWoodCart(config) {
 
   return {
     group,
+    groups,
     stats,
     bounds: { W: W + 0.14, H: yPost1 + 0.06, D: D + 0.14 },
     config: cfg,

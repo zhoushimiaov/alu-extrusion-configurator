@@ -118,16 +118,22 @@ export function buildCratesRack(config) {
   stats.profileLengthM += 4 * (H + BEAM * 2);
 
   // ---- 底框 + 顶框（X 梁 + Z 梁）----
+  const frameXGroup = new THREE.Group();
+  const frameZGroup = new THREE.Group();
   for (const y of [yBottom, yTop]) {
     const fx = instanced(beamXGeo, matAlu, 2);
     setM(fx, 0, -pz - POST_W / 2 + BEAM / 2, y, 'x');
     setM(fx, 1, pz - POST_W / 2 - BEAM / 2 + 0.002, y, 'x');
-    group.add(fx);
+    frameXGroup.add(fx);
     const fz = instanced(beamZGeo, matAlu, 2);
     setM(fz, 0, -px - POST_W / 2 + BEAM / 2, y, 'z');
     setM(fz, 1, px - POST_W / 2 - BEAM / 2 + 0.002, y, 'z');
-    group.add(fz);
+    frameZGroup.add(fz);
   }
+  group.add(frameXGroup);
+  group.add(frameZGroup);
+  groups.frameX = frameXGroup;
+  groups.frameZ = frameZGroup;
   stats.profileLengthM += 2 * (2 * frameLenX + 2 * frameLenZ);
 
   function setM(mesh, idx, a, b, axis) {
@@ -290,6 +296,7 @@ export function buildCratesRack(config) {
     crateGroup.add(g);
   }
   group.add(crateGroup);
+  groups.crates = crateGroup;
 
   // ---- 角件（底框 + 顶框 8 角）----
   const clampGeo = new THREE.BoxGeometry(0.045, 0.04, 0.045);
@@ -306,6 +313,7 @@ export function buildCratesRack(config) {
     }
   }
   group.add(corners);
+  groups.corners = corners;
 
   // ---- 万向轮 / 地脚 ----
   const wheelGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.018, 16);
@@ -327,6 +335,8 @@ export function buildCratesRack(config) {
     }
     group.add(wheels);
     group.add(forks);
+    groups.wheels = wheels;
+    groups.forks = forks;
     wheelParts = 8;
   } else {
     const feet = instanced(forkGeo, matClamp, 4);
@@ -338,6 +348,7 @@ export function buildCratesRack(config) {
       }
     }
     group.add(feet);
+    groups.feet = feet;
     wheelParts = 4;
   }
 

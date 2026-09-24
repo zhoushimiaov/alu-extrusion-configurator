@@ -95,20 +95,24 @@ export function buildHanger(config) {
   topRail.scale.set(1, railLen, 1);
   topRail.position.set(0, yPostTall - POST_D / 2, -pz);
   group.add(topRail);
+  groups.topRail = topRail;
   stats.profileLengthM += railLen;
   stats.weightKg += railLen * Math.PI * (POST_D / 2) ** 2 * DENSITY_ALU;
 
   // ---- 左右 Z 向短杆：连接前后柱（高度 = 矮柱顶） ----
   const zRailLen = D - POST_D;
+  const zRailsGroup = new THREE.Group();
   for (const x of postXs) {
     const zRail = new THREE.Mesh(railGeo, matAlu);
     zRail.rotation.x = Math.PI / 2;
     zRail.scale.set(1, zRailLen, 1);
     zRail.position.set(x, yPostShort - POST_D / 2, 0);
-    group.add(zRail);
+    zRailsGroup.add(zRail);
     stats.profileLengthM += zRailLen;
     stats.weightKg += zRailLen * Math.PI * (POST_D / 2) ** 2 * DENSITY_ALU;
   }
+  group.add(zRailsGroup);
+  groups.zRails = zRailsGroup;
 
 
   // ---- 中层搁板：前排矮柱之间木质板（GLB 特征：板下两侧斜撑）----
@@ -136,6 +140,7 @@ export function buildHanger(config) {
   }
   _s.set(1, 1, 1); _q.identity();
   group.add(braces);
+  groups.braces = braces;
   stats.weightKg += 2 * braceLen * 0.015 * 0.015 * DENSITY_ALU;
 
   // ---- 底柜：贴前柱矮柜（GLB 特征：柜体前缘对齐前柱内壁，后缘留空；柱从柜体两侧穿过）----
@@ -187,6 +192,7 @@ export function buildHanger(config) {
     openBox.scale.set(openW, openH, openD);
     openBox.position.set(cabW / 2 - cabWRight / 2 - 0.01, cabY, cabZ);
     group.add(openBox);
+    groups.openBox = openBox;
     stats.weightKg += (openW * openD + openH * openD * 2 + openW * openH) * PLY_T * DENSITY_PLY;
   }
 
@@ -195,6 +201,7 @@ export function buildHanger(config) {
   topPanel.scale.set(cabW + 0.02, 0.02, cabD + 0.04);
   topPanel.position.set(0, yPost0 + cabH + 0.01, cabZ - 0.01);
   group.add(topPanel);
+  groups.topPanel = topPanel;
   stats.weightKg += (cabW + 0.02) * (cabD + 0.04) * 0.02 * DENSITY_PLY;
 
   // ---- 底框（四角 2020 底框梁）----
@@ -224,6 +231,7 @@ export function buildHanger(config) {
       wheelsMesh.setMatrixAt(wi++, _m4);
     }
     group.add(wheelsMesh);
+    groups.wheels = wheelsMesh;
     stats.partCount += 4;
     stats.weightKg += 4 * WHEEL_MASS;
   } else {
@@ -234,6 +242,7 @@ export function buildHanger(config) {
       feet.setMatrixAt(fi++, _m4);
     }
     group.add(feet);
+    groups.feet = feet;
     stats.partCount += 4;
     stats.weightKg += 4 * FOOT_MASS;
   }

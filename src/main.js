@@ -123,6 +123,7 @@ function rebuild({ isEntrance = false } = {}) {
   scene.add(current.group);
   stageProduct(current);
   if (!anims.REDUCED && isEntrance) anims.reveal(current.groups);
+  if (anims.exploded && current?.groups) anims.explode(current.groups, true);
   hud.syncReadout(cfg, current.stats);
   panel.updateStats(current.stats);
   panel.lastStats = current.stats;
@@ -140,6 +141,7 @@ function rebuildRod({ isEntrance = false } = {}) {
   scene.add(rodCurrent.group);
   stageProduct(rodCurrent);
   if (!anims.REDUCED && isEntrance) anims.revealGroups(rodCurrent.group.children);
+  if (anims.exploded && rodCurrent?.groups) anims.explode(rodCurrent.groups, true);
   rodHandles.sync();
   hudRod.syncReadout(cfg, rodCurrent.stats);
   panel.updateStats(rodCurrent.stats);
@@ -158,6 +160,7 @@ function rebuildCart({ isEntrance = false } = {}) {
   scene.add(cartCurrent.group);
   stageProduct(cartCurrent);
   if (!anims.REDUCED && isEntrance) anims.revealGroups(cartCurrent.group.children);
+  if (anims.exploded && cartCurrent?.groups) anims.explode(cartCurrent.groups, true);
   hud.syncReadout(cfg, cartCurrent.stats);
   panel.updateStats(cartCurrent.stats);
   panel.lastStats = cartCurrent.stats;
@@ -175,6 +178,7 @@ function rebuildCrates({ isEntrance = false } = {}) {
   scene.add(cratesCurrent.group);
   stageProduct(cratesCurrent);
   if (!anims.REDUCED && isEntrance) anims.revealGroups(cratesCurrent.group.children);
+  if (anims.exploded && cratesCurrent?.groups) anims.explode(cratesCurrent.groups, true);
   hud.syncReadout(cfg, cratesCurrent.stats);
   panel.updateStats(cratesCurrent.stats);
   panel.lastStats = cratesCurrent.stats;
@@ -192,6 +196,7 @@ function rebuildWoodCart({ isEntrance = false } = {}) {
   scene.add(woodCartCurrent.group);
   stageProduct(woodCartCurrent);
   if (!anims.REDUCED && isEntrance) anims.revealGroups(woodCartCurrent.group.children);
+  if (anims.exploded && woodCartCurrent?.groups) anims.explode(woodCartCurrent.groups, true);
   hud.syncReadout(cfg, woodCartCurrent.stats);
   panel.updateStats(woodCartCurrent.stats);
   panel.lastStats = woodCartCurrent.stats;
@@ -209,6 +214,7 @@ function rebuildHanger({ isEntrance = false } = {}) {
   scene.add(hangerCurrent.group);
   stageProduct(hangerCurrent);
   if (!anims.REDUCED && isEntrance) anims.revealGroups(hangerCurrent.group.children);
+  if (anims.exploded && hangerCurrent?.groups) anims.explode(hangerCurrent.groups, true);
   hud.syncReadout(cfg, hangerCurrent.stats);
   panel.updateStats(hangerCurrent.stats);
   panel.lastStats = hangerCurrent.stats;
@@ -281,11 +287,23 @@ function syncCratesStatsOnly() {
 const hud = createHud(hudLeft, hudRight, {
   setView: (name) => {
     if (webglFailed) return;
-    if(name === 'node') { controls.autoRotate=false; anims.explode(current.groups,false); }
+    if (name === 'node') {
+      controls.autoRotate = false;
+      const act = active();
+      if (act?.groups) anims.explode(act.groups, false);
+      const boom = hudRight.querySelector('[aria-label="爆炸"]');
+      if (boom) boom.classList.remove('on');
+    }
     const vp = anims.viewPos(name, active().bounds);
     anims.flyTo(vp.pos, vp.tgt, 900);
   },
-  setExplode: (on) => { if (!webglFailed && current) anims.explode(current.groups, on); },
+  setExplode: (on) => {
+    if (!webglFailed) {
+      const act = active();
+      if (act?.groups) anims.explode(act.groups, on);
+      window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+    }
+  },
   setSpin: (on) => { if (!webglFailed) controls.autoRotate = on; },
 });
 const hudRod = hud;
@@ -587,6 +605,10 @@ function switchTo(kind) {
   persist(productKind, PRODUCT_STORES[productKind].get());
   syncSwitchLabel();
   mountActiveProduct();
+  if (anims.exploded) {
+    const act = active();
+    if (act?.groups) anims.explode(act.groups, true);
+  }
   if (!webglFailed) {
     const vp = anims.viewPos('iso', active().bounds);
     anims.flyTo(vp.pos, vp.tgt, 900);

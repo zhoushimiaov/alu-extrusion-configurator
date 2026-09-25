@@ -60,6 +60,20 @@ export function decoratePanel(root) {
     label?.remove();
   }
 
+  // 层板摘要文案规整："型材层板6" → "型材层板 ×6"（panel.js 原封生成，在此做视觉改写）
+  const deckSummary = root.querySelector('[data-deck-summary]');
+  if (deckSummary) {
+    const fmt = () => {
+      const s = deckSummary.textContent;
+      if (s) {
+        const next = s.replace(/([^\d\s×])\s*(\d+)/g, '$1 ×$2');
+        if (next !== s) deckSummary.textContent = next;
+      }
+    };
+    new MutationObserver(fmt).observe(deckSummary, { childList: true, characterData: true });
+    fmt();
+  }
+
   // 外观与配件（侧挡板 / 背板颜色 / 摆件 / 阳极氧化）
   before(root.querySelector('.switch-row'), rule(), head('外观与配件', 'FINISH'));
 

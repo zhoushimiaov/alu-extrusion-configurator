@@ -112,6 +112,7 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--caption);
+  white-space: nowrap;
 }
 .price-src-badge.fallback { color: var(--warning); }
 
@@ -124,6 +125,9 @@ button { font-family: inherit; cursor: pointer; }
   display: flex;
   gap: 2px;
   padding: 4px;
+  max-width: calc(100% - 240px);
+  overflow-x: auto;
+  scrollbar-width: none;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -131,19 +135,32 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 999px;
   box-shadow: var(--shadow-pill);
 }
+.product-tabs::-webkit-scrollbar { display: none; }
 .product-tabs button {
   border: 0;
   background: transparent;
   border-radius: 999px;
-  padding: 7px 13px;
-  font-size: 12.5px;
+  padding: 6px 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--fg-3);
   white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.18s, color 0.18s;
 }
 .product-tabs button:hover { color: var(--fg); background: rgba(0,0,0,0.05); }
 .product-tabs button.on { background: var(--fg); color: #ffffff; }
+
+@media (max-width: 1280px) and (min-width: 901px) {
+  .product-tabs {
+    max-width: calc(100% - 220px);
+    padding: 3px;
+  }
+  .product-tabs button {
+    padding: 5px 9px;
+    font-size: 11.5px;
+  }
+}
 
 /* ---------- 左侧浮动工具条（缩放 / 全屏） ---------- */
 #view-tools {
@@ -220,6 +237,7 @@ button { font-family: inherit; cursor: pointer; }
 #hud-left {
   position: absolute;
   left: 26px; bottom: 20px;
+  max-width: calc(50% - 160px);
   z-index: 4;
   font-family: var(--font-mix);
   pointer-events: none;
@@ -230,6 +248,9 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: 0.02em;
   color: var(--fg-2);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #hud-left .rl-a b { font-weight: 500; color: var(--alu-readout); }
 #hud-left .rl-b {
@@ -239,6 +260,9 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: 0.03em;
   color: var(--meta);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #hud-left .rl-b b { font-weight: 500; color: var(--alu-muted); }
 #hud-left .rl-c {
@@ -247,6 +271,9 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 400;
   letter-spacing: 0.06em;
   color: var(--caption);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- 底部居中浮动控件条 ---------- */
@@ -731,10 +758,10 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
 
 /* ---------- 价格区 ---------- */
 .price-block { margin-top: 4px; }
-.price-line { display: flex; align-items: baseline; gap: 10px; }
-.price-line .price { font-size: 30px; font-weight: 600; color: var(--fg); letter-spacing: 0.01em; font-variant-numeric: tabular-nums; }
-.price-note { font-size: 11.5px; color: var(--caption); }
-.price-src { margin-top: 8px; font-size: 11px; color: var(--caption); line-height: 1.6; }
+.price-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: nowrap; }
+.price-line .price { font-size: 30px; line-height: 1.15; font-weight: 600; color: var(--fg); letter-spacing: 0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+.price-note { font-size: 11.5px; color: var(--caption); flex: 1; min-width: 0; line-height: 1.4; }
+.price-src { margin-top: 8px; font-size: 11px; color: var(--caption); line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
 .price-breakdown { margin-top: 6px; font-size: 12.5px; color: var(--fg-3); line-height: 1.8; }
 .price-detail { margin-top: 6px; font-size: 12.5px; color: var(--fg-3); }
 .price-detail summary { cursor: pointer; font-size: 12.5px; color: var(--meta); }
@@ -812,6 +839,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  pointer-events: auto;
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -993,7 +1021,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
     transform: none;
     max-width: calc(100vw - 24px);
     margin: 0 auto;
-    padding: 3px 4px;
+    padding: 3px 8px;
     display: flex;
     gap: 4px;
     overflow-x: auto;
@@ -1004,6 +1032,8 @@ details.install li b { color: var(--fg); font-weight: 600; }
     -webkit-backdrop-filter: blur(12px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     z-index: 6;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 18px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 18px), transparent 100%);
   }
   .product-tabs::-webkit-scrollbar { display: none; }
   .product-tabs button {
@@ -1019,7 +1049,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
   #hud-left {
     position: absolute;
     top: auto; bottom: 12px; left: 12px; right: auto;
-    max-width: 48vw;
+    max-width: 43vw;
     background: rgba(255, 255, 255, 0.82);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -1028,45 +1058,71 @@ details.install li b { color: var(--fg); font-weight: 600; }
     border: 1px solid var(--hairline);
     text-align: left;
     z-index: 4;
+    box-sizing: border-box;
+    overflow: hidden;
   }
-  #hud-left .rl-a { font-size: 11px; line-height: 1.3; }
-  #hud-left .rl-b { font-size: 10px; line-height: 1.2; margin-top: 2px; }
+  #hud-left .rl-a {
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #hud-left .rl-b {
+    font-size: 10px;
+    line-height: 1.2;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   #hud-left .rl-c { display: none; }
 
-  /* 视图切换按钮：紧凑置于视口右下角 */
+  /* 视图切换按钮：紧凑置于视口右下角，手机端隐藏微距特写 node / slot，保证 5 颗全局视角完好显示 */
   #hud-right {
     position: absolute;
     top: auto; bottom: 12px; right: 12px; left: auto;
     transform: none;
     max-width: 48vw;
-    padding: 3px;
+    padding: 3px 4px;
     gap: 2px;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
     z-index: 4;
+    box-sizing: border-box;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  #hud-right::-webkit-scrollbar { display: none; }
   .chip-group { padding-right: 2px; gap: 2px; }
-  .chip, .chip-toggle { width: 32px; height: 32px; }
-  .chip svg, .chip-toggle svg { width: 15px; height: 15px; }
+  .chip, .chip-toggle { width: 28px; height: 28px; flex-shrink: 0; }
+  .chip svg, .chip-toggle svg { width: 14px; height: 14px; }
+  #hud-right [data-view="node"],
+  #hud-right [data-view="slot"] {
+    display: none;
+  }
 
-  /* 移动端全屏查看 3D 模型浮动按钮 */
+  /* 移动端全屏查看 3D 模型浮动按钮：置于顶部品牌栏右侧（紧靠清单按钮），彻底避开右下角 3D 尺寸标注 */
   .btn-mobile-fullscreen {
     position: absolute;
-    right: 12px;
-    bottom: 54px;
+    top: 10px;
+    right: 94px;
+    bottom: auto;
     z-index: 6;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 11px;
+    gap: 4px;
+    padding: 4px 9px;
     border: 1px solid var(--hairline);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.90);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
     color: var(--fg);
     font-size: 11.5px;
     font-weight: 500;
@@ -1106,7 +1162,9 @@ details.install li b { color: var(--fg); font-weight: 600; }
     max-height: 100dvh !important;
   }
   .mode-fullscreen-model .btn-mobile-fullscreen {
-    bottom: 56px;
+    top: 10px;
+    bottom: auto;
+    right: 94px;
     background: #000000;
     color: #ffffff;
     border-color: #000000;

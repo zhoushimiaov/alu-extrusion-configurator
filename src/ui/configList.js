@@ -99,7 +99,7 @@ function ensureDrawer() {
     <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="配置清单">
       <div class="drawer-header">
         <div class="dh-title">配置清单 <span class="dh-count" data-dh-count></span></div>
-        <button class="drawer-close" data-act="close" aria-label="关闭清单">✕</button>
+        <button class="drawer-close" data-act="close" aria-label="关闭清单"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="drawer-body" data-dh-body></div>
       <div class="drawer-footer" data-dh-footer></div>
@@ -125,7 +125,7 @@ function renderDrawerContent() {
   if (!list.length) {
     bodyEl.innerHTML = `
       <div class="drawer-empty">
-        <div class="empty-icon">📋</div>
+        <div class="empty-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg></div>
         <div class="empty-title">清单暂无已存配置</div>
         <div class="empty-desc">在下方或右侧配置面板点击「加入配置清单」，配置即可暂存到此处，方便对比不同方案。</div>
       </div>

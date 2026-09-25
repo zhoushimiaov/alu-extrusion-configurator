@@ -177,32 +177,54 @@ export function buildRodRack(config) {
   // ---- 面板体系（按样式分派）----
   let boardCount = 0;
   if (style === 'panel') {
-    // 双联展板：两块白色密度板，各挂一组柱（左右各一），中缝 0.06
-    // 板高：顶边不得高于顶档横杆（yTop），下边保持低于中档 0.18 的挂装关系
-    const panelW = Math.min(W / 2 - 0.05, 0.55);
-    const panelBottomY = yMid - 0.18;
-    const panelH = Math.max(0.30, Math.min(yTop - 0.05 - panelBottomY, 1.75));
-    const panelY = panelBottomY + panelH / 2;
-    const panelGeo = new THREE.BoxGeometry(1, 1, 0.016);
+    // 双联展板：两块对称白色展板，整齐挂装在顶档与中档横杆之间，中缝 16mm
+    // 物理结构：顶边齐平顶档横杆（yTop），底边落在中档横杆（yMid），杜绝横杆穿板与悬空伪影
+    const seam = 0.016;
+    const panelW = Math.max(0.18, (W - 0.08 - seam) / 2);
+    const panelH = yTop - yMid;
+    const panelY = yMid + panelH / 2;
+    const panelZ = -0.008;
+    const panelGeo = new THREE.BoxGeometry(1, 1, 0.012);
     const panels = instanced(panelGeo, mat.posterPanel, 2);
-    setMT(0, panels, -(W / 4 + 0.01), panelY, -0.012, panelW, panelH, 1);
-    setMT(1, panels, (W / 4 + 0.01), panelY, -0.012, panelW, panelH, 1);
+    const cX0 = -(seam / 2 + panelW / 2);
+    const cX1 = +(seam / 2 + panelW / 2);
+    setMT(0, panels, cX0, panelY, panelZ, panelW, panelH, 1);
+    setMT(1, panels, cX1, panelY, panelZ, panelW, panelH, 1);
     group.add(panels);
     groups.panels = panels;
     boardCount += 2;
-    // 板夹（每板上下各一对）
-    const clipGeo = new THREE.BoxGeometry(0.05, 0.035, 0.03);
+
+    // 导轨夹扣：真实扣接在 ⌀12 顶档与中档横杆上，每板上下各一对夹扣（共 8 颗），受力点真实可信
+    const clipGeo = new THREE.BoxGeometry(0.028, 0.034, 0.026);
     const clips = instanced(clipGeo, mat.block, 8);
     let ci = 0;
-    for (const sx of [-1, 1]) {
-      for (const yy of [panelY - panelH / 2 + 0.06, panelY + panelH / 2 - 0.06]) {
-        setMT(ci++, clips, sx * (W / 4 + 0.01) - sx * (panelW / 2 - 0.01), yy, -0.012);
-        setMT(ci++, clips, sx * (W / 4 + 0.01) + sx * (panelW / 2 - 0.01), yy, -0.012);
+    const clampOff = panelW * 0.28;
+    for (const cX of [cX0, cX1]) {
+      for (const yy of [yMid, yTop]) {
+        setMT(ci++, clips, cX - clampOff, yy, -0.004);
+        setMT(ci++, clips, cX + clampOff, yy, -0.004);
       }
     }
     group.add(clips);
     groups.clips = clips;
     boardCount += 8;
+
+    // 展板左右外侧包边条与正面海报图纸，赋予真实展板层次
+    const trims = instanced(trimGeo, mat.block, 2);
+    setMT(0, trims, cX0 - panelW / 2, panelY, panelZ, 1, panelH, 1);
+    setMT(1, trims, cX1 + panelW / 2, panelY, panelZ, 1, panelH, 1);
+    group.add(trims);
+    groups.panelTrims = trims;
+
+    const zP = panelZ + 0.007;
+    const papers = instanced(boardVGeo, mat.paper, 3);
+    setMT(0, papers, cX0, panelY, zP, panelW * 0.80, panelH * 0.78, 1);
+    setMT(1, papers, cX1, panelY + panelH * 0.22, zP, panelW * 0.80, panelH * 0.40, 1);
+    setMT(2, papers, cX1, panelY - panelH * 0.22, zP, panelW * 0.80, panelH * 0.36, 1);
+    group.add(papers);
+    groups.panelPapers = papers;
+    boardCount += 5;
+
     stats.panes = [{ label: '双联展板（白）', areaM2: +(2 * panelW * panelH).toFixed(3), kind: 'panel' }];
   } else if (style === 'acrylic') {
     // 亚克力展示屏：整张透明板挂柱身正面，丝印文字条两行

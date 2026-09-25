@@ -394,26 +394,95 @@ button { font-family: inherit; cursor: pointer; }
   transition: opacity 0.15s ease;
 }
 
-/* ---------- 热点按钮（细线 ± 图纸符号） ---------- */
+/* ---------- 3D 尺寸拖拽手柄（光轴展架：宽/高） ---------- */
+.rod-handle {
+  position: absolute;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: #ffffff;
+  color: var(--fg);
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background 0.16s, border-color 0.16s, box-shadow 0.16s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.05);
+  user-select: none;
+  touch-action: none;
+  z-index: 6;
+}
+.rod-handle svg {
+  width: 15px; height: 15px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.rod-handle:hover {
+  transform: translate(-50%, -50%) scale(1.12);
+  border-color: var(--fg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.rod-handle.dragging,
+.rod-handle:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(0.95);
+  background: var(--fg);
+  color: #ffffff;
+  border-color: var(--fg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+}
+.rod-handle-h { cursor: ns-resize; }
+.rod-handle-w { cursor: ew-resize; }
+
+/* ---------- 热点按钮（极简建筑图纸符号 ±） ---------- */
 .hotspot {
   position: absolute;
-  width: 28px; height: 28px;
+  width: 32px; height: 32px;
   border-radius: 50%;
-  border: 1px solid rgba(10, 10, 10, 0.55);
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--fg-2);
+  border: 1px solid var(--hairline);
+  background: #ffffff;
+  color: var(--fg);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   pointer-events: auto;
   transform: translate(-50%, -50%);
-  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background 0.16s, border-color 0.16s, opacity 0.2s;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background 0.16s, border-color 0.16s, box-shadow 0.16s, opacity 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10), 0 1px 2px rgba(0, 0, 0, 0.05);
   user-select: none;
+  z-index: 5;
 }
-.hotspot svg { width: 12px; height: 12px; }
+.hotspot svg {
+  width: 15px; height: 15px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+}
 .hotspot > span { display: flex; align-items: center; justify-content: center; }
-.hotspot:hover { transform: translate(-50%, -50%) scale(1.08); background: #ffffff; border-color: var(--fg); }
-.hotspot:active { transform: translate(-50%, -50%) scale(0.97); }
-.hotspot[disabled] { opacity: 0.25; cursor: default; }
+.hotspot:hover {
+  transform: translate(-50%, -50%) scale(1.12);
+  background: #ffffff;
+  border-color: var(--fg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.hotspot:active {
+  transform: translate(-50%, -50%) scale(0.95);
+  background: var(--fg);
+  color: #ffffff;
+  border-color: var(--fg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+}
+.hotspot[disabled] {
+  opacity: 0.28;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+  border-color: var(--hairline);
+  background: rgba(255, 255, 255, 0.6);
+}
 .hotspot[disabled]:hover { transform: translate(-50%, -50%); }
 .hotspot .tip {
   position: absolute;

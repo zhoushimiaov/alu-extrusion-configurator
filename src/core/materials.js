@@ -91,7 +91,7 @@ export function getRodMaterials(colorKey) {
     block: new THREE.MeshStandardMaterial({ color: 0x2e3237, roughness: 0.5, metalness: 0.6 }),
     poster: new THREE.MeshStandardMaterial({ color: 0xdfe3e8, roughness: 0.7, metalness: 0.1 }),
     paper: new THREE.MeshStandardMaterial({ color: 0xf4f2ec, roughness: 0.88, metalness: 0 }),
-    posterPanel: new THREE.MeshStandardMaterial({ color: 0xf0f1ee, roughness: 0.78, metalness: 0.02 }),
+    posterPanel: new THREE.MeshStandardMaterial({ color: 0xdbe0e5, roughness: 0.65, metalness: 0.05 }),
     // 透明亚克力薄板：真实透射
     acrylicClear: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0, transmission: 1, thickness: 0.004, ior: 1.49, envMapIntensity: 1.2, side: THREE.DoubleSide }),
     printStrip: new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.65, metalness: 0.05, transparent: true, opacity: 0.75 }),

@@ -413,12 +413,16 @@ button { font-family: inherit; cursor: pointer; }
   z-index: 6;
 }
 .rod-handle svg {
-  width: 15px; height: 15px;
+  width: 16px; height: 16px;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
+}
+.rod-handle svg path {
+  stroke: currentColor;
+  stroke-width: 2.4;
 }
 .rod-handle:hover {
   transform: translate(-50%, -50%) scale(1.12);
@@ -455,11 +459,16 @@ button { font-family: inherit; cursor: pointer; }
   z-index: 5;
 }
 .hotspot svg {
-  width: 15px; height: 15px;
+  width: 16px; height: 16px;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 2.8;
   stroke-linecap: round;
   fill: none;
+}
+.hotspot svg path {
+  stroke: currentColor;
+  stroke-width: 2.8;
+  stroke-linecap: round;
 }
 .hotspot > span { display: flex; align-items: center; justify-content: center; }
 .hotspot:hover {
@@ -662,14 +671,14 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
   border-radius: 50%;
   background: transparent;
   font-size: 0; /* 隐藏字符 glyph，± 由伪元素细线绘制 */
-  color: var(--fg-3);
+  color: var(--fg-2);
   transition: background 0.15s, color 0.15s;
 }
 .stepper button::before {
   content: "";
   position: absolute;
   left: 50%; top: 50%;
-  width: 11px; height: 1.3px;
+  width: 12px; height: 2px;
   border-radius: 1px;
   background: currentColor;
   transform: translate(-50%, -50%);
@@ -678,7 +687,7 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
   content: "";
   position: absolute;
   left: 50%; top: 50%;
-  width: 1.3px; height: 11px;
+  width: 2px; height: 12px;
   border-radius: 1px;
   background: currentColor;
   transform: translate(-50%, -50%);

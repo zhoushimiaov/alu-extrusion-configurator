@@ -10,6 +10,7 @@ import {
 } from './profiles.js';
 import { COLORS, PANEL_COLORS } from '../config/product.js';
 import { getSpangleTexture } from './spangleTexture.js';
+import { getPlankTexture } from './plankTexture.js';
 import './backPanelFinishes.js';
 import { getPropMaterials, getAcrylicMaterial } from './materials.js';
 
@@ -357,6 +358,40 @@ export function buildGlbFrame(config) {
     group.add(mesh);
     groups[key] = mesh;
   }
+  // ---- 层板 LOD：每跨每层（rib 层）一块板条纹理整板，远景替换亚像素板条几何 ----
+  {
+    const decksCfgLod = Array.isArray(config?.decks) ? config.decks : [];
+    const decksValidLod = decksCfgLod.length === (config?.levels || 0);
+    const bayWLod = Array.isArray(config?.bayWidths) ? config.bayWidths : [];
+    const lodXf = [];
+    if (bayWLod.length) {
+      let accLod = -bayWLod.reduce((s, w) => s + w, 0) / 2;
+      const xsLod = bayWLod.map((w) => { const c = accLod + w / 2; accLod += w; return [c, w]; });
+      for (let k = 0; k < (config?.levels || 0); k++) {
+        const rib = decksValidLod ? config.decks[k] === 'rib' : true;
+        if (!rib) continue;
+        for (const [cx, w] of xsLod) lodXf.push([cx, k * .46 + .01, w]);
+      }
+    }
+    if (lodXf.length) {
+      const lodGeoKey = 'glbstriplod:unit';
+      geometries.stripsLOD = cachedGeometry(lodGeoKey, () => new THREE.BoxGeometry(1, 1, 1));
+      const lodTex = getPlankTexture();
+      const lodMat = new THREE.MeshStandardMaterial({ color: 0xc6cbd1, roughness: 0.42, metalness: 0.72, ...(lodTex ? { map: lodTex } : {}) });
+      const lod = new THREE.InstancedMesh(geometries.stripsLOD, lodMat, lodXf.length);
+      lod.name = 'stripsLOD';
+      lod.visible = false; // 初始隐藏：main.js 按相机距离切换
+      const mm = new THREE.Matrix4();
+      lodXf.forEach(([cx, y, w], i) => {
+        mm.makeScale(w - .028, .02, .4);
+        mm.setPosition(cx, y, 0);
+        lod.setMatrixAt(i, mm);
+      });
+      lod.instanceMatrix.needsUpdate = true;
+      group.add(lod);
+      groups.stripsLOD = lod;
+    }
+  }
   if (config?.sidePanels) {
     const panelRows = glbBackPanelRows(config);
     if (panelRows.length) {
@@ -436,6 +471,7 @@ export function buildGlbFrame(config) {
       // 缓存池几何：引用计数释放（rebuild 复用时保持存活）；其余资源直接销毁
       for (const key of Object.keys(geometryKeys)) releaseGeometry(geometryKeys[key]);
       if (geometries.panels) releaseGeometry(panelGeoKey);
+      if (geometries.stripsLOD) releaseGeometry('glbstriplod:unit');
       if (geometries.pane) releaseGeometry(paneGeoKey);
       for (const mesh of Object.values(groups)) {
         if (!mesh.isInstancedMesh) continue;

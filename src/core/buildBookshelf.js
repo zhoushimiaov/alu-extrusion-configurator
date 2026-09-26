@@ -127,8 +127,10 @@ export function buildBookshelf(config) {
     partCount += li;
     group.add(legs);
 
-    // 底部前后横杆（通长）+ 每节中部横杆 + 端部 Z 向杆
-    const nRails = 2 + 2 + cfg.tBays * 2 + 2;
+    // 底部前后横杆（通长）+ 每节中部横杆 + 端部 Z 向杆。
+    // 注意：InstancedMesh count 必须与 setMT 次数严格一致——多出的实例保持单位矩阵，
+    // 会以原始几何（半径 1 的圆柱）渲染在原点 = 巨型圆管 blob（本 bug 的根因）。
+    const nRails = 2 + cfg.tBays * 2;
     const rails = instanced(railGeo, mat.rod, nRails);
     let ri = 0;
     setMT(ri++, rails, 0, 0.10, D / 2 - 0.03, W, railR, railR);

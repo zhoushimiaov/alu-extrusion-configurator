@@ -238,3 +238,34 @@
   「宽 <620 隐藏」同一设计意图；hotspots.js 原封不动）。经 CI 自动部署上线。
 - 测试方法论教训：getBoundingClientRect 不反映祖先 overflow 裁剪——滚动容器外的按钮
   会报「可见位置」但实际不可命中，hit-test 必须先按容器可见盒过滤（本轮曾因此误报）。
+
+
+## 深度修复轮（用户指令：按审阅报告收口全部遗留项）
+
+### 1. 长桌形态复活（此前隐藏的渲染 bug）
+- 根因：桌面横杆 `nRails = 2+2+tBays*2+2 = 12` 多算 4 个，实际仅 setMT 8 个——
+  **InstancedMesh 未初始化的实例保持单位矩阵，以原始几何（半径 1 圆柱）渲染在原点**，
+  即用户看到的巨型圆管 blob。修正 count = 2+tBays*2（与 setMT 严格一致），长桌重新上架。
+- 附带：glassTop 补进 DEFAULT_BOOKSHELF_CONFIG 与 persist SCHEMA（此前开关显示与实际渲染不一致）。
+- 教训：InstancedMesh 的 count 与实例初始化必须一一对应；实例矩阵抽查时除了 inst0
+  还要看**聚合包围盒**（本 bug 只有聚合 bbox 能暴露）。
+
+### 2. 层板远景摩尔纹 LOD（Opus 第三轮 §二-6，最后一条 P1）
+- `plankTexture.js`：一跨一 Tile 的板条条纹纹理（20mm 间距 + 亮度微差 + 缝隙暗线，mipmap）。
+- `buildGlbFrame` 新增 `groups.stripsLOD`：每跨每层（rib 层）一块 BoxGeometry(1,1,1) 实例板
+  （缩放到跨宽 × 0.02 × 0.4），UV 一 Tile 一跨；node 测试环境无 DOM 时跳过 map。
+- `main.js` 渲染循环按相机距离切换（阈值 4.5m，实测默认视距 7.39m → 默认 LOD 开）：
+  远景纹理板（mipmap 抗锯齿，摩尔纹消失），近景（<4.5m）切回真实板条几何。
+- 事故记录：切换 hook 首次插入在 `const a = active()` 之前，引用 TDZ 中的 a 致渲染循环
+  每帧 ReferenceError（本地构建全挂）——已移至 active() 声明后。位置敏感的渲染循环
+  补丁必须 node --check + 页面实际渲染双重验证。
+
+### 3. E2E Smoke CI 修复（推送即部署链路红灯）
+- `page.goto` 收到的是 fileURLToPath 的**裸路径**（invalid URL）→ 改 pathToFileURL().href。
+- 产品 tabs 已带 role=tab 语义，冒烟仍按 role=button 查找 → 同步为 role=tab。
+- playwright.config 增加 `channel: chrome`（CI ubuntu-latest 预装，本地免下载浏览器）。
+- 本地 `npm run smoke` **5/5 通过**（9.3s）。
+
+### 验收
+- `npm test` 89/89；`npm run smoke` 5/5；rodtest 基线一致；型材架 177.8kg/1956件/104.0m 不变。
+- 长桌/塔双形态截图 + LOD 远景截图核验；CI Deploy + Smoke 双绿后上线。

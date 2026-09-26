@@ -2,10 +2,11 @@
 // 覆盖:双产品加载、关键控件存在、视图切换、层数边界、导出按钮、价格区块、控制台无错误
 // 运行:npm run smoke （需要先 npm run build）
 import { test, expect } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
 
-const dist = fileURLToPath(new URL('../dist/index.html', import.meta.url));
+// file:// URL（pathToFileURL）——page.goto 需要完整 URL，裸路径会报 invalid URL
+const dist = pathToFileURL(fileURLToPath(new URL('../dist/index.html', import.meta.url))).href;
 
 test.beforeEach(async ({ page }) => {
   const errors = [];
@@ -70,9 +71,9 @@ test('光轴展架:切换 + 价格区块 + 导出按钮', async ({ page }) => {
   await expect(panel.locator('[data-price]')).toContainText('¥');
   await expect(panel.locator('[data-mkt-breakdown]')).toContainText('材料 ¥');
   // 切回型材架
-  await page.getByRole('button', { name: '切换到铝型材置物架' }).click();
+  await page.getByRole('tab', { name: '切换到铝型材置物架' }).click();
   await page.waitForTimeout(600);
-  await expect(page.getByRole('button', { name: '切换到光轴展架' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: '切换到光轴展架' })).toBeVisible();
   await page.waitForTimeout(400);
   expect(appErrors(page)).toEqual([]);
 });

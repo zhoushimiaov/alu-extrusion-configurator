@@ -932,8 +932,19 @@ if (webglFailed) {
     const auxHidden = backView || explodeAuxHidden;
     dimSvg.style.opacity = auxHidden ? '0' : '';
     hotspotLayer.style.display = auxHidden ? 'none' : '';
+    // 层板 LOD：远景（视距超阈值）用板条纹理整板替换亚像素板条几何（根治摩尔纹）。
+    // stripsLOD 仅 GLB 模式生成；爆炸态两组都保留各自偏移，可见性切换独立于爆炸。
     postfx.render();
     const a = active();
+    if (a && productKind === 'profile' && a.groups?.stripsLOD) {
+      const camDist = camera.position.distanceTo(controls.target);
+      window.__ALU_CAM_DIST = +camDist.toFixed(2); // QA：实测视距
+      const far = camDist > 4.5;
+      if (a.groups.strips.visible === far) {
+        a.groups.strips.visible = !far;
+        a.groups.stripsLOD.visible = far;
+      }
+    }
     if (a && !backView) {
       dims.update(a.stats?.envelope || a.bounds, center);
       nudgeDimLabels();

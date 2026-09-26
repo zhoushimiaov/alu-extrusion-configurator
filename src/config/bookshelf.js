@@ -47,6 +47,7 @@ export const DEFAULT_BOOKSHELF_CONFIG = {
   color: 'chrome',     // 框架表面
   tBays: 3,            // 长桌节数
   tBayW: 0.7,          // 长桌每节宽
+  glassTop: true,      // 长桌玻璃副层板
 };
 
 export const INSTALL_STEPS_BOOKSHELF = [

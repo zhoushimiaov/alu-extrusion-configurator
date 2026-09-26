@@ -87,7 +87,7 @@ export function createBookshelfPanel(root, actions) {
   // 型式
   const styleField = el('div', null, `<div class="field-label"><span>型式 STYLE</span></div>`);
   const styleSeg = el('div', 'seg');
-  for (const key of ['tower']) { // 长桌形态渲染调试中，暂只上架展示塔
+  for (const key of Object.keys(BOOK_STYLES)) {
     const b = el('button', null, BOOK_STYLES[key].label);
     b.dataset.seg = 'style'; b.dataset.val = key;
     styleSeg.appendChild(b);

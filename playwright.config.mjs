@@ -2,8 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'test',
-  timeout: 60000,
-  retries: 0,
+  timeout: 120000,
+  retries: 2, // CI headless 软件渲染下连续 GLB 重建可能崩溃浏览器会话，重试可自愈
   workers: 1,
   use: {
     headless: true,

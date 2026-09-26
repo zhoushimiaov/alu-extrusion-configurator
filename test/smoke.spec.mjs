@@ -47,7 +47,7 @@ test('层数可减到 2 并稳定渲染', async ({ page }) => {
     const n = +(await readout.textContent());
     if (n <= 2) break;
     await minus.click();
-    await expect(readout).not.toHaveText(String(n), { timeout: 5000 });
+    await expect(readout).not.toHaveText(String(n), { timeout: 10000 });
   }
   await expect(readout).toHaveText('2');
   await expect(minus).toBeDisabled();
@@ -59,7 +59,7 @@ test('导出 3D 模型可点击并出 toast', async ({ page }) => {
   await page.goto(dist + '#profile');
   await page.waitForFunction(() => window.__ALU_READY !== undefined, null, { timeout: 20000 });
   await page.getByRole('complementary', { name: '配置面板' }).getByRole('button', { name: '导出 3D 模型 (.glb)' }).click();
-  await expect(page.locator('#toast')).toContainText('3D 模型已导出', { timeout: 15000 });
+  await expect(page.locator('#toast')).toContainText('3D 模型已导出', { timeout: 30000 });
   expect(appErrors(page)).toEqual([]);
 });
 

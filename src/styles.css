@@ -1396,6 +1396,17 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .brand-sub { display: none; }
 }
 
+/* 矮视口（手机横屏 / 矮窗口）：隐藏 ± 热点。
+   hotspots.js 按「宽 <620」隐藏，但横屏（如 844×390）宽度 ≥620 仍会显示，
+   而视口高仅 ~390px 时模型顶部热点投影会落进产品 tabs 胶囊 band（z 6 > 热点 5）被盖住点不到。
+   面板步进器承担同样功能，矮屏直接隐藏（hotspots.js 原封，此处 CSS 覆盖）。 */
+@media (max-height: 500px) {
+  .hotspot {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

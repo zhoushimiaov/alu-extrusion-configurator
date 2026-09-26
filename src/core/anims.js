@@ -213,12 +213,16 @@ export function createAnims(camera, controls) {
       if (conn) conn.visible = !on;
       return;
     }
+    // 错峰绽放：爆炸时逐组 45ms 级联（上限 ~0.9s），收拢同步归位不等待——
+    // 「整架同时炸开」改为「波浪绽放」，部件间因果关系可读
+    let gi = 0;
     for (const [name, off] of moves) {
       const mesh = parts[name];
       if (!mesh) continue;
       const from = mesh.position.clone();
       const to = on ? off : new THREE.Vector3(0, 0, 0);
-      addTween({ dur: 600, onUpdate: (e) => mesh.position.lerpVectors(from, to, e) });
+      addTween({ dur: 600, delay: on ? Math.min(gi * 45, 900) : 0, onUpdate: (e) => mesh.position.lerpVectors(from, to, e) });
+      gi++;
     }
     if (conn) {
       const mat = conn.material;

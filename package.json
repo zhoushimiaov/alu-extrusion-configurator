@@ -13,6 +13,7 @@
     "smoke": "playwright test test/smoke.spec.mjs"
   },
   "dependencies": {
+    "driver.js": "^1.8.0",
     "three": "^0.170.0"
   },
   "devDependencies": {

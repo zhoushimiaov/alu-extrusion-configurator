@@ -31,6 +31,8 @@ import { createCratesPanel, cratesStore, calcCratesPrice } from './ui/cratesPane
 import { buildCratesRack } from './core/buildCratesRack.js';
 import { buildCartTable } from './core/buildCartTable.js';
 import { createHud } from './ui/hud.js';
+import { installSpecCountUp } from './ui/specCountUp.js';
+import { maybeStartTour } from './ui/tour.js';
 import { downloadCutlist } from './ui/cutlist.js';
 import { registerLabels } from './ui/cutlist.js';
 import { downloadModel } from './ui/modelExport.js';
@@ -60,6 +62,7 @@ const hudLeft = document.getElementById('hud-left');
 const hudRight = document.getElementById('hud-right');
 const panelRoot = document.getElementById('panel');
 const loader = document.getElementById('loader');
+installSpecCountUp(panelRoot); // 规格数字 count-up（显示层，不触碰 updateStats 写入）
 const toast = document.getElementById('toast');
 
 let renderer, scene, camera, controls, fitShadow, postfx;
@@ -699,6 +702,16 @@ function mountActiveProduct() {
     if (webglFailed) syncStatsOnly(); else rebuild({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   }
+  // 产品切换转场：面板内容 55ms 错峰淡入上浮（WAAPI 一次性动画，不占常驻 rAF；
+  // 衔接 3D 侧 900ms flyTo，消除「面板瞬切 vs 相机飞行」的节奏割裂）
+  if (panelRoot.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    [...panelRoot.children].forEach((el, i) => {
+      el.animate(
+        [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 280, delay: Math.min(i * 55, 440), easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'backwards' }
+      );
+    });
+  }
 }
 
 // ---- 产品切换 tab 组（三分支持 #rod / #cart URL 直达）----
@@ -716,9 +729,13 @@ function syncSwitchLabel() {
   productTabs.querySelectorAll('button').forEach(b => {
     const on = b.dataset.kind === productKind;
     b.classList.toggle('on', on);
-    b.setAttribute('aria-pressed', String(on));
     if (on) {
+      b.setAttribute('aria-selected', 'true');
+      b.tabIndex = 0; // roving tabindex：仅激活项可 Tab 聚焦
       b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    } else {
+      b.setAttribute('aria-selected', 'false');
+      b.tabIndex = -1;
     }
   });
 }
@@ -746,6 +763,22 @@ function switchTo(kind) {
 productTabs.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-kind]');
   if (btn) switchTo(btn.dataset.kind);
+});
+// 键盘导航（WAI-ARIA tabs 模式）：方向键移动并激活，Home/End 跳两端
+productTabs.addEventListener('keydown', (e) => {
+  const tabs = [...productTabs.querySelectorAll('button[data-kind]')];
+  const idx = tabs.findIndex((b) => b === document.activeElement);
+  if (idx === -1) return;
+  let next = null;
+  if (e.key === 'ArrowRight') next = tabs[(idx + 1) % tabs.length];
+  else if (e.key === 'ArrowLeft') next = tabs[(idx - 1 + tabs.length) % tabs.length];
+  else if (e.key === 'Home') next = tabs[0];
+  else if (e.key === 'End') next = tabs[tabs.length - 1];
+  if (next) {
+    e.preventDefault();
+    next.focus();
+    switchTo(next.dataset.kind);
+  }
 });
 syncSwitchLabel();
 
@@ -861,6 +894,7 @@ function hideLoader() {
 
 // ---- 渲染循环（按需渲染：静止时零 GPU 负载，只有交互/动画/自动旋转时才出帧）----
 if (webglFailed) {
+  loader.textContent = '正在生成骨架 …';
   mountActiveProduct();
 } else {
   let frames = 0;
@@ -966,6 +1000,7 @@ if (webglFailed) {
         hideLoader();
         window.__ALU_READY = { drawCalls: renderer.info.render.calls, tris: renderer.info.render.triangles };
         console.info('[ALU] ready', window.__ALU_READY);
+        setTimeout(() => maybeStartTour(), 900); // 首访 5 步引导（localStorage 一次）
       }
     }
     rafId = requestAnimationFrame(renderOnce);
@@ -997,6 +1032,7 @@ if (webglFailed) {
   // QA 调试：暴露当前产品 group，供浏览器端逐 mesh 包围盒核查（对抗性审查用）
   window.__ALU_GROUP = () => active()?.group || null;
 
+  loader.textContent = '正在生成骨架 …';
   mountActiveProduct();
   // QA 直达:#rod/side 或 #rod/front 时用对应静止视角替代入场动画
   const viewMatch = location.hash.startsWith('#node')

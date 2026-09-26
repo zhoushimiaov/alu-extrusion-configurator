@@ -6,6 +6,7 @@
 //   周转箱：正立方梯台（Box 主体叠台），正交摆放不歪斜；口沿加强圈
 //   万向轮 / 调平地脚
 import * as THREE from 'three';
+import { computeEnvelope } from './envelope.js';
 import { RAIL_BEAM, DENSITY_ALU, DEFAULT_CRATES_CONFIG, SCHEME_SEQ, CRATE_COLORS, CRATE_SCHEMES } from '../config/crates.js';
 import { makeTSlotShape, extrudeUp, extrudeAlongX, extrudeAlongZ } from './profiles.js';
 import { getCutMaterial } from './materials.js';
@@ -385,6 +386,7 @@ export function buildCratesRack(config) {
     { name: '滑轨垫片', qty: tiers * 4 },
   ];
 
+  stats.envelope = computeEnvelope(group);
   return {
     group,
     groups,

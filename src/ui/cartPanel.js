@@ -185,9 +185,6 @@ export function createCartPanel(root, actions) {
   markDrag(hField, 'height', '0.05');
 
   function syncSpecs(c) {
-    spec.querySelector('[data-spec="w"]').innerHTML = (c.width + 0.06).toFixed(2) + '<small>m</small>';
-    spec.querySelector('[data-spec="h"]').innerHTML = (c.height + 0.16).toFixed(2) + '<small>m</small>';
-    spec.querySelector('[data-spec="d"]').innerHTML = (c.depth + 0.06).toFixed(2) + '<small>m</small>';
     for (const [key, field] of [['width', wField], ['depth', dField], ['height', hField]]) {
       const n = field.querySelector('[data-num]');
       n.textContent = c[key].toFixed(2) + ' m';
@@ -222,6 +219,13 @@ export function createCartPanel(root, actions) {
   function updateStats(stats) {
     if (!stats) return;
     updatePriceBlock(priceBlock, stats);
+    // 总尺寸唯一数据源：builder 的真实外轮廓（与 3D 尺寸标注同源），不再手写 +常数
+    const env = stats.envelope;
+    if (env) {
+      spec.querySelector('[data-spec="w"]').innerHTML = env.W.toFixed(2) + '<small>m</small>';
+      spec.querySelector('[data-spec="h"]').innerHTML = env.H.toFixed(2) + '<small>m</small>';
+      spec.querySelector('[data-spec="d"]').innerHTML = env.D.toFixed(2) + '<small>m</small>';
+    }
     spec.querySelector('[data-spec="p"]').innerHTML = stats.partCount.toLocaleString('zh-CN') + '<small>件</small>';
     priceBlock.querySelector('[data-weight]').textContent = `含轮与角件 · 零件 ${stats.partCount.toLocaleString('zh-CN')} 件`;
   }

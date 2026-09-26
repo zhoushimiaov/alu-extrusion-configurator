@@ -75,7 +75,9 @@ test('updatePriceBlock 正常运行并填充价格与明细，无未定义变量
       innerHTML: '',
       append: () => {},
       appendChild: () => {},
-      classList: { remove: () => {}, add: () => {} },
+      after: () => {},
+      remove: () => {},
+      classList: { remove: () => {}, add: () => {}, toggle: () => {} },
       offsetWidth: 100,
     }),
   };
@@ -85,6 +87,9 @@ test('updatePriceBlock 正常运行并填充价格与明细，无未定义变量
       textContent: '',
       append: () => {},
       appendChild: () => {},
+      after: () => {},
+      remove: () => {},
+      setAttribute: () => {},
     }),
   };
   const stats = { cutList: [{ spec: '梁', section: '20×40', len: 1, qty: 2 }], hardware: [], panes: [] };

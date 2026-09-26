@@ -9,6 +9,8 @@ import {
   extrudeAlongX,
 } from './profiles.js';
 import { COLORS, PANEL_COLORS } from '../config/product.js';
+import { getSpangleTexture } from './spangleTexture.js';
+import './backPanelFinishes.js';
 import { getPropMaterials, getAcrylicMaterial } from './materials.js';
 
 // 世界坐标系定义（与标准货架对齐）：
@@ -79,10 +81,20 @@ function glbBackPanelRows(config) {
   const levels = config.levels || 1;
   const backs = Array.isArray(config.backs) ? config.backs : null;
   const rows = [];
-  for (let k = 0; k < levels; k++) {
+  // 外挂封板式：每层一块整板，贴在框架背面外侧（板厚 -0.218..-0.206，
+  // 比后柱外侧面 (-0.20) 和层板条尾端 (-0.20) 再靠后 6mm——从背面看是一整块
+  // 无缝墙面，柱网格与层板端头全部藏在板后；板宽 = W + 0.06，两侧包住端柱外沿，
+  // 消除旧版「背板比框架窄一截」的浮板感。逐层开关：backs[k]==='none' 的层留空。
+  // 背板全开（无 none 层）→ 整块通高拉通，零横向接缝；逐层开关时按层分块
+const H = levels * .46 + .03;
+if (!backs || backs.every(b => b !== 'none')) {
+  rows.push([0, H / 2, -0.212, H]);
+  return rows;
+}
+for (let k = 0; k < levels; k++) {
     if (backs && backs[k] === 'none') continue;
     // 层区间：底梁顶面 (k*.46+.03) 到上层梁底面 ((k+1)*.46)，高 .43
-    rows.push([0, k * .46 + .245, -0.206, .43]);
+    rows.push([0, k * .46 + .245, -0.212, .43]);
   }
   return rows;
 }
@@ -334,7 +346,7 @@ export function buildGlbFrame(config) {
     strips: cachedGeometry(geometryKeys.strips, () => extrudeAlongZ(makeGlbStripShape(), .4)),
     battens: cachedGeometry(geometryKeys.battens, () => extrudeAlongX(makeTSlotShape(.02, .01), layout.W + .03)),
   };
-  const panelGeoKey = `panel:${layout.W - .03}`;
+    const panelGeoKey = `panel:${layout.W}`; // 外挂封板：两侧各包住端柱外沿 3cm // 单位宽板：实例按跨缩放（分跨嵌入，见 glbBackPanelRows）
   const paneGeoKey = 'glbpane:unit';
   const hasPanels = !!(config?.sidePanels && glbBackPanelRows(config).length);
   for (const [key, rows] of Object.entries(layout.rows)) {
@@ -349,9 +361,15 @@ export function buildGlbFrame(config) {
     const panelRows = glbBackPanelRows(config);
     if (panelRows.length) {
       const panelCfg = PANEL_COLORS[config?.panelColor] || PANEL_COLORS.galv;
-      const panelGeometry = cachedGeometry(panelGeoKey, () => new THREE.BoxGeometry(layout.W - .03, 1, .012));
+      const panelGeometry = cachedGeometry(panelGeoKey, () => new THREE.BoxGeometry(layout.W + .06, 1, .012));
       geometries.panels = panelGeometry;
       const panelMaterial = new THREE.MeshStandardMaterial({ color: panelCfg.hex, metalness: panelCfg.metalness, roughness: panelCfg.roughness });
+      if (panelCfg.spangle) {
+        // 幻彩镀锌：程序化锌花纹理（repeat 按板面尺寸约 0.55m 一 Tile）
+        const tex = getSpangleTexture();
+        tex.repeat.set(Math.max(1, Math.round((layout.W + .06) / .55)), Math.max(1, Math.round(panelRows[0][3] / .55)));
+        panelMaterial.map = tex;
+      }
       const mesh = new THREE.InstancedMesh(panelGeometry, panelMaterial, panelRows.length);
       mesh.name = 'panels';
       panelRows.forEach(([x, y, z, h], i) => {

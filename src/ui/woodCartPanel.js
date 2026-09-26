@@ -178,9 +178,6 @@ export function createWoodCartPanel(root, actions) {
   markDrag(sField, 'shelves', '1');
 
   function syncSpecs(c) {
-    spec.querySelector('[data-spec="w"]').innerHTML = (c.width + 0.06).toFixed(2) + '<small>m</small>';
-    spec.querySelector('[data-spec="h"]').innerHTML = (c.height + c.cabinetH + 0.04).toFixed(2) + '<small>m</small>';
-    spec.querySelector('[data-spec="d"]').innerHTML = (c.depth + 0.06).toFixed(2) + '<small>m</small>';
     const conf = [['width', wField, 'w'], ['depth', dField, 'd'], ['height', hField, 'h'], ['shelves', sField, 's']];
     for (const [key, field, act] of conf) {
       const n = field.querySelector('[data-num]');
@@ -211,6 +208,13 @@ export function createWoodCartPanel(root, actions) {
   function updateStats(stats) {
     if (!stats) return;
     updatePriceBlock(priceBlock, stats);
+    // 总尺寸唯一数据源：builder 的真实外轮廓（与 3D 尺寸标注同源），不再手写 +常数
+    const env = stats.envelope;
+    if (env) {
+      spec.querySelector('[data-spec="w"]').innerHTML = env.W.toFixed(2) + '<small>m</small>';
+      spec.querySelector('[data-spec="h"]').innerHTML = env.H.toFixed(2) + '<small>m</small>';
+      spec.querySelector('[data-spec="d"]').innerHTML = env.D.toFixed(2) + '<small>m</small>';
+    }
     spec.querySelector('[data-spec="p"]').innerHTML = stats.partCount.toLocaleString('zh-CN') + '<small>件</small>';
     priceBlock.querySelector('[data-weight]').textContent = `含轮与五金 · 零件 ${stats.partCount.toLocaleString('zh-CN')} 件`;
   }

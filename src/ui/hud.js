@@ -18,6 +18,8 @@ const ICONS = {
 export function createHud(hudLeft, hudRight, actions) {
   const readout = document.createElement('div');
   hudLeft.appendChild(readout);
+  // 读数卡点按展开/收起（移动端白卡可点；桌面层 pointer-events:none 不响应）
+  hudLeft.addEventListener('click', () => hudLeft.classList.toggle('expanded'));
 
   function syncReadout(c, stats) {
     const nodeButton=hudRight.querySelector('[data-view="node"]');
@@ -30,6 +32,12 @@ export function createHud(hudLeft, hudRight, actions) {
       const w2 = c.width !== undefined ? `宽 <b>${c.width.toFixed(2)} m</b>` : '';
       const d2 = c.depth !== undefined ? ` · 深 <b>${c.depth.toFixed(2)} m</b>` : '';
       const h2 = c.height !== undefined ? ` · 高 <b>${c.height.toFixed(2)} m</b>` : '';
+      if (c.kind === 'books') {
+        const matLabel = { gray: '麻灰板', spangle: '幻彩镀锌', white: '哑白' }[c.panelMat] || '';
+        if (c.style === 'table') { readout.innerHTML = `<div class="rl rl-a">光轴长桌 · ${c.tBays} 节 × ${c.tBayW.toFixed(2)} m · 深 ${c.depth.toFixed(2)} m</div>`; return; }
+        readout.innerHTML = `<div class="rl rl-a">光轴书架 · ${c.levels} 层 × ${c.bays} 跨 · ${matLabel} · ${c.base ? '木箱脚轮' : '地脚'}</div>`;
+        return;
+      }
       if (c.drawers !== undefined) { readout.innerHTML = `<div class="rl rl-a">光轴挂衣架 · ${w2}${d2}${h2} · <b>${c.drawers} 层抽屉</b></div>`; return; }
       if (c.cabinetH !== undefined) { readout.innerHTML = `<div class="rl rl-a">光轴木展车 · ${w2}${h2} · ${c.shelves} 层板</div>`; return; }
       if (c.scheme !== undefined) { readout.innerHTML = `<div class="rl rl-a">周转箱收纳架 · <b>${c.tiers} 层</b> · ${w2}${d2}</div>`; return; }
@@ -40,6 +48,21 @@ export function createHud(hudLeft, hudRight, actions) {
       for (const d of c.decks) counts[d] = (counts[d] || 0) + 1;
       const deckText = Object.keys(counts).length === 1 ? DECK_TYPES[c.decks[0]].label : Object.entries(counts).map(([k, n]) => `${DECK_TYPES[k].label}${n}`).join(' / ');
       readout.innerHTML = `<div class="rl rl-a"><b>${c.bays} × ${c.levels}</b> 网格 · ${PROFILE_SERIES[c.series].label} · ${deckText}</div>`;
+      return;
+    }
+    if (c.kind === 'books') {
+      const matLabel = { gray: '麻灰板', spangle: '幻彩镀锌', white: '哑白' }[c.panelMat] || '';
+      if (c.style === 'table') {
+        readout.innerHTML =
+          `<div class="rl rl-a">光轴长桌 · ${c.tBays} 节 × ${c.tBayW.toFixed(2)} m · 深 ${c.depth.toFixed(2)} m</div>` +
+          `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>` +
+          `<div class="rl rl-c">节点与隐藏连接为示意 · 不作为加工、采购或承重依据</div>`;
+        return;
+      }
+      readout.innerHTML =
+        `<div class="rl rl-a">光轴书架 · ${c.levels} 层 × ${c.bays} 跨 · 展板 ${matLabel} · ${c.base ? '木箱脚轮' : '调平地脚'}</div>` +
+        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>` +
+        `<div class="rl rl-c">节点与隐藏连接为示意 · 不作为加工、采购或承重依据</div>`;
       return;
     }
     if (c.drawers !== undefined) {

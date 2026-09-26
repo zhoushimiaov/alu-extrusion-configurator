@@ -3,6 +3,7 @@
 //       + 顶/中/底三层 2020 框 + 贴地踏杆 ×2 + 顶部玻璃 + 中层亚克力
 //       + 前后 ⌀12 光轴挂杆（T 型夹块锁在木纹板上）+ 4 万向轮（安装板 + 叉架外偏 + 黑橡胶轮）
 import * as THREE from 'three';
+import { computeEnvelope } from './envelope.js';
 import { RAIL_D, DENSITY_ALU, DEFAULT_CART_CONFIG } from '../config/cart.js';
 import { getCartMaterials } from './cartMaterials.js';
 
@@ -311,6 +312,7 @@ export function buildCartTable(config) {
     ...(midAcrylic !== 'none' ? [{ name: '中板压条', qty: 2 }] : []),
   ].filter(h => h.qty > 0);
 
+  stats.envelope = computeEnvelope(group);
   return {
     group,
     groups,

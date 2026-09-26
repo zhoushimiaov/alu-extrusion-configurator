@@ -18,13 +18,33 @@ export function updatePriceBlock(priceBlock, stats) {
   const q = calcMarketPrice(stats);
   const pEl = priceBlock.querySelector('[data-price]');
   if (pEl) {
-    pEl.textContent = fmtPrice(q.total);
+    // 不完整态：大字降级为「¥ N +」，未计价项收进可展开的警示胶囊，
+    // 不再挤在来源行 11px 小字里——全面板视觉权重最高的元素不能承载最不完整的数据。
+    pEl.textContent = fmtPrice(q.total) + (q.complete ? '' : ' +');
+    pEl.classList.toggle('incomplete', !q.complete);
     pEl.classList.remove('num-updated');
     void pEl.offsetWidth;
     pEl.classList.add('num-updated');
   }
+  priceBlock.querySelector('[data-mkt-unpriced]')?.remove();
+  if (!q.complete) {
+    const det = document.createElement('details');
+    det.className = 'price-unpriced';
+    det.setAttribute('data-mkt-unpriced', '');
+    const sum = document.createElement('summary');
+    sum.textContent = `另有 ${q.unpriced.length} 项待询价`;
+    det.appendChild(sum);
+    const ul = document.createElement('ul');
+    for (const name of q.unpriced) {
+      const li = document.createElement('li');
+      li.textContent = name;
+      ul.appendChild(li);
+    }
+    det.appendChild(ul);
+    priceBlock.querySelector('.price-line')?.after(det);
+  }
   priceBlock.querySelector('[data-mkt-src]').textContent =
-    `${q.source} · 表版本 ${q.updated}${q.complete ? "" : " · 有未计价项：" + q.unpriced.join("、")}`;
+    `${q.source} · 表版本 ${q.updated}`;
   priceBlock.querySelector('[data-mkt-breakdown]').textContent =
     `材料 ¥${q.material.toLocaleString('zh-CN')} · 五金 ¥${q.hardware.toLocaleString('zh-CN')} · 板件 ¥${q.panes.toLocaleString('zh-CN')}`;
 

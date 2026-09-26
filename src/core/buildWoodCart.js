@@ -3,6 +3,7 @@
 //       + 中间 shelves 层胶合板层板（光轴夹块定位）+ 顶部横挂杆（十字夹块）
 //       + 侧向挂杆（选配）+ 4 万向轮
 import * as THREE from 'three';
+import { computeEnvelope } from './envelope.js';
 import { ROD_D, RAIL_D, BOARD_T, DENSITY_STEEL, DENSITY_PLY, DEFAULT_WOODCART_CONFIG } from '../config/woodcart.js';
 import { getWoodCartMaterials } from './woodcartMaterials.js';
 
@@ -236,6 +237,7 @@ export function buildWoodCart(config) {
     { name: '角码', qty: 8 },
   ];
 
+  stats.envelope = computeEnvelope(group);
   return {
     group,
     groups,

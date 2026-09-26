@@ -125,7 +125,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex;
   gap: 2px;
   padding: 4px;
-  max-width: calc(100% - 240px);
+  max-width: min(calc(100% - 420px), 780px);
   overflow-x: auto;
   scrollbar-width: none;
   background: rgba(255, 255, 255, 0.82);
@@ -152,8 +152,14 @@ button { font-family: inherit; cursor: pointer; }
 .product-tabs button.on { background: var(--fg); color: #ffffff; }
 
 @media (max-width: 1280px) and (min-width: 901px) {
+  /* 7 产品后居中药丸在窄档压住 MODULO 字标：整条下移到品牌行下方通栏滚动 */
   .product-tabs {
-    max-width: calc(100% - 220px);
+    top: 118px;
+    left: 30px;
+    right: auto;
+    transform: none;
+    max-width: calc(100vw - 50px);
+    width: max-content;
     padding: 3px;
   }
   .product-tabs button {
@@ -202,7 +208,7 @@ button { font-family: inherit; cursor: pointer; }
 #view-tools button[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
-  left: calc(100% + 9px);
+  left: calc(100% + 13px);
   top: 50%;
   transform: translateY(-50%) translateX(-4px);
   padding: 3px 8px;
@@ -210,7 +216,7 @@ button { font-family: inherit; cursor: pointer; }
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--r-pill);
   font-family: var(--font-mix);
   font-size: var(--fs-caption);
@@ -275,6 +281,18 @@ button { font-family: inherit; cursor: pointer; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* 读数卡点按展开（移动端白卡可点；桌面 pointer-events:none 不响应） */
+#hud-left.expanded .rl-a, #hud-left.expanded .rl-b {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* 901–1280 档：读数卡长行与底部居中 chip 条防重叠（1100 实测重叠 10×46px）。
+   必须位于基础 #hud-left 规则之后：同特异性，后者胜出。 */
+@media (max-width: 1280px) and (min-width: 901px) {
+  #hud-left { max-width: calc(50% - 210px); }
+}
 
 /* ---------- 底部居中浮动控件条 ---------- */
 #hud-right {
@@ -328,7 +346,7 @@ button { font-family: inherit; cursor: pointer; }
 .chip[data-tip]::after, .chip-toggle[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
-  bottom: calc(100% + 9px);
+  bottom: calc(100% + 13px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
   padding: 3px 8px;
@@ -336,7 +354,7 @@ button { font-family: inherit; cursor: pointer; }
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--r-pill);
   font-family: var(--font-mix);
   font-size: var(--fs-caption);
@@ -495,14 +513,14 @@ button { font-family: inherit; cursor: pointer; }
 .hotspot[disabled]:hover { transform: translate(-50%, -50%); }
 .hotspot .tip {
   position: absolute;
-  bottom: calc(100% + 7px);
+  bottom: calc(100% + 11px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
   background: rgba(18, 18, 18, 0.90);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   padding: 3px 8px;
   border-radius: var(--r-pill);
   font-family: var(--font-mix);
@@ -839,6 +857,35 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
 .price-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: nowrap; }
 .price-line .price { font-size: 30px; line-height: 1.15; font-weight: 600; color: var(--fg); letter-spacing: 0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
 .price-note { font-size: 11.5px; color: var(--caption); flex: 1; min-width: 0; line-height: 1.4; }
+/* 价格不完整态：¥ N + 「另有 N 项待询价」警示胶囊（点按展开未计价清单） */
+.price-unpriced { margin-top: 8px; }
+.price-unpriced summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, #ffffff);
+  padding: 3px 11px;
+  border-radius: var(--r-pill);
+  transition: background 0.16s, border-color 0.16s;
+}
+.price-unpriced summary::-webkit-details-marker { display: none; }
+.price-unpriced summary::after {
+  content: "";
+  width: 6px; height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.price-unpriced[open] summary::after { transform: rotate(-135deg) translateY(-2px); }
+.price-unpriced ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: var(--caption); line-height: 1.9; }
 .price-src { margin-top: 8px; font-size: 11px; color: var(--caption); line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
 .price-breakdown { margin-top: 6px; font-size: 12.5px; color: var(--fg-3); line-height: 1.8; }
 .price-detail { margin-top: 6px; font-size: 12.5px; color: var(--fg-3); }
@@ -1082,6 +1129,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .brand-overlay {
     top: 10px; left: 14px; right: 14px;
     display: flex;
+    flex-direction: row; /* 覆盖桌面 column：品牌居左、全屏/清单居右（此前清单纵落进 tabs 行被盖住） */
     justify-content: space-between;
     align-items: center;
     pointer-events: auto;
@@ -1089,7 +1137,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .brand-name { font-size: 16px; letter-spacing: 0.22em; }
   .brand-sub { display: none; }
   .price-src-badge { display: none; }
-  .config-list-btn { padding: 4px 10px; font-size: 11.5px; }
+  .config-list-btn { padding: 6px 12px; font-size: 11.5px; }
 
   /* 产品切换：移动端置顶，紧随品牌栏下方，彻底移出 3D 视口中央！
      再也不会横跨、遮挡 3D 主体模型！ */
@@ -1110,13 +1158,13 @@ details.install li b { color: var(--fg); font-weight: 600; }
     -webkit-backdrop-filter: blur(12px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     z-index: 6;
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 18px), transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 18px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 28px), transparent 100%);
   }
   .product-tabs::-webkit-scrollbar { display: none; }
   .product-tabs button {
     font-size: 12px;
-    padding: 5px 11px;
+    padding: 7px 13px;
     flex-shrink: 0;
   }
 
@@ -1138,6 +1186,8 @@ details.install li b { color: var(--fg); font-weight: 600; }
     z-index: 4;
     box-sizing: border-box;
     overflow: hidden;
+    pointer-events: auto;
+    cursor: pointer;
   }
   #hud-left .rl-a {
     font-size: 11px;
@@ -1163,7 +1213,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
     transform: none;
     max-width: 48vw;
     padding: 3px 4px;
-    gap: 2px;
+    gap: 6px;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -1176,8 +1226,15 @@ details.install li b { color: var(--fg); font-weight: 600; }
     scrollbar-width: none;
   }
   #hud-right::-webkit-scrollbar { display: none; }
-  .chip-group { padding-right: 2px; gap: 2px; }
+  .chip-group { padding-right: 4px; gap: 6px; }
   .chip, .chip-toggle { width: 28px; height: 28px; flex-shrink: 0; }
+  /* 触控热区：视觉 28px 不变，命中区扩到 34px（gap 6px 保证相邻热区不相交） */
+  .chip::before, .chip-toggle::before {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+  }
   .chip svg, .chip-toggle svg { width: 14px; height: 14px; }
   #hud-right [data-view="node"],
   #hud-right [data-view="slot"] {
@@ -1186,15 +1243,13 @@ details.install li b { color: var(--fg); font-weight: 600; }
 
   /* 移动端全屏查看 3D 模型浮动按钮：置于顶部品牌栏右侧（紧靠清单按钮），彻底避开右下角 3D 尺寸标注 */
   .btn-mobile-fullscreen {
-    position: absolute;
-    top: 10px;
-    right: 94px;
-    bottom: auto;
+    position: static; /* 品牌行 flex 流内右对齐，不再魔数定位压住 MODULO 字标 */
+    margin-left: auto;
     z-index: 6;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 9px;
+    padding: 6px 12px;
     border: 1px solid var(--hairline);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.90);
@@ -1239,10 +1294,13 @@ details.install li b { color: var(--fg); font-weight: 600; }
     height: 100dvh !important;
     max-height: 100dvh !important;
   }
+  /* 沉浸全屏：只留「返回编辑」与底部 chip 条 */
+  .mode-fullscreen-model .product-tabs,
+  .mode-fullscreen-model .brand,
+  .mode-fullscreen-model .config-list-btn {
+    display: none !important;
+  }
   .mode-fullscreen-model .btn-mobile-fullscreen {
-    top: 10px;
-    bottom: auto;
-    right: 94px;
     background: #000000;
     color: #ffffff;
     border-color: #000000;
@@ -1251,8 +1309,10 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .mode-fullscreen-model .btn-mobile-fullscreen .icon-expand { display: none; }
   .mode-fullscreen-model .btn-mobile-fullscreen .icon-compress { display: block; }
 
-  /* 3D 尺寸标注精简 */
+  /* 3D 尺寸标注精简 + 提对比：细线加粗提色，白底胶囊更实，避免「标签孤零零」的观感 */
   .dim-label { font-size: 11.5px; }
+  .dim-line { stroke: rgba(10, 10, 10, 0.5); stroke-width: 1.1; }
+  .dim-label-bg { fill: rgba(255, 255, 255, 0.95); }
 
   /* 移动端 Toast 上移至导航下方，避免与底栏抢占空间 */
   #toast {

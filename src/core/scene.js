@@ -29,15 +29,34 @@ function buildStudioEnv(renderer) {
   return tex;
 }
 
-// 浅色渐变幕布背景（替代 CSS 底纹，让 transmission 材质有正确背景可采样）
+// 浅色渐变幕布背景。ACES（three 用 Hill 拟合，灰度标量形式含 exposure/0.6 前因子）
+// 会把亮灰背景压灰：这里按期望输出 sRGB 色反算纹理应填的色值（中性灰，单通道求解），
+// 配合 scene.backgroundIntensity 使用；屏幕输出精确回到设计值。
+const TONE_EXPOSURE = 1.05;      // 与 createScene 里 renderer.toneMappingExposure 保持一致
+const TONE_INTENSITY = 5;        // 与 scene.backgroundIntensity 保持一致
+function acesFit(v) {            // three: RRTAndODTFit（灰度标量；输入/输出矩阵行和均为 1，中性色不变）
+  return (v * (v + 0.0245786) - 0.000090537) / (v * (0.983729 * v + 0.4329510) + 0.238081);
+}
+function srgbToLinear(u) { return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4); }
+function linearToSrgb(v) { return v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055; }
+function acesCompensate(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const targetLinear = srgbToLinear(((n >> 16) & 255) / 255); // 中性灰渐变：取 R 通道即可
+  let lo = 0, hi = 1;            // 纹理通道值域 [0,1]
+  for (let i = 0; i < 48; i++) {
+    const mid = (lo + hi) / 2;
+    if (acesFit(mid * TONE_INTENSITY * TONE_EXPOSURE / 0.6) < targetLinear) lo = mid; else hi = mid;
+  }
+  const s = Math.round(linearToSrgb((lo + hi) / 2) * 255);
+  return `rgb(${s},${s},${s})`;
+}
 function makeBackdropTexture() {
+  const stops = ['#fbfbfc', '#eef0f2', '#dde1e6'];
   const c = document.createElement('canvas');
   c.width = 16; c.height = 1024;
   const g = c.getContext('2d');
   const grad = g.createLinearGradient(0, 0, 0, 1024);
-  grad.addColorStop(0, '#fbfbfc');
-  grad.addColorStop(0.55, '#eef0f2');
-  grad.addColorStop(1, '#dde1e6');
+  for (let i = 0; i < stops.length; i++) grad.addColorStop(i / (stops.length - 1), acesCompensate(stops[i]));
   g.fillStyle = grad;
   g.fillRect(0, 0, 16, 1024);
   const tex = new THREE.CanvasTexture(c);
@@ -55,6 +74,10 @@ export function createScene(canvas) {
 
   const scene = new THREE.Scene();
   scene.background = makeBackdropTexture();
+  // ACES 会把亮灰背景压灰（白纹理输出仅 ≈#e4e6e9）。提高 backgroundIntensity 只影响
+  // 背景一层（模型照常），配合下方按 three 真实 ACES（Hill 拟合）反算的纹理色值，
+  // 屏幕输出精确回到设计值 #fbfbfc / #eef0f2 / #dde1e6（截图采样验证）。
+  scene.backgroundIntensity = 5;
   const camera = new THREE.PerspectiveCamera(40, 1, 0.005, 60);
   camera.position.set(3.4, 2.0, 4.2);
 
@@ -68,7 +91,7 @@ export function createScene(canvas) {
   scene.add(key);
   scene.add(key.target);
 
-  const rim = new THREE.DirectionalLight(0x9fc4ff, 0.7);
+  const rim = new THREE.DirectionalLight(0xdfe8f5, 0.45); // 近中性轮廓光：饱和天蓝会把银色型材压成蓝灰塑料感
   rim.position.set(-5, 3, -4);
   scene.add(rim);
 
@@ -119,22 +142,31 @@ export function createScene(canvas) {
 
   function makePoolTexture() {
     const c = document.createElement('canvas');
-    c.width = c.height = 1024;
+    c.width = c.height = 2048;
     const g = c.getContext('2d');
-    const grad = g.createRadialGradient(512, 512, 40, 512, 512, 500);
+    const grad = g.createRadialGradient(1024, 1024, 80, 1024, 1024, 1000);
     grad.addColorStop(0, 'rgba(40,44,52,0.10)');
     grad.addColorStop(0.55, 'rgba(40,44,52,0.04)');
     grad.addColorStop(1, 'rgba(40,44,52,0)');
     g.fillStyle = grad;
-    g.fillRect(0, 0, 1024, 1024);
-    g.strokeStyle = 'rgba(20,22,26,0.07)';
+    g.fillRect(0, 0, 2048, 2048);
+    // 两级制图网格：0.1 m 细格 + 0.5 m 主格（14 m 平面）。旧版一格 0.875 m，
+    // 与任何产品模数无关且比小产品还粗；mipmap 让细格随距离自然淡出。
+    const pxPerM = 2048 / 14;
     g.lineWidth = 1;
-    for (let p = 0; p <= 1024; p += 64) {
-      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, 1024); g.stroke();
-      g.beginPath(); g.moveTo(0, p); g.lineTo(1024, p); g.stroke();
+    g.strokeStyle = 'rgba(20,22,26,0.05)';
+    for (let p = 0; p <= 2048; p += 0.1 * pxPerM) {
+      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, 2048); g.stroke();
+      g.beginPath(); g.moveTo(0, p); g.lineTo(2048, p); g.stroke();
+    }
+    g.strokeStyle = 'rgba(20,22,26,0.10)';
+    for (let p = 0; p <= 2048; p += 0.5 * pxPerM) {
+      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, 2048); g.stroke();
+      g.beginPath(); g.moveTo(0, p); g.lineTo(2048, p); g.stroke();
     }
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     return tex;
   }
 

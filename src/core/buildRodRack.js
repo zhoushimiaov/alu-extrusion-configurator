@@ -10,6 +10,7 @@
 //   背板   竖挂于中档与顶档之间（0.7 比例带包边）；海报 3 张按模型拼贴
 //   滚轮   4 × 万向轮组件 / 调平地脚
 import * as THREE from 'three';
+import { computeEnvelope } from './envelope.js';
 import {
   ROD_D, RAIL_D, ROD_DENSITY, ZINC_DENSITY,
   DEFAULT_ROD_CONFIG,
@@ -420,6 +421,7 @@ export function buildRodRack(config) {
     ...(shelf === 'deck' ? [{ name: '层板托夹', qty: 4 }] : []),
   ];
 
+  stats.envelope = computeEnvelope(group);
   return {
     group,
     groups,

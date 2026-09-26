@@ -66,8 +66,8 @@ test('GLB exact mode sidePanels places per-level back panels on wall side only',
   };
   const built = buildGlbFrame(cfg);
   assert.ok(built.groups.panels);
-  // 逐层分段：每块覆盖本层层高区间（.43），默认全层有背板
-  assert.equal(built.groups.panels.count, 3);
+  // 背板全开 → 整块通高拉通（单实例，零横向接缝）
+  assert.equal(built.groups.panels.count, 1);
   const matrix = new THREE.Matrix4();
   built.groups.panels.getMatrixAt(0, matrix);
   const pos = new THREE.Vector3().setFromMatrixPosition(matrix);
@@ -75,10 +75,10 @@ test('GLB exact mode sidePanels places per-level back panels on wall side only',
   assert.ok(pos.z > -.25);
   built.groups.panels.geometry.computeBoundingBox();
   const box = built.groups.panels.geometry.boundingBox.clone().applyMatrix4(matrix);
-  assert.ok(Math.abs(box.min.y - .03) < 1e-6);
-  assert.ok(Math.abs(box.max.y - .46) < 1e-6);
+  assert.ok(Math.abs(box.min.y - 0) < 1e-6);
+  assert.ok(Math.abs(box.max.y - built.layout.H) < 1e-6);
 
-  // 逐层背板：backs[k]==='none' 的层不出背板
+  // 分跨背板：backs[k]==='none' 的层不出背板（2 跨 × 2 层 = 4 块）
   const partial = buildGlbFrame({ ...cfg, backs: ['panel', 'none', 'panel'] });
   assert.equal(partial.groups.panels.count, 2);
 
@@ -116,7 +116,12 @@ test('GLB exact mode marks its price as a partial reference estimate', async () 
   const { readFileSync } = await import('node:fs');
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.match(source, /\.price-note/);
-  assert.match(source, /参考估价（有未计价项时为已计价小计）/);
+  // 注：未计价态的显性表达已上移到 priceview.js（¥ N + / 「另有 N 项待询价」胶囊），
+  // 面板价注只保留身份文案。
+  assert.match(source, /参考估价/);
+  const priceview = readFileSync(new URL('../src/ui/priceview.js', import.meta.url), 'utf8');
+  assert.match(priceview, /项待询价/);
+  assert.match(priceview, /q\.complete/);
 });
 
 test('GLB exact mode stats respond to bays and levels', () => {

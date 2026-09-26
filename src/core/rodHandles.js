@@ -54,6 +54,7 @@ export function createRodHandles(canvas, camera, renderer, controls, rodStore, g
 
   group.add(wShaft, wStartTick, hShaft, hStartTick);
 
+  let suppressed = false;    // 爆炸态等场景下整体隐藏（main.js 经 setVisible 控制）
   let dragging = null;       // 'w' | 'h'
   let dragPlane = new THREE.Plane();
   let startVal = 0, startPt = 0;
@@ -95,6 +96,14 @@ export function createRodHandles(canvas, camera, renderer, controls, rodStore, g
       hBtn.style.display = 'none';
       badge.style.display = 'none';
       group.visible = false;
+      return;
+    }
+
+    if (suppressed) {
+      group.visible = false;
+      wBtn.style.display = 'none';
+      hBtn.style.display = 'none';
+      badge.style.display = 'none';
       return;
     }
 
@@ -225,9 +234,19 @@ export function createRodHandles(canvas, camera, renderer, controls, rodStore, g
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
 
+  function setVisible(v) {
+    suppressed = !v;
+    if (suppressed) {
+      group.visible = false;
+      wBtn.style.display = 'none';
+      hBtn.style.display = 'none';
+      badge.style.display = 'none';
+    }
+  }
   return {
     group,
     sync,
+    setVisible,
     dispose() {
       window.removeEventListener('pointermove', moveDrag);
       window.removeEventListener('pointerup', endDrag);

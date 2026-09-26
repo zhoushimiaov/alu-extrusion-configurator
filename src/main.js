@@ -7,6 +7,7 @@ import { createPostFX } from './core/postfx.js';
 import { buildShelf } from './core/buildShelf.js';
 import { buildGlbFrame, computeGlbStats } from './core/buildGlbFrame.js';
 import { retreatShelfBackPanels } from './core/shelfBackPanel.js';
+import './core/backPanelFinishes.js';
 import { declutterProps } from './core/propsDeclutter.js';
 import { decoratePanel } from './ui/panelDecor.js';
 import { initConfigList, addConfigItem } from './ui/configList.js';
@@ -15,14 +16,17 @@ import { createAnims } from './core/anims.js';
 import { createDimensions } from './core/dimensions.js';
 import { createHotspots } from './core/hotspots.js';
 import { createRodHandles } from './core/rodHandles.js';
+import { createGroundContact } from './core/groundContact.js';
 import { store, fmtPrice, calcPrice, setInstallSteps } from './ui/store.js';
 import { createPanel } from './ui/panel.js';
 import { createRodPanel, rodStore, calcRodPrice } from './ui/rodPanel.js';
 import { createCartPanel, cartStore, calcCartPrice } from './ui/cartPanel.js';
 import { createWoodCartPanel, woodcartStore, calcWoodCartPrice } from './ui/woodCartPanel.js';
 import { createHangerPanel, hangerStore, calcHangerPrice } from './ui/hangerPanel.js';
+import { createBookshelfPanel, bookshelfStore, calcBookshelfPrice } from './ui/bookshelfPanel.js';
 import { buildWoodCart } from './core/buildWoodCart.js';
 import { buildHanger } from './core/buildHanger.js';
+import { buildBookshelf } from './core/buildBookshelf.js';
 import { createCratesPanel, cratesStore, calcCratesPrice } from './ui/cratesPanel.js';
 import { buildCratesRack } from './core/buildCratesRack.js';
 import { buildCartTable } from './core/buildCartTable.js';
@@ -38,6 +42,7 @@ import { INSTALL_STEPS_CART, ACRYLIC_TYPES, WOOD_FINISHES } from './config/cart.
 import { INSTALL_STEPS_WOODCART, WOOD_TONES } from './config/woodcart.js';
 import { INSTALL_STEPS_CRATES, CRATE_SCHEMES } from './config/crates.js';
 import { INSTALL_STEPS_HANGER, HANGER_COLORS } from './config/hanger.js';
+import { INSTALL_STEPS_BOOKSHELF } from './config/bookshelf.js';
 import { PROFILE_SERIES, DECK_TYPES, COLORS } from './config/product.js';
 
 // 算料单标签文案注入（显式注册 API，替代旧的 window.__ALU_LABELS 全局注入）
@@ -80,7 +85,11 @@ hotspotLayer?.addEventListener('touchstart', (e) => {
 // 光轴展架视口内拖拽箭头（宽 / 高两个方向）
 const rodHandles = webglFailed ? null : createRodHandles(canvas, camera, renderer, controls, rodStore, () => (rodCurrent?.bounds) || { W: 1.0, H: 1.4, D: 0.42 });
 
-let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : 'profile';
+// 接地接触贴片：预览特性（?ground=1），默认关闭，审美方向待用户确认后决定是否常开
+const GROUND_PREVIEW = /[?&]ground=1/.test(location.search);
+const groundContact = (webglFailed || !GROUND_PREVIEW) ? null : createGroundContact();
+if (groundContact) scene.add(groundContact.group);
+let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : /^#books/.test(location.hash) ? 'books' : 'profile';
 
 // ---- 配置恢复：分享链接（hash ?c=）优先，其次 localStorage ----
 // 白名单已由 persist.pickPersisted 按产品 schema 统一过滤，这里只做注入。
@@ -88,6 +97,7 @@ let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.h
 const PRODUCT_STORES = {
   profile: store, rod: rodStore, cart: cartStore,
   crates: cratesStore, woodcart: woodcartStore, hanger: hangerStore,
+  books: bookshelfStore,
 };
 for (const [kind, s] of Object.entries(PRODUCT_STORES)) {
   const saved = loadSaved(kind);
@@ -103,9 +113,8 @@ let current = null;      // 型材架
 function syncPriceNote() {
   const note = panelRoot.querySelector('.price-note');
   if (note) {
-    note.textContent = store.get().frameMode === 'glb'
-      ? '参考估价（有未计价项时为已计价小计）'
-      : '示例材料估价';
+    // 未计价状态已由价格区「另有 N 项待询价」胶囊承载，这里只保留身份文案
+    note.textContent = store.get().frameMode === 'glb' ? '参考估价' : '示例材料估价';
   }
 }
 let rodCurrent = null;   // 光轴展架
@@ -113,14 +122,16 @@ let cartCurrent = null;  // 移动边几
 let cratesCurrent = null; // 周转箱收纳架
 let woodCartCurrent = null; // 光轴木展车
 let hangerCurrent = null;   // 光轴挂衣架
+let booksCurrent = null;    // 光轴书架
 let panel = null;
 const center = new THREE.Vector3(0, 0, 0);
-const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : current);
+const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : productKind === 'books' ? booksCurrent : current);
 
 // 场景处理：阴影已全局关闭，此处仅按产品包围盒调整主光位置
 function stageProduct(p) {
   if (!p || !p.group) return;
   if (p.bounds) fitShadow(p.bounds);
+  if (groundContact) groundContact.sync(p.stats?.envelope || p.bounds);
 }
 
 
@@ -202,6 +213,24 @@ function rebuildCrates({ isEntrance = false } = {}) {
   if (cost > 10) console.debug(`[ALU] rebuild crates: ${cost.toFixed(1)}ms`);
 }
 
+function rebuildBooks({ isEntrance = false } = {}) {
+  if (webglFailed || productKind !== 'books') return;
+  const t0 = performance.now();
+  const cfg = bookshelfStore.get();
+  if (booksCurrent) { scene.remove(booksCurrent.group); booksCurrent.dispose(); }
+  booksCurrent = buildBookshelf(cfg);
+  scene.add(booksCurrent.group);
+  stageProduct(booksCurrent);
+  if (!anims.REDUCED && isEntrance) anims.revealGroups(booksCurrent.group.children);
+  if (anims.exploded && booksCurrent?.groups) anims.explode(booksCurrent.groups, true);
+  hud.syncReadout(cfg, booksCurrent.stats);
+  panel.updateStats(booksCurrent.stats);
+  panel.lastStats = booksCurrent.stats;
+  window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  const cost = performance.now() - t0;
+  if (cost > 10) console.debug(`[ALU] rebuild books: ${cost.toFixed(1)}ms`);
+}
+
 function rebuildWoodCart({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'woodcart') return;
   const t0 = performance.now();
@@ -238,9 +267,44 @@ function rebuildHanger({ isEntrance = false } = {}) {
   if (cost > 10) console.debug(`[ALU] rebuild hanger: ${cost.toFixed(1)}ms`);
 }
 
+// 标注避让：W/H/D 标签压到读数卡/控件条/tabs 等浮层上时整组抬离（dims.js 原封，避让在接线层做）。
+// 每帧先复位 transform 再测相交，避免「上移后不相交→复位→又相交」的抖动闭环。
+const DIM_AVOID_SELECTORS = ['#hud-left', '#hud-right', '#view-tools', '.product-tabs', '#btn-mobile-fullscreen', '#config-list-btn'];
+function nudgeDimLabels() {
+  if (!dimSvg) return;
+  const obstacles = [];
+  for (const sel of DIM_AVOID_SELECTORS) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) obstacles.push(r);
+  }
+  dimSvg.querySelectorAll('.dim-label').forEach((t) => {
+    const bg = t.previousElementSibling;
+    t.removeAttribute('transform');
+    if (bg && bg.tagName === 'rect') bg.removeAttribute('transform');
+    const r = t.getBoundingClientRect();
+    const hit = obstacles.find((o) => r.left < o.right - 2 && r.right > o.left + 2 && r.top < o.bottom && r.bottom > o.top);
+    if (hit) {
+      const dy = -(r.bottom - hit.top + 6);
+      t.setAttribute('transform', 'translate(0 ' + dy + ')');
+      if (bg && bg.tagName === 'rect') bg.setAttribute('transform', 'translate(0 ' + dy + ')');
+    }
+  });
+}
+
 function syncWoodCartStatsOnly() {
   const cfg = woodcartStore.get();
   const b = buildWoodCart(cfg);
+  hud.syncReadout(cfg, b.stats);
+  panel.updateStats(b.stats);
+  panel.lastStats = b.stats;
+  b.dispose();
+}
+
+function syncBooksStatsOnly() {
+  const cfg = bookshelfStore.get();
+  const b = buildBookshelf(cfg);
   hud.syncReadout(cfg, b.stats);
   panel.updateStats(b.stats);
   panel.lastStats = b.stats;
@@ -298,6 +362,14 @@ function syncCratesStatsOnly() {
   b.dispose();
 }
 
+// 爆炸态附属层：尺寸线 / ± 热点 / 光轴手柄都锚在装配态，爆炸时一并隐藏、复位时恢复
+let explodeAuxHidden = false;
+function applyExplodeAux(hidden) {
+  explodeAuxHidden = hidden;
+  if (rodHandles) rodHandles.setVisible(!hidden);
+  window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+}
+
 // ---- HUD(单实例,双形态自适应)----
 const hud = createHud(hudLeft, hudRight, {
   setView: (name) => {
@@ -308,6 +380,7 @@ const hud = createHud(hudLeft, hudRight, {
       if (act?.groups) anims.explode(act.groups, false);
       const boom = hudRight.querySelector('[aria-label="爆炸"]');
       if (boom) boom.classList.remove('on');
+      applyExplodeAux(false);
     }
     const vp = anims.viewPos(name, active().bounds);
     anims.flyTo(vp.pos, vp.tgt, 900);
@@ -316,7 +389,7 @@ const hud = createHud(hudLeft, hudRight, {
     if (!webglFailed) {
       const act = active();
       if (act?.groups) anims.explode(act.groups, on);
-      window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+      applyExplodeAux(on);
     }
   },
   setSpin: (on) => { if (!webglFailed) controls.autoRotate = on; },
@@ -516,6 +589,39 @@ const woodcartActions = {
   },
 };
 
+const bookActions = {
+  onAdd: (cfg) => {
+    const p = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = cfg.style === 'table'
+      ? `长桌 ${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m`
+      : `展示塔 ${cfg.levels} 层 × ${cfg.bays} 跨 · ${cfg.bayW.toFixed(2)} m`;
+    const { totalCount } = addConfigItem({
+      kind: 'books',
+      title: '光轴书架',
+      summary,
+      priceText: p,
+      cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
+  },
+  onExport: (cfg) => {
+    const s = panel.lastStats;
+    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    downloadCutlist(cfg, s, 'books');
+    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+  },
+  onExportModel: async () => {
+    if (!booksCurrent || !booksCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
+    try {
+      const name = await downloadModel(booksCurrent.group, 'books', bookshelfStore.get());
+      showToast(`3D 模型已导出 · ${name}`);
+    } catch (err) {
+      console.error('[ALU] books model export failed:', err);
+      showToast('模型导出失败,请重试');
+    }
+  },
+};
+
 const hangerActions = {
   onAdd: (cfg) => {
     const p = `¥ ${calcHangerPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
@@ -574,6 +680,11 @@ function mountActiveProduct() {
     panel = createWoodCartPanel(panelRoot, woodcartActions);
     if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
+  } else if (productKind === 'books') {
+    setInstallSteps(INSTALL_STEPS_BOOKSHELF);
+    panel = createBookshelfPanel(panelRoot, bookActions);
+    if (webglFailed) syncBooksStatsOnly(); else rebuildBooks({ isEntrance: true });
+    if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'hanger') {
     setInstallSteps(INSTALL_STEPS_HANGER);
     panel = createHangerPanel(panelRoot, hangerActions);
@@ -599,6 +710,7 @@ function unloadAll() {
   if (cratesCurrent) { scene.remove(cratesCurrent.group); cratesCurrent.dispose(); cratesCurrent = null; }
   if (woodCartCurrent) { scene.remove(woodCartCurrent.group); woodCartCurrent.dispose(); woodCartCurrent = null; }
   if (hangerCurrent) { scene.remove(hangerCurrent.group); hangerCurrent.dispose(); hangerCurrent = null; }
+  if (booksCurrent) { scene.remove(booksCurrent.group); booksCurrent.dispose(); booksCurrent = null; }
 }
 function syncSwitchLabel() {
   productTabs.querySelectorAll('button').forEach(b => {
@@ -624,6 +736,7 @@ function switchTo(kind) {
     const act = active();
     if (act?.groups) anims.explode(act.groups, true);
   }
+  applyExplodeAux(!webglFailed && !!anims.exploded);
   if (!webglFailed) {
     const vp = anims.viewPos('iso', active().bounds);
     anims.flyTo(vp.pos, vp.tgt, 900);
@@ -659,6 +772,7 @@ const PRODUCT_SUBS = [
   { kind: 'crates', store: cratesStore, rebuild: (opts) => rebuildCrates(opts), statsOnly: () => syncCratesStatsOnly() },
   { kind: 'woodcart', store: woodcartStore, rebuild: (opts) => rebuildWoodCart(opts), statsOnly: () => syncWoodCartStatsOnly() },
   { kind: 'hanger', store: hangerStore, rebuild: (opts) => rebuildHanger(opts), statsOnly: () => syncHangerStatsOnly() },
+  { kind: 'books', store: bookshelfStore, rebuild: (opts) => rebuildBooks(opts), statsOnly: () => syncBooksStatsOnly() },
 ];
 for (const { kind, store: s, rebuild, statsOnly, extra } of PRODUCT_SUBS) {
   s.subscribe(debounce(() => {
@@ -815,12 +929,14 @@ if (webglFailed) {
     controls.update();
     // DOM 尺寸线/± 热点没有深度遮挡：转到产品背面时整体隐藏，避免标注像穿在背板里。
     const backView = camera.position.z < controls.target.z - 0.03;
-    dimSvg.style.opacity = backView ? '0' : '';
-    hotspotLayer.style.display = backView ? 'none' : '';
+    const auxHidden = backView || explodeAuxHidden;
+    dimSvg.style.opacity = auxHidden ? '0' : '';
+    hotspotLayer.style.display = auxHidden ? 'none' : '';
     postfx.render();
     const a = active();
     if (a && !backView) {
-      dims.update(a.bounds, center);
+      dims.update(a.stats?.envelope || a.bounds, center);
+      nudgeDimLabels();
       if (productKind === 'profile') hotspots.sync();
       else rodHandles.sync();
     } else if (a && productKind !== 'profile') {
@@ -874,7 +990,7 @@ if (webglFailed) {
   // QA 直达:#rod/side 或 #rod/front 时用对应静止视角替代入场动画
   const viewMatch = location.hash.startsWith('#node')
     ? [null, 'node']
-    : location.hash.match(/^#(?:rod|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
+    : location.hash.match(/^#(?:rod|books|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
   if (viewMatch) {
     const vp = anims.viewPos(viewMatch[1], active().bounds);
     camera.position.copy(vp.pos);

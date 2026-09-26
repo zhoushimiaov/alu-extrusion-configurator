@@ -108,6 +108,12 @@ export function decoratePanel(root) {
     seg.addEventListener('click', () => setTimeout(syncRadio, 0));
   });
 
+  // 幻彩镀锌色板点：锌花渐变底（panel.js 原封按纯色 hex 渲染，在此做视觉增强）
+  const spangleSwatch = root.querySelector('.swatch[data-pcolor="spangle"]');
+  if (spangleSwatch) {
+    spangleSwatch.style.background = 'linear-gradient(135deg,#e9edf1 0%,#b6bdc7 30%,#dfe3e8 50%,#aab2bd 72%,#d3d8de 100%)';
+  }
+
   // 系统诊断信息按钮挂入文末
   if (!root.querySelector('#btn-diag-copy')) {
     const diagWrap = document.createElement('div');

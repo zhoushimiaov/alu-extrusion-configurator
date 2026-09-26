@@ -18,6 +18,7 @@ const configs = {
   crates: (await import('../src/config/crates.js')).DEFAULT_CRATES_CONFIG,
   woodcart: (await import('../src/config/woodcart.js')).DEFAULT_WOODCART_CONFIG,
   hanger: (await import('../src/config/hanger.js')).DEFAULT_HANGER_CONFIG,
+  books: (await import('../src/config/bookshelf.js')).DEFAULT_BOOKSHELF_CONFIG,
 };
 
 for (const [kind, defaults] of Object.entries(configs)) {

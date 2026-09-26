@@ -2,6 +2,7 @@
 // 结构：四角 ⌀30 光轴立柱 + 顶框横纵梁 + 顶布置物搁板 + 居中挂衣横杆 + 后框横撑 + 结构斜撑
 //       + 底部抽屉柜（抽屉层数可调 0-3 层）+ 2020 矩形底框 + 万向轮/调平地脚
 import * as THREE from 'three';
+import { computeEnvelope } from './envelope.js';
 import { POST_D, DENSITY_ALU, DENSITY_PLY, DEFAULT_HANGER_CONFIG, HANGER_COLORS } from '../config/hanger.js';
 
 const WHEEL_MASS = 0.15;
@@ -374,6 +375,7 @@ export function buildHanger(config) {
     while (group.children.length) group.remove(group.children[0]);
   }
 
+  stats.envelope = computeEnvelope(group);
   return {
     group,
     groups,

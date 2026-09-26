@@ -16,8 +16,8 @@ test('levels can go down to the new minimum of 2 and still build finite geometry
         : [];
       assert.ok(arr.every(Number.isFinite));
     }
-    // 背板逐层分段：默认每层一块
-    assert.equal(built.groups.panels.count, levels);
+    // 背板分跨嵌入：每层每跨一块（bayWidths 2 跨）
+    assert.equal(built.groups.panels.count, 1);
     built.dispose();
   }
 });

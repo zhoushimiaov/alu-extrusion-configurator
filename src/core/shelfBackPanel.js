@@ -1,27 +1,7 @@
-// 型材架背板防穿模（装配后处理）：buildShelf.js 为原封文件，背板外撤在这里做。
-// 目标：背板前面（朝向框架的一侧）距背面框架外缘 z=-0.200 留 4mm 装配间隙。
-import * as THREE from 'three';
-
-const REAR_FRAME_Z = -0.20;
-const BACK_PANEL_CLEARANCE = 0.004;
-
+// 型材架背板挂装：GLB 背板现由 buildGlbFrame 直接「嵌入后柱体厚度范围」生成
+// （板厚 -0.199..-0.187 完全落在后柱体 -0.20..-0.17 内，交接面埋在柱体内，
+// 外部任何角度无接缝无漏光；层板条尾端 -0.20 仅露 1mm）。
+// 本函数保留签名仅为兼容 main.js 既有调用；旧「外撤防穿模」后处理已随嵌入式挂装退役。
 export function retreatShelfBackPanels(product) {
-  const panels = product?.groups?.panels;
-  if (!panels || !panels.isInstancedMesh) return;
-  if (!panels.geometry.boundingBox) panels.geometry.computeBoundingBox();
-  const localZMax = panels.geometry.boundingBox.max.z;
-  const m = new THREE.Matrix4();
-  const p = new THREE.Vector3();
-  const q = new THREE.Quaternion();
-  const s = new THREE.Vector3();
-  for (let i = 0; i < panels.count; i++) {
-    panels.getMatrixAt(i, m);
-    m.decompose(p, q, s);
-    const targetZ = REAR_FRAME_Z - BACK_PANEL_CLEARANCE - localZMax * s.z;
-    if (Math.abs(p.z - targetZ) < 1e-6) continue;
-    p.z = targetZ;
-    m.compose(p, q, s);
-    panels.setMatrixAt(i, m);
-  }
-  panels.instanceMatrix.needsUpdate = true;
+  void product;
 }

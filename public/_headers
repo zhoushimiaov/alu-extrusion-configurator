@@ -4,10 +4,18 @@
 /
   Cache-Control: no-cache
 
-# 图片资产内容稳定（改名即换 URL），允许长缓存
+# 安全响应头（全站）：防点击劫持 / MIME 嗅探 / 过度 Referer / 非必要能力
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+
+# 图片资产：favicon/webp 内容稳定可 immutable；og-cover.jpg 会重制，保持 1 天
 /*.png
-  Cache-Control: public, max-age=86400
-/*.jpg
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=31536000, immutable
 /*.webp
+  Cache-Control: public, max-age=31536000, immutable
+/*.jpg
   Cache-Control: public, max-age=86400

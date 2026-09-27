@@ -1,4 +1,7 @@
 // 配置清单（购物车/比价暂存状态管理与抽屉 UI）
+// 纪律：动态内容一律 createElement + textContent（item 字段来自 localStorage，
+// 坚持 textContent 杜绝持久化 XSS 路径）；抽屉为模态对话框——焦点圈闭、
+// Escape 关闭、关闭后焦点归还触发按钮。
 const STORAGE_KEY = 'modulo_config_list';
 
 function loadList() {
@@ -21,6 +24,19 @@ function saveList(list) {
 
 let drawerEl = null;
 let loadCallback = null;
+let lastTrigger = null; // 打开抽屉的触发元素，关闭后焦点归还
+
+// 轻量 toast（复用 index.html 的 #toast，与 main.js 同一视觉体系）
+function toast(msg) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+
 
 export function initConfigList(onLoad) {
   loadCallback = onLoad;
@@ -109,53 +125,82 @@ function ensureDrawer() {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'close') closeDrawer();
   });
+  // 焦点圈闭（模态）：Tab 循环限制在抽屉内，Escape 关闭
+  drawerEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); closeDrawer(); return; }
+    if (e.key !== 'Tab') return;
+    const focusables = [...drawerEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((el) => el.offsetParent !== null);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
   document.body.appendChild(drawerEl);
   return drawerEl;
 }
 
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
 function renderDrawerContent() {
-  const el = ensureDrawer();
+  const root = ensureDrawer();
   const list = loadList();
-  const countEl = el.querySelector('[data-dh-count]');
-  const bodyEl = el.querySelector('[data-dh-body]');
-  const footerEl = el.querySelector('[data-dh-footer]');
+  const countEl = root.querySelector('[data-dh-count]');
+  const bodyEl = root.querySelector('[data-dh-body]');
+  const footerEl = root.querySelector('[data-dh-footer]');
 
   countEl.textContent = `(${list.length})`;
 
   if (!list.length) {
-    bodyEl.innerHTML = `
-      <div class="drawer-empty">
-        <div class="empty-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg></div>
-        <div class="empty-title">清单暂无已存配置</div>
-        <div class="empty-desc">在下方或右侧配置面板点击「加入配置清单」，配置即可暂存到此处，方便对比不同方案。</div>
-      </div>
-    `;
-    footerEl.innerHTML = '';
+    bodyEl.replaceChildren();
+    const empty = el('div', 'drawer-empty');
+    const icon = el('div', 'empty-icon');
+    icon.innerHTML = '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg>';
+    empty.append(
+      icon,
+      el('div', 'empty-title', '清单暂无已存配置'),
+      el('div', 'empty-desc', '在下方或右侧配置面板点击「加入配置清单」，配置即可暂存到此处，方便对比不同方案。'),
+    );
+    bodyEl.appendChild(empty);
+    footerEl.replaceChildren();
     return;
   }
 
-  bodyEl.innerHTML = list.map(item => {
+  // 卡片：createElement + textContent（item 字段来自 localStorage，不走 innerHTML）
+  for (const item of list) {
     const time = new Date(item.timestamp);
     const timeStr = `${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
-    return `
-      <div class="drawer-card" data-id="${item.id}">
-        <div class="dc-top">
-          <span class="dc-tag">${item.title}</span>
-          <span class="dc-time">${timeStr}</span>
-        </div>
-        <div class="dc-summary">${item.summary || '自定义配置'}</div>
-        <div class="dc-bottom">
-          <div class="dc-price">${item.priceText || '¥ —'}</div>
-          <div class="dc-actions">
-            <button class="dc-btn dc-load" data-load-id="${item.id}" title="将该配置载入配置器">载入配置</button>
-            <button class="dc-btn dc-del" data-del-id="${item.id}" title="删除该条目">删除</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
 
-  // 绑定内部动作
+    const card = el('div', 'drawer-card');
+    card.dataset.id = item.id;
+
+    const top = el('div', 'dc-top');
+    top.append(el('span', 'dc-tag', item.title), el('span', 'dc-time', timeStr));
+
+    const summary = el('div', 'dc-summary', item.summary || '自定义配置');
+
+    const bottom = el('div', 'dc-bottom');
+    const price = el('div', 'dc-price', item.priceText || '¥ —');
+    const actions = el('div', 'dc-actions');
+    const loadBtn = el('button', 'dc-btn dc-load', '载入配置');
+    loadBtn.title = '将该配置载入配置器';
+    loadBtn.dataset.loadId = item.id;
+    const delBtn = el('button', 'dc-btn dc-del', '删除');
+    delBtn.title = '删除该条目';
+    delBtn.dataset.delId = item.id;
+    actions.append(loadBtn, delBtn);
+    bottom.append(price, actions);
+
+    card.append(top, summary, bottom);
+    bodyEl.appendChild(card);
+  }
+
   bodyEl.querySelectorAll('[data-load-id]').forEach(b => {
     b.addEventListener('click', () => {
       const id = b.dataset.loadId;
@@ -173,42 +218,73 @@ function renderDrawerContent() {
     });
   });
 
-  footerEl.innerHTML = `
-    <div class="df-row">
-      <button class="df-btn df-clear" id="df-clear-btn">清空清单</button>
-      <button class="df-btn df-copy" id="df-copy-btn">复制清单摘要</button>
-    </div>
-  `;
+  // 底栏：清空（两步确认，替代系统 confirm）+ 复制摘要
+  footerEl.replaceChildren();
+  const row = el('div', 'df-row');
+  const clearBtn = el('button', 'df-btn df-clear', '清空清单');
+  clearBtn.id = 'df-clear-btn';
+  const copyBtn = el('button', 'df-btn df-copy', '复制清单摘要');
+  copyBtn.id = 'df-copy-btn';
+  row.append(clearBtn, copyBtn);
+  footerEl.appendChild(row);
 
-  footerEl.querySelector('#df-clear-btn')?.addEventListener('click', () => {
-    if (confirm('确定清空当前保存的所有配置条目吗？')) {
+  clearBtn.addEventListener('click', () => {
+    if (clearBtn.dataset.armed) {
       clearConfigList();
+      toast('清单已清空');
+      return;
     }
+    clearBtn.dataset.armed = '1';
+    clearBtn.textContent = '确认清空？';
+    toast('再点一次确认清空全部条目');
+    setTimeout(() => {
+      if (clearBtn.isConnected) {
+        delete clearBtn.dataset.armed;
+        clearBtn.textContent = '清空清单';
+      }
+    }, 3000);
   });
 
-  footerEl.querySelector('#df-copy-btn')?.addEventListener('click', () => {
+  copyBtn.addEventListener('click', () => {
     const text = list.map((item, i) => `${i + 1}. [${item.title}] ${item.summary} | ${item.priceText}`).join('\n');
+    const fallbackCopy = () => {
+      const ta = el('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand && document.execCommand('copy');
+      ta.remove();
+      toast(ok ? '清单内容已复制到剪贴板' : '复制失败，请手动选择文本复制');
+    };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert('清单内容已复制到剪贴板！');
-      }).catch(() => {
-        prompt('复制清单内容：', text);
-      });
+      navigator.clipboard.writeText(text)
+        .then(() => toast('清单内容已复制到剪贴板'))
+        .catch(fallbackCopy);
     } else {
-      prompt('复制清单内容：', text);
+      fallbackCopy();
     }
   });
 }
 
 export function openDrawer() {
-  const el = ensureDrawer();
+  const el2 = ensureDrawer();
+  lastTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   renderDrawerContent();
-  requestAnimationFrame(() => el.classList.add('open'));
+  requestAnimationFrame(() => {
+    el2.classList.add('open');
+    // 焦点进入抽屉（模态语义）：优先关闭按钮
+    el2.querySelector('.drawer-close')?.focus();
+  });
 }
 
 export function closeDrawer() {
   if (drawerEl) {
     drawerEl.classList.remove('open');
+    // 焦点归还触发元素（模态关闭惯例）
+    if (lastTrigger && lastTrigger.isConnected) lastTrigger.focus();
+    lastTrigger = null;
   }
 }
 

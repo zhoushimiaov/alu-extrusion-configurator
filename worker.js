@@ -22,8 +22,15 @@ const ERR = {
   internal: { code: 'internal_error', message: 'Unexpected server error' },
 };
 
+// 安全响应头（/api/*）：静态资产的安全头由 _headers 覆盖，API 响应在这里补齐
+const SEC = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()'
+};
+
 function jsonError(err, status) {
-  return Response.json(err, { status, headers: { 'cache-control': 'no-store' } });
+  return Response.json(err, { status, headers: { 'cache-control': 'no-store', ...SEC } });
 }
 
 // 内容寻址 ETag：对 JSON 文本做 SHA-256 前 16 hex
@@ -108,10 +115,10 @@ export default {
     const etag = await etagOf(raw);
     // 协商缓存：客户端带匹配的 If-None-Match 时 304
     if (etag && request.headers.get('if-none-match') === etag) {
-      return new Response(null, { status: 304, headers: { etag, 'cache-control': 'public, max-age=300' } });
+      return new Response(null, { status: 304, headers: { etag, 'cache-control': 'public, max-age=300', ...SEC } });
     }
 
-    const headers = {
+    const headers = { ...SEC,
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'public, max-age=300',
     };

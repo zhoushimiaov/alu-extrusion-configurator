@@ -153,6 +153,7 @@ function rebuild({ isEntrance = false } = {}) {
   stageProduct(current);
   if (!anims.REDUCED && isEntrance) anims.reveal(current.groups);
   if (anims.exploded && current?.groups) anims.explode(current.groups, true);
+  dimObstacleDirty = true; // 读数卡文字变化 → 浮层几何可能变化
   hud.syncReadout(cfg, current.stats);
   panel.updateStats(current.stats);
   panel.lastStats = current.stats;
@@ -171,6 +172,7 @@ function rebuildRod({ isEntrance = false } = {}) {
   stageProduct(rodCurrent);
   if (!anims.REDUCED && isEntrance) anims.revealGroups(rodCurrent.group.children);
   if (anims.exploded && rodCurrent?.groups) anims.explode(rodCurrent.groups, true);
+  dimObstacleDirty = true;
   rodHandles.sync();
   hudRod.syncReadout(cfg, rodCurrent.stats);
   panel.updateStats(rodCurrent.stats);
@@ -273,27 +275,44 @@ function rebuildHanger({ isEntrance = false } = {}) {
 // 标注避让：W/H/D 标签压到读数卡/控件条/tabs 等浮层上时整组抬离（dims.js 原封，避让在接线层做）。
 // 每帧先复位 transform 再测相交，避免「上移后不相交→复位→又相交」的抖动闭环。
 const DIM_AVOID_SELECTORS = ['#hud-left', '#hud-right', '#view-tools', '.product-tabs', '#btn-mobile-fullscreen', '#config-list-btn'];
+// obstacle 矩形缓存：每帧 6 次 getBoundingClientRect 是强制回流的源头；
+// 浮层只在 resize / 产品切换 / 配置变化时改变几何——500ms 节流刷新 + resize 失效。
+let dimObstacles = null;
+let dimObstacleStamp = 0;
+let dimObstacleDirty = true;
+addEventListener('resize', () => { dimObstacleDirty = true; }, { passive: true });
 function nudgeDimLabels() {
   if (!dimSvg) return;
-  const obstacles = [];
-  for (const sel of DIM_AVOID_SELECTORS) {
-    const el = document.querySelector(sel);
-    if (!el) continue;
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) obstacles.push(r);
+  // 读写分离：先批量读（obstacle 走缓存，label 一次性收集），再统一写 transform，
+  // 消除「写 transform → 读 rect → 再写」逐标签交替引发的每帧强制回流
+  const now = performance.now();
+  if (dimObstacleDirty || !dimObstacles || now - dimObstacleStamp > 500) {
+    dimObstacles = [];
+    for (const sel of DIM_AVOID_SELECTORS) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) dimObstacles.push(r);
+    }
+    dimObstacleStamp = now;
+    dimObstacleDirty = false;
   }
-  dimSvg.querySelectorAll('.dim-label').forEach((t) => {
+  const labels = [];
+  for (const t of dimSvg.querySelectorAll('.dim-label')) {
+    const r = t.getBoundingClientRect();
     const bg = t.previousElementSibling;
+    labels.push({ t, bg, r });
+  }
+  for (const { t, bg, r } of labels) {
     t.removeAttribute('transform');
     if (bg && bg.tagName === 'rect') bg.removeAttribute('transform');
-    const r = t.getBoundingClientRect();
-    const hit = obstacles.find((o) => r.left < o.right - 2 && r.right > o.left + 2 && r.top < o.bottom && r.bottom > o.top);
+    const hit = dimObstacles.find((o) => r.left < o.right - 2 && r.right > o.left + 2 && r.top < o.bottom && r.bottom > o.top);
     if (hit) {
       const dy = -(r.bottom - hit.top + 6);
       t.setAttribute('transform', 'translate(0 ' + dy + ')');
       if (bg && bg.tagName === 'rect') bg.setAttribute('transform', 'translate(0 ' + dy + ')');
     }
-  });
+  }
 }
 
 function syncWoodCartStatsOnly() {
@@ -702,6 +721,7 @@ function mountActiveProduct() {
     if (webglFailed) syncStatsOnly(); else rebuild({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   }
+  dimObstacleDirty = true; // 切换后读数卡/浮层几何变化，标注避让缓存置脏
   // 产品切换转场：面板内容 55ms 错峰淡入上浮（WAAPI 一次性动画，不占常驻 rAF；
   // 衔接 3D 侧 900ms flyTo，消除「面板瞬切 vs 相机飞行」的节奏割裂）
   if (panelRoot.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -739,11 +759,35 @@ function syncSwitchLabel() {
     }
   });
 }
+// 产品深链分享 meta：随 tab 切换更新 og:title / og:description / document.title
+// （抓取器不执行 JS，分享落地页仍以 index.html 静态 OG 为准；此处改善应用内与动态标签场景）
+const SHARE_META = {
+  profile: ['工业铝型材置物架', '逐层逐跨自由规划，实时算料报价，一键导出算料单与 3D 模型。'],
+  rod: ['光轴展架', '双光轴立柱移动展示架：海报画面、镀锌背板与滚轮底盘，展陈更轻盈。'],
+  books: ['光轴书架', '铬管框架阅读装置：斜面展板逐层陈列，交叉拉索张紧，木箱脚轮基座。'],
+  cart: ['移动边几', '光轴 + 玻璃/亚克力台面的极简移动边几，小空间随手移动。'],
+  crates: ['周转箱架', '2040 铝架 + 抽拉式物流周转箱：层数可调、箱色自由搭配，满载可推行。'],
+  woodcart: ['光轴木展车', '光轴 + 胶合板移动展车：柜体收纳、洞洞板背板、顶部挂杆。'],
+  hanger: ['光轴挂衣架', '光轴移动挂衣架：四角立柱 + 底柜 + 三层挂衣横杆，滚轮可推行。'],
+};
+function updateShareMeta(kind) {
+  const [title, desc] = SHARE_META[kind] || SHARE_META.profile;
+  document.title = 'MODULO 模数 · ' + title;
+  for (const [sel, attr, val] of [
+    ['meta[property="og:title"]', 'content', 'MODULO 模数 · ' + title],
+    ['meta[property="og:description"]', 'content', desc],
+    ['meta[name="description"]', 'content', desc],
+  ]) {
+    document.querySelector(sel)?.setAttribute(attr, val);
+  }
+}
+
 function switchTo(kind) {
   if (kind === productKind) return;
   unloadAll();
   productKind = kind;
   history.replaceState(null, '', kind === 'profile' ? '#' : '#' + kind);
+  updateShareMeta(kind);
   // store 查表（与 PRODUCT_SUBS 同源，新增产品只需登记一处）
   const sub = PRODUCT_SUBS.find(p => p.kind === productKind);
   persist(productKind, PRODUCT_STORES[productKind].get());

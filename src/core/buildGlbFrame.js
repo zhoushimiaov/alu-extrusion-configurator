@@ -86,16 +86,25 @@ function glbBackPanelRows(config) {
   // 比后柱外侧面 (-0.20) 和层板条尾端 (-0.20) 再靠后 6mm——从背面看是一整块
   // 无缝墙面，柱网格与层板端头全部藏在板后；板宽 = W + 0.06，两侧包住端柱外沿，
   // 消除旧版「背板比框架窄一截」的浮板感。逐层开关：backs[k]==='none' 的层留空。
-  // 背板全开（无 none 层）→ 整块通高拉通，零横向接缝；逐层开关时按层分块
-const H = levels * .46 + .03;
-if (!backs || backs.every(b => b !== 'none')) {
-  rows.push([0, H / 2, -0.212, H]);
-  return rows;
-}
-for (let k = 0; k < levels; k++) {
-    if (backs && backs[k] === 'none') continue;
-    // 层区间：底梁顶面 (k*.46+.03) 到上层梁底面 ((k+1)*.46)，高 .43
-    rows.push([0, k * .46 + .245, -0.212, .43]);
+  // 背板全开（无 none 层）→ 整块通高拉通，零横向接缝。
+  const H = levels * .46 + .03;
+  if (!backs || backs.every(b => b !== 'none')) {
+    rows.push([0, H / 2, -0.212, H]);
+    return rows;
+  }
+  // 部分开启：按「连续开启的层区段」合并成整板（区段内零缝隙），
+  // 仅真正关闭的层留空——逐层独立分块会在层间留下 .03 缝隙（老问题）。
+  let runStart = null;
+  for (let k = 0; k < levels; k++) {
+    const backed = !backs || backs[k] !== 'none';
+    if (backed && runStart === null) runStart = k;
+    const nextBacked = k + 1 < levels && (!backs || backs[k + 1] !== 'none');
+    if (runStart !== null && !nextBacked) {
+      const y0 = runStart * .46 + .03;
+      const y1 = (k + 1) * .46;
+      rows.push([0, (y0 + y1) / 2, -0.212, y1 - y0]);
+      runStart = null;
+    }
   }
   return rows;
 }

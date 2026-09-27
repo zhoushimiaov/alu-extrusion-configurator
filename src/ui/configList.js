@@ -112,7 +112,7 @@ function ensureDrawer() {
   drawerEl.className = 'config-drawer-root';
   drawerEl.innerHTML = `
     <div class="drawer-mask" data-act="close"></div>
-    <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="配置清单">
+    <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="配置清单" tabindex="-1">
       <div class="drawer-header">
         <div class="dh-title">配置清单 <span class="dh-count" data-dh-count></span></div>
         <button class="drawer-close" data-act="close" aria-label="关闭清单"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -272,11 +272,12 @@ export function openDrawer() {
   const el2 = ensureDrawer();
   lastTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   renderDrawerContent();
-  requestAnimationFrame(() => {
-    el2.classList.add('open');
-    // 焦点进入抽屉（模态语义）：优先关闭按钮
-    el2.querySelector('.drawer-close')?.focus();
-  });
+  el2.classList.add('open');
+  // 焦点进入抽屉（模态语义）：优先关闭按钮。visibility 过渡中 focus() 会
+  // 静默失败，延迟到过渡启动后再聚焦。
+  setTimeout(() => {
+    (el2.querySelector('.drawer-close') || el2.querySelector('.drawer-panel')).focus();
+  }, 80);
 }
 
 export function closeDrawer() {

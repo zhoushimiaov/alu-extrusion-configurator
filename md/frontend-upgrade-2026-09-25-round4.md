@@ -287,3 +287,26 @@
   （UNMASKED_RENDERER 检测）——**CI Deploy 与 E2E Smoke 双绿**，本地 5/5。
 - 生产实测：LOD 远景切换生效（strips/LOD 互斥、__ALU_CAM_DIST 7.4m）、长桌可切换且
   零控制台错误、远端价格表徽标正常。
+
+## 吹毛求疵轮修复（第五会话审查 P1/P2/P3 落地）
+
+- **P1 安全响应头**：_headers 全站 CSP（script/style unsafe-inline 为单文件构建必需）+
+  XFO DENY + nosniff + Referrer-Policy + Permissions-Policy + frame-ancestors none；
+  worker /api/* 响应同步补齐（SEC 常量注入三个响应出口）；图片缓存分级
+  （png/webp immutable，og-cover 1 天）并修正注释矛盾。生产 curl 验证五头全部在线。
+- **P1 抽屉焦点管理**：configList.js 打开时焦点入抽屉（visibility 过渡中 focus() 会
+  静默失败——延迟 80ms 到过渡启动后聚焦）、Tab 圈闭、Escape 关闭（stopPropagation
+  防串扰移动全屏 Esc）、关闭归还触发按钮。生产实测：入抽屉/归还/两步确认全通过。
+- **P2 textContent 纪律**：抽屉卡片 createElement + textContent 重写（localStorage
+  字段不走 innerHTML，杜绝持久化 XSS 路径）。
+- **P2 系统对话框**：confirm→两步确认按钮（3s 回退），alert/prompt→#toast +
+  execCommand 兜底复制。
+- **P1-4 避让回流**：nudgeDimLabels 读写分离——obstacle 矩形 500ms 节流缓存 +
+  resize/切换/配置变化置脏，标签矩形批量读后统一写，消除逐标签交替强制回流。
+- **P1-2/P2-7 残项**：#panel role=tabpanel + 7 tab aria-controls；窄屏退场热点
+  visibility:hidden 移出 Tab 焦点序（hotspots.js 原封，CSS 属性选择器覆盖）。
+- **P3 深链分享 meta**：switchTo 更新 og:title/og:description/document.title（抓取器
+  不执行 JS，静态 OG 仍是兜底；改善应用内浏览器与动态标签场景）。
+- 事故记录：一次 --amend 误改上一轮 docs 提交引发推送冲突（rebase --ours 解决）；
+  smoke 定位器两连坏（role 查询平台差异→改 id 锚点；双 page 前缀笔误）。
+- 验收：npm test 89/89；smoke 5/5；rodtest 基线一致；生产五安全头 + 焦点管理实测通过。

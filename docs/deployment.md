@@ -169,9 +169,12 @@ curl.exe -sS -o online.html https://rack.means.group/
 浏览器侧建议跑一遍仓库自带的 QA：
 
 ```powershell
-node tools/qa-browser.mjs        # 五产品渲染 / 交互 / console 错误
-node tools/qa-geometry.mjs       # 几何约束断言（无需浏览器）
-node tools/qa-export.mjs         # 模型导出形体校验
+node tools/qa-browser.mjs             # 多产品渲染 / 交互 / console 错误
+node tools/qa-shot-current.mjs        # 七产品截图 + 状态探针（输出 tools/qa-out/，不入库）
+node tools/qa-features-round6.mjs     # 第六轮功能探针：打印按钮 / X 光 / 支撑点 / 外伸 / JSON
+node tools/qa-report-preview.mjs      # 打印报告 A4 版式预览（不调起打印对话框）
+node tools/qa-geometry.mjs            # 几何约束断言（无需浏览器）
+node tools/qa-export.mjs              # 模型导出形体校验
 ```
 
 ---

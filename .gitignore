@@ -67,3 +67,4 @@ Thumbs.db
 /*.webp
 /*.lnk
 tools/*.png
+tools/qa-out/

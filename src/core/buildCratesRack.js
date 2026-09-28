@@ -378,6 +378,11 @@ export function buildCratesRack(config) {
     { name: '滑轨垫片', qty: tiers * 4 },
   ];
 
+  // 支撑点（标记层数据源）：脚轮/地脚落在四角立柱正下方
+  stats.supports = {
+    kind: casters ? 'casters' : 'feet',
+    points: postXs.flatMap((x) => postZs.map((z) => [x, 0, z])),
+  };
   stats.envelope = computeEnvelope(group);
   return {
     group,

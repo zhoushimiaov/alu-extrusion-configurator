@@ -12,6 +12,10 @@ export const LIMITS = {
   depth: [0.35, 0.65],   // 柱心距 Z
   height: [1.6, 2.6],    // 立柱总高
   shelves: [1, 3],       // 中间层板数量（整数）
+  ohF: [-0.15, 0.15],    // 板材前向外伸（正扩负缩，m）
+  ohB: [-0.15, 0.15],    // 板材后向外伸
+  ohL: [-0.15, 0.15],    // 板材左向外伸
+  ohR: [-0.15, 0.15],    // 板材右向外伸
 };
 
 export const DEFAULT_WOODCART_CONFIG = {
@@ -25,6 +29,11 @@ export const DEFAULT_WOODCART_CONFIG = {
   sideRail: true,        // 侧向挂杆
   casters: true,         // 万向轮
   woodTone: 'birch',     // 'birch' 桦木 | 'oak' 橡木 | 'walnut' 胡桃
+  ohF: 0,                // 板材前向外伸（m）
+  ohB: 0,                // 板材后向外伸
+  ohL: 0,                // 板材左向外伸
+  ohR: 0,                // 板材右向外伸
+  ohLink: true,          // 四向外伸联动（改一边四边同步）
 };
 
 export const WOOD_TONES = {

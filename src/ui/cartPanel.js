@@ -133,6 +133,7 @@ export function createCartPanel(root, actions) {
       <button class="cta" data-cta>加入配置清单</button>
       <button class="cta-ghost" data-export title="SpreadsheetML 算料单，支持 Excel / WPS 打开">导出算料单</button>
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
+      <button class="cta-ghost" data-print title="生成 A4 设计与报价单（浏览器打印 / 另存 PDF）">打印 / 导出 PDF</button>
     </div>
     <div class="panel-disclaimer">承重与报价为演示示例，实际以工程图纸与正式报价单为准。</div>`);
   mount.appendChild(priceBlock);
@@ -172,6 +173,7 @@ export function createCartPanel(root, actions) {
     if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(cartStore.get());
     if (btn.dataset.export != null && actions.onExport) actions.onExport(cartStore.get());
     if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(cartStore.get());
+    if (btn.dataset.print != null && actions.onPrint) actions.onPrint(cartStore.get());
   });
 
   // 拖拽数值框 data 属性

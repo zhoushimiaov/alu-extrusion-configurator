@@ -75,7 +75,15 @@ export function createWoodCartPanel(root, actions) {
   dragCleanup && dragCleanup();
   dragCleanup = attachDragSlider(mount, {
     get: () => woodcartStore.get(),
-    set: (patch) => woodcartStore.set(patch),
+    set: (patch) => {
+      // 外伸四向联动：拖拽任一边时四边同步（联动关闭时按单边处理）
+      if (woodcartStore.get().ohLink && ('ohF' in patch || 'ohB' in patch || 'ohL' in patch || 'ohR' in patch)) {
+        const v = patch.ohF ?? patch.ohB ?? patch.ohL ?? patch.ohR;
+        woodcartStore.set({ ohF: v, ohB: v, ohL: v, ohR: v });
+      } else {
+        woodcartStore.set(patch);
+      }
+    },
     limits: WC_LIMITS,
   });
 
@@ -115,6 +123,30 @@ export function createWoodCartPanel(root, actions) {
   const casterSw = mkSwitch('万向轮（取消则用调平地脚）', 'casters');
   mount.appendChild(casterSw.rowEl);
 
+  // 板材四向外伸（正数向外扩、负数向内缩；联动开时改一边四边同步）——参考 Alu Designer 台面延伸
+  const ohWrap = el('div', null, `<div class="field-label"><span>板材外伸 OVERHANG</span></div>`);
+  const ohGrid = el('div');
+  ohGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:2px 0 8px;';
+  const mkOh = (label, key) => {
+    const f = el('div');
+    const lab = el('div', 'field-label', `<span>${label}</span>`);
+    const st = el('div', 'stepper', `
+      <button data-act="${key}-" aria-label="减少">−</button>
+      <span class="num" data-num="${key}"></span>
+      <button data-act="${key}+" aria-label="增加">＋</button>`);
+    f.append(lab, st);
+    return f;
+  };
+  const ohFField = mkOh('前 FRONT', 'ohF');
+  const ohBField = mkOh('后 BACK', 'ohB');
+  const ohLField = mkOh('左 LEFT', 'ohL');
+  const ohRField = mkOh('右 RIGHT', 'ohR');
+  ohGrid.append(ohFField, ohBField, ohLField, ohRField);
+  ohWrap.appendChild(ohGrid);
+  const ohLinkSw = mkSwitch('四边联动', 'ohLink');
+  ohWrap.appendChild(ohLinkSw.rowEl);
+  mount.appendChild(ohWrap);
+
   // 价格区
   const priceBlock = el('div', 'price-block', `
     <div class="price-line"><span class="price" data-price>¥ 0</span><span class="price-note">示例材料估价</span></div>
@@ -124,6 +156,7 @@ export function createWoodCartPanel(root, actions) {
       <button class="cta" data-cta>加入配置清单</button>
       <button class="cta-ghost" data-export title="SpreadsheetML 算料单，支持 Excel / WPS 打开">导出算料单</button>
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
+      <button class="cta-ghost" data-print title="生成 A4 设计与报价单（浏览器打印 / 另存 PDF）">打印 / 导出 PDF</button>
     </div>
     <div class="panel-disclaimer">承重与报价为演示示例，实际以工程图纸与正式报价单为准。</div>`);
   mount.appendChild(priceBlock);
@@ -160,11 +193,21 @@ export function createWoodCartPanel(root, actions) {
     if (btn.dataset.act === 'h-') bump('height', '-', 0.1);
     if (btn.dataset.act === 's+') bump('shelves', '+', 1, true);
     if (btn.dataset.act === 's-') bump('shelves', '-', 1, true);
+    for (const key of ['ohF', 'ohB', 'ohL', 'ohR']) {
+      if (btn.dataset.act === key + '+' || btn.dataset.act === key + '-') {
+        const dir = btn.dataset.act.endsWith('+') ? 1 : -1;
+        const [lo, hi] = lim[key];
+        const v = Math.min(hi, Math.max(lo, +(c[key] + dir * 0.01).toFixed(3)));
+        if (c.ohLink) woodcartStore.set({ ohF: v, ohB: v, ohL: v, ohR: v });
+        else woodcartStore.set({ [key]: v });
+      }
+    }
     if (btn.dataset.seg === 'woodTone') woodcartStore.set({ woodTone: btn.dataset.val });
     if (btn.dataset.sw) woodcartStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
     if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(woodcartStore.get());
     if (btn.dataset.export != null && actions.onExport) actions.onExport(woodcartStore.get());
     if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(woodcartStore.get());
+    if (btn.dataset.print != null && actions.onPrint) actions.onPrint(woodcartStore.get());
   });
 
   function markDrag(field, key, step) {
@@ -176,6 +219,10 @@ export function createWoodCartPanel(root, actions) {
   markDrag(dField, 'depth', '0.05');
   markDrag(hField, 'height', '0.1');
   markDrag(sField, 'shelves', '1');
+  markDrag(ohFField, 'ohF', '0.005');
+  markDrag(ohBField, 'ohB', '0.005');
+  markDrag(ohLField, 'ohL', '0.005');
+  markDrag(ohRField, 'ohR', '0.005');
 
   function syncSpecs(c) {
     const conf = [['width', wField, 'w'], ['depth', dField, 'd'], ['height', hField, 'h'], ['shelves', sField, 's']];
@@ -201,6 +248,15 @@ export function createWoodCartPanel(root, actions) {
     sideSw.sw.setAttribute('aria-checked', String(c.sideRail));
     casterSw.sw.classList.toggle('on', c.casters);
     casterSw.sw.setAttribute('aria-checked', String(c.casters));
+    for (const [key, field] of [['ohF', ohFField], ['ohB', ohBField], ['ohL', ohLField], ['ohR', ohRField]]) {
+      const n = field.querySelector('[data-num]');
+      n.textContent = Math.round(c[key] * 1000) + ' mm';
+      const [lo, hi] = woodcartStore.limits[key];
+      field.querySelector(`[data-act="${key}-"]`).disabled = c[key] <= lo;
+      field.querySelector(`[data-act="${key}+"]`).disabled = c[key] >= hi;
+    }
+    ohLinkSw.sw.classList.toggle('on', c.ohLink);
+    ohLinkSw.sw.setAttribute('aria-checked', String(c.ohLink));
   }
   syncSpecs(state);
   const unsub = woodcartStore.subscribe(syncSpecs);

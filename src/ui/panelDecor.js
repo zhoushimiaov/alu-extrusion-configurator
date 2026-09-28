@@ -1,7 +1,7 @@
 // 面板分区装饰（接线层后处理）：panel.js 为原封文件，分区标题 / 行布局类名在这里注入。
 // 只做 DOM 搬家与 class 加注，不删改任何带数据绑定的节点（spec/stepper/seg/list 的引用
 // 仍由原封 panel.js 持有，移动节点不影响其查询与订阅）。
-export function decoratePanel(root) {
+export function decoratePanel(root, extras = {}) {
   if (!root || root.dataset.decorated) return;
   root.dataset.decorated = '1';
 
@@ -112,6 +112,19 @@ export function decoratePanel(root) {
   const spangleSwatch = root.querySelector('.swatch[data-pcolor="spangle"]');
   if (spangleSwatch) {
     spangleSwatch.style.background = 'linear-gradient(135deg,#e9edf1 0%,#b6bdc7 30%,#dfe3e8 50%,#aab2bd 72%,#d3d8de 100%)';
+  }
+
+  // 打印 / 导出 PDF：panel.js 原封无此按钮，装饰层注入动作区；回调由接线层传入
+  const actionRow = root.querySelector('.price-block .action-row');
+  if (actionRow && typeof extras.onPrint === 'function' && !actionRow.querySelector('[data-print]')) {
+    const printBtn = document.createElement('button');
+    printBtn.type = 'button';
+    printBtn.className = 'cta-ghost';
+    printBtn.dataset.print = '';
+    printBtn.title = '生成 A4 设计与报价单（浏览器打印 / 另存 PDF）';
+    printBtn.textContent = '打印 / 导出 PDF';
+    printBtn.addEventListener('click', () => extras.onPrint());
+    actionRow.appendChild(printBtn);
   }
 
   // 系统诊断信息按钮挂入文末

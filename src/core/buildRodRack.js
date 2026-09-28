@@ -421,6 +421,11 @@ export function buildRodRack(config) {
     ...(shelf === 'deck' ? [{ name: '层板托夹', qty: 4 }] : []),
   ];
 
+  // 支撑点（标记层数据源）：轮/脚在底叉端头 z=±forkHalf
+  stats.supports = {
+    kind: casters ? 'casters' : 'feet',
+    points: postXs.flatMap((x) => [forkHalf, -forkHalf].map((z) => [x, 0, z])),
+  };
   stats.envelope = computeEnvelope(group);
   return {
     group,

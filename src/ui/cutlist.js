@@ -25,15 +25,12 @@ function row(cells, style = '') {
 }
 
 /**
- * 生成算料单 .xls 文件内容（统一入口，按 kind 分派）
- * @param {'profile'|'rod'} kind
+ * 按产品分派标题 / 配置摘要 / 统计附加行 / 外廓文本。
+ * 算料单（.xls）与打印报告（printReport.js）共用，配置摘要单一真源。
+ * @param {'profile'|'rod'|'cart'|'crates'|'woodcart'|'hanger'|'books'} kind
  */
-export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
-  const now = new Date();
-  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const totalCutLen = stats.cutList.reduce((a, c) => a + c.len * c.qty, 0);
-
-  let title, configLine, hwRows, extraStats, wText, hText;
+export function configLineFor(cfg, kind = 'profile', stats = null) {
+  let title, configLine, extraStats, wText, hText;
   if (kind === 'crates') {
     const { CRATE_SCHEMES } = labelsFor('crates');
     title = '周转箱收纳架 · 算料单';
@@ -41,10 +38,6 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     if (cfg.casters) tags.push('滚轮');
     if (cfg.pullOut) tags.push('抽拉展示');
     configLine = `${cfg.tiers} 层 · 宽 ${cfg.width.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · ${CRATE_SCHEMES[cfg.scheme].label}配色`;
-    hwRows = [
-      ['序号', '五金名称', '数量', '单位'],
-      ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, "件"]),
-    ];
     extraStats = [];
     wText = (cfg.width + 0.06).toFixed(2);
     hText = (cfg.height + 0.20).toFixed(2);
@@ -55,10 +48,6 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     if (cfg.wheels) tags.push('万向轮');
     tags.push(`${cfg.drawers} 层抽屉`);
     configLine = `宽 ${cfg.width.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · 总高 ${cfg.height.toFixed(2)} m · ${HANGER_COLORS[cfg.color].label} · ${tags.join(' / ')}`;
-    hwRows = [
-      ['序号', '五金名称', '数量', '单位'],
-      ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, '件']),
-    ];
     extraStats = [];
     wText = (cfg.width + 0.03).toFixed(2);
     hText = (cfg.height + 0.10).toFixed(2);
@@ -70,11 +59,8 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     if (cfg.topRail) tags.push('顶挂杆');
     if (cfg.sideRail) tags.push('侧挂杆');
     if (cfg.casters) tags.push('滚轮');
+    if (Math.abs(cfg.ohF || 0) + Math.abs(cfg.ohB || 0) + Math.abs(cfg.ohL || 0) + Math.abs(cfg.ohR || 0) > 1e-9) tags.push('板材外伸');
     configLine = `宽 ${cfg.width.toFixed(2)} m · 高 ${cfg.height.toFixed(2)} m · ${cfg.shelves} 层板 · ${WOOD_TONES[cfg.woodTone].label} · ${tags.join(' / ')}`;
-    hwRows = [
-      ['序号', '五金名称', '数量', '单位'],
-      ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, '件']),
-    ];
     extraStats = [];
     wText = (cfg.width + 0.06).toFixed(2);
     // 真实总高 = 立柱身长 height + 柜体顶 cabinetH(0.72) - 穿入 0.02 + 顶余量 0.06（与 buildWoodCart bounds.H 一致）
@@ -88,10 +74,6 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     if (cfg.rodRails) tags.push('光轴挂杆');
     if (cfg.casters) tags.push('滚轮');
     configLine = `宽 ${cfg.width.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · 高 ${cfg.height.toFixed(2)} m · ${WOOD_FINISHES[cfg.woodFinish].label} · ${tags.join(' / ')}`;
-    hwRows = [
-      ['序号', '五金名称', '数量', '单位'],
-      ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, '件']),
-    ];
     extraStats = [];
     wText = (cfg.width + 0.06).toFixed(2);
     hText = (cfg.height + 0.16).toFixed(2);
@@ -102,14 +84,29 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     if (cfg.shelf && cfg.shelf !== 'none') tags.push(SHELF_TYPES[cfg.shelf].label);
     if (cfg.casters) tags.push('滚轮');
     configLine = `柱距 ${cfg.width.toFixed(2)} m · 柱长 ${cfg.height.toFixed(2)} m · ${tags.join(' / ')} · ${ROD_COLORS[cfg.color].label}`;
-    hwRows = [
-      ['序号', '五金名称', '数量', '单位'],
-      ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, '件']),
-    ];
     extraStats = [];
     wText = (cfg.width + 0.12).toFixed(2);
     // 总高 = 立柱长 cfg.height + 柱顶超出 0.142 + 顶部余量 0.04（与 buildRodRack bounds.H 一致）
     hText = (cfg.height + 0.182).toFixed(2);
+  } else if (kind === 'books') {
+    // 光轴书架（展塔 / 长桌）：此前无分支会落到 profile 分支并因 cfg.decks 缺失而崩溃
+    const { PANEL_MATERIALS } = labelsFor('books');
+    const matLabel = PANEL_MATERIALS[cfg.panelMat]?.label || '';
+    title = cfg.style === 'table' ? '光轴长桌 · 算料单' : '光轴书架 · 算料单';
+    if (cfg.style === 'table') {
+      configLine = `${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · ${matLabel}`;
+    } else {
+      const tags = [];
+      if (cfg.base) tags.push('木箱脚轮'); else tags.push('调平地脚');
+      if (cfg.wires) tags.push('交叉拉索');
+      if (cfg.acrylic && cfg.acrylic !== 'none') tags.push('亚克力前挡');
+      if (cfg.glassTop) tags.push('玻璃副板');
+      configLine = `${cfg.levels} 层 × ${cfg.bays} 跨 · 跨宽 ${cfg.bayW.toFixed(2)} m · ${matLabel} · ${tags.join(' / ')}`;
+    }
+    extraStats = [];
+    const env = stats && stats.envelope;
+    wText = env ? env.W.toFixed(2) : '';
+    hText = env ? env.H.toFixed(2) : '';
   } else {
     const { PROFILE_SERIES, DECK_TYPES, COLORS } = labelsFor('product');
     let deckSummary = {};
@@ -117,14 +114,22 @@ export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
     const deckText = Object.entries(deckSummary).map(([k, n]) => `${DECK_TYPES[k].label}×${n}层`).join('，');
     title = '工业铝型材置物架 · 算料单';
     configLine = `${cfg.bays} 跨 × ${cfg.levels} 层 · ${PROFILE_SERIES[cfg.series].label} · 层板 ${deckText || '无'} · 侧挡板 ${cfg.sidePanels ? '有' : '无'} · ${COLORS[cfg.color].label}`;
-    hwRows = [
-      ['序号', '五金名称', '数量', '单位'],
-      ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, '件']),
-    ];
     extraStats = [['板条总长', +(stats.stripLengthM || 0).toFixed(1), 'm']];
     wText = cfg.bayWidths ? cfg.bayWidths.reduce((a, b) => a + b, 0).toFixed(2) : '';
     hText = (cfg.levels * 0.45 + 0.05).toFixed(2);
   }
+  return { title, configLine, extraStats, wText, hText };
+}
+
+export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
+  const now = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const totalCutLen = stats.cutList.reduce((a, c) => a + c.len * c.qty, 0);
+  const { title, configLine, extraStats, wText, hText } = configLineFor(cfg, kind, stats);
+  const hwRows = [
+    ['序号', '五金名称', '数量', '单位'],
+    ...stats.hardware.map((h, idx) => [idx + 1, h.name, h.qty, '件']),
+  ];
 
   const cutRows = [
     ['序号', '名称', '规格', '名义尺寸（m）', '下料长度', '数量', '单位'],

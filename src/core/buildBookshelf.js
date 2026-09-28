@@ -403,6 +403,10 @@ export function buildBookshelf(config) {
       }
       group.add(wheels);
       group.add(forks);
+      stats.supports = {
+        kind: 'casters',
+        points: [-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx * (W / 2 - 0.06), 0, sz * (D / 2 - 0.04)])),
+      };
       partCount += 8;
     } else {
       const footGeo = new THREE.CylinderGeometry(0.012, 0.016, 0.02, 12);
@@ -414,6 +418,10 @@ export function buildBookshelf(config) {
       }
       group.add(feet);
       partCount += fi;
+      stats.supports = {
+        kind: 'feet',
+        points: bndXs.flatMap((x) => [D / 2, -D / 2].map((z) => [x, 0, z])),
+      };
       stats.hardware.push({ name: '调平地脚', qty: fi });
     }
   }

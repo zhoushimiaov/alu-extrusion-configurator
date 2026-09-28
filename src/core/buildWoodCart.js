@@ -28,7 +28,7 @@ const rodYGeo = new THREE.CylinderGeometry(1, 1, 1, 14);
 
 export function buildWoodCart(config) {
   const cfg = { ...DEFAULT_WOODCART_CONFIG, ...config };
-  const { width, depth, height, shelves, cabinetH, pegboard, topRail, sideRail, casters, woodTone } = cfg;
+  const { width, depth, height, shelves, cabinetH, pegboard, topRail, sideRail, casters, woodTone, ohF, ohB, ohL, ohR } = cfg;
   const mat = getWoodCartMaterials(woodTone);
 
   const group = new THREE.Group();
@@ -39,6 +39,11 @@ export function buildWoodCart(config) {
   const px = W / 2, pz = D / 2;
   const postXs = [-px, px];
   const postZs = [-pz, pz];
+  // 板材四向外伸/内缩：正数向外扩、负数向内缩；四边联动由面板层保证。施加于柜体顶板与中层板。
+  const ohFB = Math.max(ohF + ohB, -(D - 0.08));
+  const ohLR = Math.max(ohL + ohR, -(W - 0.08));
+  const ohOffX = (ohR - ohL) / 2;
+  const ohOffZ = (ohF - ohB) / 2;
 
   const yWheel = 0.05;
   const cabTop = cabinetH;                  // 柜体顶面
@@ -49,10 +54,10 @@ export function buildWoodCart(config) {
 
   // ---- 几何 ----
   const rodGeo = rodYGeo;
-  const boardXGeo = new THREE.BoxGeometry(1, BOARD_T, D - 0.04);   // 层板（X 长）
+  const boardXGeo = new THREE.BoxGeometry(1, BOARD_T, 1);   // 层板（X/Z 由实例缩放，含外伸）
   const cabinetSideGeo = new THREE.BoxGeometry(BOARD_T, cabinetH, D);  // 侧板
   const cabinetBottomGeo = new THREE.BoxGeometry(W + 0.02, BOARD_T, D); // 底板
-  const cabinetTopGeo = new THREE.BoxGeometry(W + 0.02, BOARD_T, D);    // 顶板
+  const cabinetTopGeo = new THREE.BoxGeometry(W + 0.02 + ohLR, BOARD_T, D + ohFB);    // 顶板（含外伸）
   const pegGeo = new THREE.BoxGeometry(W - 0.02, cabinetH - BOARD_T, 0.01); // 洞洞板（背面）
   const clampGeo = new THREE.BoxGeometry(0.034, 0.028, 0.034);
   const wheelGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.018, 16);
@@ -71,7 +76,7 @@ export function buildWoodCart(config) {
   group.add(bottom);
   groups.bottom = bottom;
   const top = instanced(cabinetTopGeo, mat.wood, 1);
-  setMT(0, top, 0, cabTop - BOARD_T / 2, 0);
+  setMT(0, top, ohOffX, cabTop - BOARD_T / 2, ohOffZ);
   group.add(top);
   groups.top = top;
   if (pegboard) {
@@ -113,7 +118,7 @@ export function buildWoodCart(config) {
   const shelfBoards = instanced(boardXGeo, mat.wood, shelves);
   let si = 0;
   for (const sy of shelfYs) {
-    setMT(si++, shelfBoards, 0, sy, 0, W - 0.02, 1, 1);
+    setMT(si++, shelfBoards, ohOffX, sy, ohOffZ, W - 0.02 + ohLR, 1, D - 0.04 + ohFB);
   }
   group.add(shelfBoards);
   groups.shelfBoards = shelfBoards;
@@ -203,8 +208,9 @@ export function buildWoodCart(config) {
   // ---- 统计 ----
   const volRod = 4 * postLen * Math.PI * (ROD_D / 2) ** 2
     + railCount * ((W + 0.06) * Math.PI * (RAIL_D / 2) ** 2);
-  const plyArea = (2 * cabinetH * D + 2 * (W + 0.02) * D + (W - 0.02) * (cabinetH - BOARD_T)
-    + shelves * (W - 0.02) * (D - 0.04));
+  const plyArea = (2 * cabinetH * D + (W + 0.02) * D + (W + 0.02 + ohLR) * (D + ohFB)
+    + (W - 0.02) * (cabinetH - BOARD_T)
+    + shelves * (W - 0.02 + ohLR) * (D - 0.04 + ohFB));
   stats.weightKg = volRod * DENSITY_STEEL
     + plyArea * BOARD_T * DENSITY_PLY
     + 4 * 0.02 + (casters ? 4 * 0.15 : 4 * 0.05)
@@ -222,9 +228,9 @@ export function buildWoodCart(config) {
   const plyItems = [
     { spec: '柜体侧板', w: cabinetH, d: D, qty: 2 },
     { spec: '柜体底板', w: W + 0.02, d: D, qty: 1 },
-    { spec: '柜体顶板', w: W + 0.02, d: D, qty: 1 },
+    { spec: '柜体顶板', w: W + 0.02 + ohLR, d: D + ohFB, qty: 1 },
     ...(pegboard ? [{ spec: '洞洞板背板', w: cabinetH - BOARD_T, d: W - 0.02, qty: 1 }] : []),
-    ...Array.from({ length: shelves }, (_, s) => ({ spec: `层板 ${s + 1}`, w: W - 0.02, d: D - 0.04, qty: 1 })),
+    ...Array.from({ length: shelves }, (_, s) => ({ spec: `层板 ${s + 1}`, w: W - 0.02 + ohLR, d: D - 0.04 + ohFB, qty: 1 })),
   ];
   for (const p of plyItems) {
     stats.cutList.push({ spec: `${p.spec}（胶合板 ${Math.round(BOARD_T * 1000)}mm）`, section: '板', len: +p.w.toFixed(2), qty: p.qty });
@@ -237,6 +243,11 @@ export function buildWoodCart(config) {
     { name: '角码', qty: 8 },
   ];
 
+  // 支撑点（标记层数据源）：脚轮/地脚落在四角立柱正下方
+  stats.supports = {
+    kind: casters ? 'casters' : 'feet',
+    points: postXs.flatMap((x) => postZs.map((z) => [x, 0, z])),
+  };
   stats.envelope = computeEnvelope(group);
   return {
     group,

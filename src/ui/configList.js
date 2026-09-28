@@ -225,7 +225,10 @@ function renderDrawerContent() {
   clearBtn.id = 'df-clear-btn';
   const copyBtn = el('button', 'df-btn df-copy', '复制清单摘要');
   copyBtn.id = 'df-copy-btn';
-  row.append(clearBtn, copyBtn);
+  const jsonBtn = el('button', 'df-btn df-copy', '导出 JSON');
+  jsonBtn.id = 'df-json-btn';
+  jsonBtn.title = '导出 AI 可读的结构化配置（JSON）';
+  row.append(clearBtn, copyBtn, jsonBtn);
   footerEl.appendChild(row);
 
   clearBtn.addEventListener('click', () => {
@@ -243,6 +246,36 @@ function renderDrawerContent() {
         clearBtn.textContent = '清空清单';
       }
     }, 3000);
+  });
+
+  jsonBtn.addEventListener('click', () => {
+    // AI 契约雏形：结构化导出（cfg 即各产品 persist 白名单字段，可直接回灌 loadSaved）
+    const payload = {
+      schema: 'modulo.configs.v1',
+      app: 'MODULO 模数',
+      exportedAt: new Date().toISOString(),
+      url: location.origin + location.pathname,
+      note: 'items[].cfg 为该产品全部可持久化参数（与 persist.js SCHEMA 白名单一致）。可将 JSON 交给模型改参后用分享链接或载入配置回灌。',
+      items: list.map((item) => ({
+        kind: item.kind,
+        title: item.title,
+        summary: item.summary,
+        priceText: item.priceText,
+        savedAt: new Date(item.timestamp).toISOString(),
+        cfg: item.cfg,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const d = new Date();
+    a.download = `modulo-configs-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast('配置 JSON 已导出（AI 可读格式）');
   });
 
   copyBtn.addEventListener('click', () => {

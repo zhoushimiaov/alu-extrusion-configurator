@@ -16,6 +16,7 @@ import { createAnims } from './core/anims.js';
 import { createDimensions } from './core/dimensions.js';
 import { createHotspots } from './core/hotspots.js';
 import { createRodHandles } from './core/rodHandles.js';
+import { createSupportMarkers } from './core/supportMarkers.js';
 import { createGroundContact } from './core/groundContact.js';
 import { store, fmtPrice, calcPrice, setInstallSteps } from './ui/store.js';
 import { createPanel } from './ui/panel.js';
@@ -35,6 +36,7 @@ import { installSpecCountUp } from './ui/specCountUp.js';
 import { maybeStartTour } from './ui/tour.js';
 import { downloadCutlist } from './ui/cutlist.js';
 import { registerLabels } from './ui/cutlist.js';
+import { printCurrentReport } from './ui/printReport.js';
 import { downloadModel } from './ui/modelExport.js';
 import { onMarketRefresh } from './ui/marketPrice.js';
 import { loadSaved, persist } from './ui/persist.js';
@@ -44,7 +46,7 @@ import { INSTALL_STEPS_CART, ACRYLIC_TYPES, WOOD_FINISHES } from './config/cart.
 import { INSTALL_STEPS_WOODCART, WOOD_TONES } from './config/woodcart.js';
 import { INSTALL_STEPS_CRATES, CRATE_SCHEMES } from './config/crates.js';
 import { INSTALL_STEPS_HANGER, HANGER_COLORS } from './config/hanger.js';
-import { INSTALL_STEPS_BOOKSHELF } from './config/bookshelf.js';
+import { INSTALL_STEPS_BOOKSHELF, PANEL_MATERIALS, BOOK_STYLES } from './config/bookshelf.js';
 import { PROFILE_SERIES, DECK_TYPES, COLORS } from './config/product.js';
 
 // 算料单标签文案注入（显式注册 API，替代旧的 window.__ALU_LABELS 全局注入）
@@ -54,6 +56,7 @@ registerLabels('cart', { ACRYLIC_TYPES, WOOD_FINISHES });
 registerLabels('woodcart', { WOOD_TONES });
 registerLabels('crates', { CRATE_SCHEMES });
 registerLabels('hanger', { HANGER_COLORS });
+registerLabels('books', { PANEL_MATERIALS, BOOK_STYLES });
 
 const canvas = document.getElementById('gl');
 const dimSvg = document.getElementById('dim-layer');
@@ -87,6 +90,9 @@ hotspotLayer?.addEventListener('touchstart', (e) => {
 }, { passive: true });
 // 光轴展架视口内拖拽箭头（宽 / 高两个方向）
 const rodHandles = webglFailed ? null : createRodHandles(canvas, camera, renderer, controls, rodStore, () => (rodCurrent?.bounds) || { W: 1.0, H: 1.4, D: 0.42 });
+// 支撑点橙色标记层（配件可视化）：数据来自各 build 的 stats.supports，型材架无支撑件选项自然为空
+const supportMarkers = webglFailed ? null : createSupportMarkers();
+if (supportMarkers) scene.add(supportMarkers.group);
 
 // 接地接触贴片：预览特性（?ground=1），默认关闭，审美方向待用户确认后决定是否常开
 const GROUND_PREVIEW = /[?&]ground=1/.test(location.search);
@@ -135,6 +141,8 @@ function stageProduct(p) {
   if (!p || !p.group) return;
   if (p.bounds) fitShadow(p.bounds);
   if (groundContact) groundContact.sync(p.stats?.envelope || p.bounds);
+  if (supportMarkers) supportMarkers.setPoints(p.stats?.supports?.points || []);
+  if (xrayOn) applyXrayTo(p.group, true);
 }
 
 
@@ -389,7 +397,48 @@ let explodeAuxHidden = false;
 function applyExplodeAux(hidden) {
   explodeAuxHidden = hidden;
   if (rodHandles) rodHandles.setVisible(!hidden);
+  if (supportMarkers) supportMarkers.setVisible(!hidden);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+}
+
+// ---- X 光透视：构件材质半透切换（接线层实现；线框/标注保持实显，composer 链兼容半透）----
+let xrayOn = false;
+const _xrayMats = new WeakMap(); // 原材质 → 共享半透克隆（跨 rebuild 复用，避免拖参反复新建）
+function xrayMatOf(orig) {
+  let m = _xrayMats.get(orig);
+  if (!m) {
+    m = orig.clone();
+    m.transparent = true;
+    m.opacity = 0.15;
+    m.depthWrite = false;
+    _xrayMats.set(orig, m);
+  }
+  return m;
+}
+function applyXrayTo(group, on) {
+  if (!group) return;
+  group.traverse((o) => {
+    if (!o.isMesh && !o.isInstancedMesh) return;
+    if (on) {
+      if (!o.userData.__origMat) o.userData.__origMat = o.material;
+      const orig = o.userData.__origMat;
+      // 材质数组（多材质网格）逐项半透；不可克隆的材质保持原样退出
+      o.material = Array.isArray(orig)
+        ? orig.map((m) => (m && typeof m.clone === 'function' ? xrayMatOf(m) : m))
+        : (orig && typeof orig.clone === 'function' ? xrayMatOf(orig) : orig);
+    } else if (o.userData.__origMat) {
+      o.material = o.userData.__origMat;
+      delete o.userData.__origMat;
+    }
+  });
+}
+function setXray(on) {
+  xrayOn = on;
+  if (!webglFailed) {
+    applyXrayTo(active()?.group, on);
+    window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  }
+  hud.setXrayUi(on);
 }
 
 // ---- HUD(单实例,双形态自适应)----
@@ -415,6 +464,7 @@ const hud = createHud(hudLeft, hudRight, {
     }
   },
   setSpin: (on) => { if (!webglFailed) controls.autoRotate = on; },
+  setXray: (on) => setXray(on),
 });
 const hudRod = hud;
 
@@ -457,7 +507,30 @@ if (btnMobileFs && layoutEl) {
 }
 
 // ---- 动作 ----
+// 打印 / 导出 PDF（各产品共用）：抓当前渲染帧快照 → A4 设计与报价单 iframe 打印
+function makePrintAction(kind) {
+  return async () => {
+    const s = panel.lastStats;
+    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    showToast('正在生成打印稿 …');
+    let snapshot = null;
+    if (!webglFailed && window.__ALU_CAPTURE) {
+      snapshot = await new Promise((res) => {
+        const timer = setTimeout(() => res(null), 1500);
+        window.__ALU_CAPTURE((d) => { clearTimeout(timer); res(d); });
+      });
+    }
+    try {
+      await printCurrentReport({ kind, cfg: PRODUCT_STORES[kind].get(), stats: s, snapshot });
+    } catch (err) {
+      console.error('[ALU] print report failed:', err);
+      showToast('打印稿生成失败,请重试');
+    }
+  };
+}
+
 const profileActions = {
+  onPrint: makePrintAction('profile'),
   onAdd: (cfg) => {
     const p = fmtPrice(calcPrice(cfg, panel.lastStats));
     const summary = `${cfg.bays} 跨 × ${cfg.levels} 层 · ${cfg.series} 系列`;
@@ -488,6 +561,7 @@ const profileActions = {
   },
 };
 const rodActions = {
+  onPrint: makePrintAction('rod'),
   onAdd: (cfg) => {
     const p = `¥ ${calcRodPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = `柱距 ${cfg.width.toFixed(2)} m · 柱长 ${cfg.height.toFixed(2)} m · ${cfg.style === 'poster' ? '海报架' : '挂画架'}`;
@@ -519,6 +593,7 @@ const rodActions = {
 };
 
 const cartActions = {
+  onPrint: makePrintAction('cart'),
   onAdd: (cfg) => {
     const p = `¥ ${calcCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = `宽 ${cfg.width.toFixed(2)} m × 深 ${cfg.depth.toFixed(2)} m`;
@@ -550,6 +625,7 @@ const cartActions = {
 };
 
 const cratesActions = {
+  onPrint: makePrintAction('crates'),
   onAdd: (cfg) => {
     const p = `¥ ${calcCratesPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = `${cfg.tiers} 层周转箱 · 宽 ${cfg.width.toFixed(2)} m`;
@@ -581,6 +657,7 @@ const cratesActions = {
 };
 
 const woodcartActions = {
+  onPrint: makePrintAction('woodcart'),
   onAdd: (cfg) => {
     const p = `¥ ${calcWoodCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = `木展车 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m`;
@@ -612,6 +689,7 @@ const woodcartActions = {
 };
 
 const bookActions = {
+  onPrint: makePrintAction('books'),
   onAdd: (cfg) => {
     const p = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = cfg.style === 'table'
@@ -645,6 +723,7 @@ const bookActions = {
 };
 
 const hangerActions = {
+  onPrint: makePrintAction('hanger'),
   onAdd: (cfg) => {
     const p = `¥ ${calcHangerPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = `挂衣架 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${cfg.drawers} 抽屉`;
@@ -715,7 +794,7 @@ function mountActiveProduct() {
   } else {
     setInstallSteps(INSTALL_STEPS);
     const inner = createPanel(panelRoot, profileActions);
-    decoratePanel(panelRoot); // 分区标题/行布局（panel.js 原封，装饰在接线层注入）
+    decoratePanel(panelRoot, { onPrint: () => profileActions.onPrint() }); // 分区标题/行布局/打印按钮（panel.js 原封，装饰在接线层注入）
     panel = { ...inner, dispose() { /* 原封 panel.js 无显式资源；容器已由上方 innerHTML 清空 */ } };
     syncPriceNote();
     if (webglFailed) syncStatsOnly(); else rebuild({ isEntrance: true });
@@ -948,6 +1027,7 @@ if (webglFailed) {
   let needsRender = true;       // 场景脏标记：配置变更 / 相机运动 / 尺寸变化
   let interactionActive = false; // OrbitControls 拖拽中
   let hotspotsDirty = true;     // 热点/标注需要重投影
+  let captureCb = null;         // 打印快照回调（window.__ALU_CAPTURE 注入）
   let lastT = performance.now();
 
   // WASD/QE 键盘平移（Rhino/游戏式），输入框聚焦时不劫持
@@ -958,6 +1038,7 @@ if (webglFailed) {
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     const k = e.key.toLowerCase();
     if (MOVE_KEYS.has(k)) keys.add(k);
+    if (k === 'x' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) setXray(!xrayOn);
   });
   window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => keys.clear());
@@ -1013,6 +1094,12 @@ if (webglFailed) {
     // 层板 LOD：远景（视距超阈值）用板条纹理整板替换亚像素板条几何（根治摩尔纹）。
     // stripsLOD 仅 GLB 模式生成；爆炸态两组都保留各自偏移，可见性切换独立于爆炸。
     postfx.render();
+    // 打印报告快照：渲染后同一任务内同步抓帧（无 preserveDrawingBuffer 时合成前抓取有效）
+    if (captureCb) {
+      const cb = captureCb;
+      captureCb = null;
+      try { cb(canvas.toDataURL('image/jpeg', 0.88)); } catch { cb(null); }
+    }
     const a = active();
     if (a && productKind === 'profile' && a.groups?.stripsLOD) {
       const camDist = camera.position.distanceTo(controls.target);
@@ -1063,6 +1150,10 @@ if (webglFailed) {
   // 对外暴露：配置变更后调用（rebuild / rebuildRod 内部已调用）
   function invalidateView() { needsRender = true; hotspotsDirty = true; }
   window.__ALU_INVALIDATE = invalidateView;
+  // 打印报告用：请求下一渲染帧同步抓取 canvas（dataURL）；WebGL 不可用时不存在
+  window.__ALU_CAPTURE = (cb) => { captureCb = cb; needsRender = true; hotspotsDirty = true; };
+  // QA：读取当前产品支撑点数据（配件标记层数据源）
+  window.__ALU_SUPPORTS = () => active()?.stats?.supports || null;
   // QA 用：读取当前产品装配的场景侧规模（与渲染路径无关，后期链下同样有效）
   window.__ALU_STATS = () => {
     const root = active();

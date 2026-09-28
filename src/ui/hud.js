@@ -13,6 +13,7 @@ const ICONS = {
   node: svg('<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   explode: svg('<rect x="9.5" y="9.5" width="5" height="5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/>'),
   spin: svg('<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 3.5V8h-4.5"/>'),
+  xray: svg('<circle cx="12" cy="12" r="8" stroke-dasharray="4 3.4"/><circle cx="12" cy="12" r="2.6"/>'),
 };
 
 export function createHud(hudLeft, hudRight, actions) {
@@ -161,5 +162,18 @@ export function createHud(hudLeft, hudRight, actions) {
   });
   hudRight.appendChild(spin);
 
-  return { syncReadout };
+  // X 光透视：构件半透，看内部连接与隐藏结构（材质切换在接线层实现）
+  const xray = document.createElement('button');
+  xray.className = 'chip-toggle';
+  xray.innerHTML = ICONS.xray;
+  xray.dataset.tip = 'X 光透视（快捷键 X）';
+  xray.setAttribute('aria-label', 'X 光透视');
+  xray.addEventListener('click', () => {
+    const on = !xray.classList.contains('on');
+    xray.classList.toggle('on', on);
+    actions.setXray && actions.setXray(on);
+  });
+  hudRight.appendChild(xray);
+
+  return { syncReadout, setXrayUi: (on) => xray.classList.toggle('on', on) };
 }

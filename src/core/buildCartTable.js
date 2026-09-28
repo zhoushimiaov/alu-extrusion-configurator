@@ -312,6 +312,14 @@ export function buildCartTable(config) {
     ...(midAcrylic !== 'none' ? [{ name: '中板压条', qty: 2 }] : []),
   ].filter(h => h.qty > 0);
 
+  // 支撑点（标记层数据源）：轮体略外偏（与轮组安装一致），地脚落在腿底中心
+  stats.supports = {
+    kind: casters ? 'casters' : 'feet',
+    points: postXs.flatMap((x) => postZs.map((z) => {
+      const sx = x > 0 ? 1 : -1, sz = z > 0 ? 1 : -1;
+      return [casters ? x + sx * 0.014 : x, 0, casters ? z + sz * 0.016 : z];
+    })),
+  };
   stats.envelope = computeEnvelope(group);
   return {
     group,

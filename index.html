@@ -35,13 +35,13 @@
           </button>
         </header>
         <nav id="product-tabs" class="product-tabs" role="tablist" aria-label="产品切换">
-          <button role="tab" data-kind="profile" aria-label="切换到铝型材置物架">铝型材置物架</button>
-          <button role="tab" data-kind="rod" aria-label="切换到光轴展架">光轴展架</button>
-          <button role="tab" data-kind="books" aria-label="切换到光轴书架">光轴书架</button>
-          <button role="tab" data-kind="cart" aria-label="切换到移动边几">移动边几</button>
-          <button role="tab" data-kind="crates" aria-label="切换到周转箱架">周转箱架</button>
-          <button role="tab" data-kind="woodcart" aria-label="切换到木展车">木展车</button>
-          <button role="tab" data-kind="hanger" aria-label="切换到挂衣架">挂衣架</button>
+          <button role="tab" aria-controls="panel" data-kind="profile" aria-label="切换到铝型材置物架">铝型材置物架</button>
+          <button role="tab" aria-controls="panel" data-kind="rod" aria-label="切换到光轴展架">光轴展架</button>
+          <button role="tab" aria-controls="panel" data-kind="books" aria-label="切换到光轴书架">光轴书架</button>
+          <button role="tab" aria-controls="panel" data-kind="cart" aria-label="切换到移动边几">移动边几</button>
+          <button role="tab" aria-controls="panel" data-kind="crates" aria-label="切换到周转箱架">周转箱架</button>
+          <button role="tab" aria-controls="panel" data-kind="woodcart" aria-label="切换到木展车">木展车</button>
+          <button role="tab" aria-controls="panel" data-kind="hanger" aria-label="切换到挂衣架">挂衣架</button>
         </nav>
         <div id="view-tools">
           <button data-zoom="in" aria-label="放大" data-tip="放大"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M11 8.5v5M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
@@ -53,7 +53,7 @@
         <div id="loader">正在生成骨架 …</div>
         <noscript>本页面需要启用 JavaScript 才能渲染 3D 配置器。</noscript>
       </section>
-      <aside id="panel" aria-label="配置面板"></aside>
+      <aside id="panel" role="tabpanel" aria-label="配置面板"></aside>
     </main>
   </div>
   <div id="toast" role="status"></div>

@@ -83,6 +83,15 @@ export function createScene(canvas) {
 
   // 环境光照（程序化摄影棚 PMREM）
   scene.environment = buildStudioEnv(renderer);
+  // WebGL 上下文丢失后恢复（GPU 重置 / 驱动回收 / 软件渲染首帧）：PMREM 是 GPU 端渲染产物，
+  // 恢复后内容已丢失、不会自动重建 —— 不处理时所有金属件失去反射呈「黑模」。这里重新生成环境贴图。
+  canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
+  canvas.addEventListener('webglcontextrestored', () => {
+    const old = scene.environment;
+    scene.environment = buildStudioEnv(renderer);
+    old?.dispose?.();
+    window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  });
 
   // 主光（方向性，不投影）+ 冷色轮廓光
   const key = new THREE.DirectionalLight(0xffffff, 1.5);

@@ -1,6 +1,7 @@
 // 视口 HUD：左下读数 + 底部居中浮动控件条（型材架 / 光轴展架双形态自适应）
 import { PROFILE_SERIES, DECK_TYPES } from '../config/product.js';
 import { BACK_TYPES, SHELF_TYPES } from '../config/rodrack.js';
+import { ATELIER_MODULES } from '../config/hanger.js';
 
 // 细线图标（stroke=currentColor），文字名走 aria-label / title（冒烟测试按名字找按钮）
 const svg = (inner) =>
@@ -14,6 +15,7 @@ const ICONS = {
   explode: svg('<rect x="9.5" y="9.5" width="5" height="5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/>'),
   spin: svg('<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 3.5V8h-4.5"/>'),
   xray: svg('<circle cx="12" cy="12" r="8" stroke-dasharray="4 3.4"/><circle cx="12" cy="12" r="2.6"/>'),
+  supports: svg('<path d="M4 20h16"/><circle cx="8" cy="16.5" r="2.2"/><circle cx="16" cy="16.5" r="2.2"/><path d="M6 11h12v3H6z"/>'),
 };
 
 export function createHud(hudLeft, hudRight, actions) {
@@ -39,7 +41,11 @@ export function createHud(hudLeft, hudRight, actions) {
         readout.innerHTML = `<div class="rl rl-a">光轴书架 · ${c.levels} 层 × ${c.bays} 跨 · ${matLabel} · ${c.base ? '木箱脚轮' : '地脚'}</div>`;
         return;
       }
-      if (c.drawers !== undefined) { readout.innerHTML = `<div class="rl rl-a">光轴挂衣架 · ${w2}${d2}${h2} · <b>${c.drawers} 层抽屉</b></div>`; return; }
+      if (c.drawers !== undefined) {
+        const mod = c.style === 'atelier' ? ATELIER_MODULES[c.drawers] : `${c.drawers} 层抽屉`;
+        readout.innerHTML = `<div class="rl rl-a">${c.style === 'atelier' ? '原木水磨石挂衣架' : '光轴挂衣架'} · ${w2}${d2}${h2} · <b>${mod}</b></div>`;
+        return;
+      }
       if (c.cabinetH !== undefined) { readout.innerHTML = `<div class="rl rl-a">光轴木展车 · ${w2}${h2} · ${c.shelves} 层板</div>`; return; }
       if (c.scheme !== undefined) { readout.innerHTML = `<div class="rl rl-a">周转箱收纳架 · <b>${c.tiers} 层</b> · ${w2}${d2}</div>`; return; }
       if (c.midAcrylic !== undefined) { readout.innerHTML = `<div class="rl rl-a">移动边几 · ${w2}${d2}${h2}</div>`; return; }
@@ -68,9 +74,12 @@ export function createHud(hudLeft, hudRight, actions) {
     }
     if (c.drawers !== undefined) {
       // 光轴挂衣架
+      const atelier = c.style === 'atelier';
+      const mod = atelier ? ATELIER_MODULES[c.drawers] : `${c.drawers} 层抽屉`;
+      const base = atelier ? (c.wheels ? '隐藏脚轮' : '落地底座') : (c.wheels ? '滚轮' : '地脚');
       readout.innerHTML =
-        `<div class="rl rl-a">光轴挂衣架 · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b> · ${c.drawers} 层抽屉 · ${c.wheels ? "滚轮" : "地脚"}</div>` +
-        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · 光轴总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>`;
+        `<div class="rl rl-a">${atelier ? '原木水磨石挂衣架' : '光轴挂衣架'} · 宽 <b>${c.width.toFixed(2)} m</b> · 深 <b>${c.depth.toFixed(2)} m</b> · 高 <b>${c.height.toFixed(2)} m</b> · ${mod} · ${base}</div>` +
+        `<div class="rl rl-b">自重 ≈ <b>${stats.weightKg.toFixed(1)} kg</b> · ${atelier ? '木杆' : '光轴'}总长 <b>${stats.profileLengthM.toFixed(1)} m</b></div>`;
       return;
     }
     if (c.cabinetH !== undefined) {
@@ -175,5 +184,24 @@ export function createHud(hudLeft, hudRight, actions) {
   });
   hudRight.appendChild(xray);
 
-  return { syncReadout, setXrayUi: (on) => xray.classList.toggle('on', on) };
+  // 支撑点标记（脚轮 / 地脚触地点橙色标记）：按需开启，默认关闭保持画面干净
+  const sup = document.createElement('button');
+  sup.className = 'chip-toggle';
+  sup.innerHTML = ICONS.supports;
+  sup.dataset.tip = '支撑点标记';
+  sup.setAttribute('aria-label', '支撑点标记');
+  sup.setAttribute('aria-pressed', 'false');
+  sup.addEventListener('click', () => {
+    const on = !sup.classList.contains('on');
+    sup.classList.toggle('on', on);
+    sup.setAttribute('aria-pressed', String(on));
+    actions.setSupports && actions.setSupports(on);
+  });
+  hudRight.appendChild(sup);
+
+  return {
+    syncReadout,
+    setXrayUi: (on) => xray.classList.toggle('on', on),
+    setSupportsUi: (on) => { sup.classList.toggle('on', on); sup.setAttribute('aria-pressed', String(on)); },
+  };
 }

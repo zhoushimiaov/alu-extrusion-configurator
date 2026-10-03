@@ -26,5 +26,5 @@ test('基线快照文件结构与量级（文档漂移防线）', () => {
     assert.ok(b.weightKg > 0 && b.weightKg < 500, `${kind}.weightKg 量级异常`);
     assert.ok(b.partCount > 0 && b.partCount < 10000, `${kind}.partCount 量级异常`);
   }
-  assert.deepEqual(Object.keys(baselines).sort(), ['cart', 'crates', 'profile', 'rod', 'woodcart']);
+  assert.deepEqual(Object.keys(baselines).sort(), ['cart', 'crates', 'hanger', 'hangerAtelier', 'profile', 'rod', 'woodcart']);
 });

@@ -16,6 +16,7 @@ import {
 } from '../config/bookshelf.js';
 import { getRodMaterials } from './materials.js';
 import { getSpangleTexture } from './spangleTexture.js';
+import { buildCasters, buildLevelFeet, outwardYaw } from './casters.js';
 
 const _m4 = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -387,36 +388,24 @@ export function buildBookshelf(config) {
       partCount++;
       stats.cutList.push({ spec: '木箱基座', section: '板', len: +(W + 0.04).toFixed(2), qty: 1 });
       stats.hardware.push({ name: '万向脚轮 1.5 寸（带刹车）', qty: 4 });
-      const wheelGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.02, 16);
-      wheelGeo.rotateX(Math.PI / 2);
-      const wheels = instanced(wheelGeo, mat.block, 4);
-      const forkGeo = new THREE.BoxGeometry(0.012, 0.03, 0.03);
-      const forks = instanced(forkGeo, mat.block, 4);
-      let wi2 = 0;
-      for (const sx of [-1, 1]) {
-        for (const sz of [-1, 1]) {
-          const x = sx * (W / 2 - 0.06), z = sz * (D / 2 - 0.04);
-          setMT(wi2, wheels, x, 0.025, z, 1, 1, 1);
-          setMT(wi2, forks, x, 0.042, z, 1, 1, 1);
-          wi2++;
-        }
-      }
+      // 木箱底四角低矮万向轮（安装面 = 木箱底面 baseY0）
+      const pts = [-1, 1].flatMap((sx) => [-1, 1].map((sz) => {
+        const x = sx * (W / 2 - 0.06), z = sz * (D / 2 - 0.04);
+        return { x, z, yaw: outwardYaw(x, z, 'x') };
+      }));
+      const wheels = buildCasters(pts, { H: baseY0, wheelD: 0.034, wheelW: 0.015, trail: 0.01, mount: 'plate', plate: 0.036, brake: false, palette: 'black' });
       group.add(wheels);
-      group.add(forks);
+      groups.wheels = wheels;
       stats.supports = {
         kind: 'casters',
         points: [-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx * (W / 2 - 0.06), 0, sz * (D / 2 - 0.04)])),
       };
-      partCount += 8;
+      partCount += 4;
     } else {
-      const footGeo = new THREE.CylinderGeometry(0.012, 0.016, 0.02, 12);
-      const feet = instanced(footGeo, mat.block, bndXs.length * 2);
-      let fi = 0;
-      for (const x of bndXs) {
-        setMT(fi++, feet, x, 0.01, D / 2, 1, 1, 1);
-        setMT(fi++, feet, x, 0.01, -D / 2, 1, 1, 1);
-      }
+      const feet = buildLevelFeet(bndXs.flatMap((x) => [{ x, z: D / 2 }, { x, z: -D / 2 }]), { H: baseY0, palette: cfg.color === 'black' ? 'black' : 'chrome' });
+      const fi = bndXs.length * 2;
       group.add(feet);
+      groups.feet = feet;
       partCount += fi;
       stats.supports = {
         kind: 'feet',

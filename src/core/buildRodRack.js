@@ -8,7 +8,7 @@
 //   置物框 ⌀12 双杆 @ yFrame + 端连接 + 托板/层板
 //   中档杆 ⌀12 @ yMid；顶档杆 ⌀12 @ yTop
 //   背板   竖挂于中档与顶档之间（0.7 比例带包边）；海报 3 张按模型拼贴
-//   滚轮   4 × 万向轮组件 / 调平地脚
+//   滚轮   4 × ⌀50 双轮杆式万向轮（GLB：轮心 y=0.025、拖尾 23mm 朝外）插入 25×70 端头夹块 / 调平地脚
 import * as THREE from 'three';
 import { computeEnvelope } from './envelope.js';
 import {
@@ -16,6 +16,7 @@ import {
   DEFAULT_ROD_CONFIG,
 } from '../config/rodrack.js';
 import { getRodMaterials } from './materials.js';
+import { buildCasters, buildLevelFeet, outwardYaw } from './casters.js';
 
 const _m4 = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -43,6 +44,8 @@ export function buildRodRack(config) {
   const cfg = { ...DEFAULT_ROD_CONFIG, ...config };
   const { width, height, backPanel, shelf, casters, color, style } = cfg;
   const mat = getRodMaterials(color);
+  // 夹块/锥套：参考实拍为铝本色（黑色款仍用深灰）
+  const clampMat = color === 'black' ? mat.block : mat.blockAlu;
 
   const group = new THREE.Group();
   const groups = {};
@@ -64,7 +67,9 @@ export function buildRodRack(config) {
   const axleOff = 0.06;           // 双横轴相对柱平面的前后错位
   const yFork = 0.126;            // 底叉杆高
   const yAxle = 0.151;            // 横轴高
-  const yBraceTop = 0.235;        // 斜撑上端在立柱上的高度
+  const yBraceTop = 0.30;         // 斜撑上端在立柱上的高度（GLB 0.284 / 0.319 取中）
+  const yBraceLow = 0.095;        // 斜撑下端：插入端头夹块侧面（GLB 0.077 / 0.113 取中）
+  const zBraceLow = forkHalf + 0.008; // 下端越出底叉端头（GLB 8~23mm），落在夹块内
 
   // ---- 几何 ----
   const postGeo = cylY(16);
@@ -74,10 +79,7 @@ export function buildRodRack(config) {
   const boardVGeo = new THREE.BoxGeometry(1, 1, 0.002);   // 立板（背板/海报）
   const boardHGeo = new THREE.BoxGeometry(1, 0.002, 1);   // 平板（托板/层板）
   const trimGeo = new THREE.BoxGeometry(0.012, 1, 0.014); // 背板左右包边
-  const wheelGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.016, 20);
-  wheelGeo.rotateX(Math.PI / 2);
-  const brkGeo = new THREE.BoxGeometry(0.014, 1, 0.032);
-  const footGeo = new THREE.CylinderGeometry(0.019, 0.022, 0.02, 14);
+  const endBlockGeo = new THREE.BoxGeometry(0.025, 0.07, 0.025); // 底叉端头夹块（GLB 25×70×25，y 0.078–0.148）
   const blockGeo = new THREE.BoxGeometry(0.03, 0.024, 0.034);
 
   // ---- 立柱 ×2（从锥套顶到柱顶）----
@@ -89,7 +91,7 @@ export function buildRodRack(config) {
 
   // ---- 锥套（立柱底部插入底叉的过渡件）----
   const sockGeo = new THREE.CylinderGeometry(0.024, 0.028, 0.05, 14);
-  const socks = instanced(sockGeo, mat.block, 2);
+  const socks = instanced(sockGeo, clampMat, 2);
   setMT(0, socks, postXs[0], 0.12, 0, 1, 1, 1);
   setMT(1, socks, postXs[1], 0.12, 0, 1, 1, 1);
   group.add(socks);
@@ -132,10 +134,10 @@ export function buildRodRack(config) {
   group.add(forkZs);
   groups.forkZs = forkZs;
 
-  // ---- 斜撑 ×4：立柱上部（y≈0.24）斜插到底叉端头（y≈0.04，z≈±0.20），真实三角承力 ----
+  // ---- 斜撑 ×4：立柱上部（y≈0.30）斜插到底叉端头夹块（y≈0.095，z≈±0.208），真实三角承力 ----
   const nDiag = 4;
   const diags = instanced(diagGeo, mat.rod, nDiag);
-  const diagLen = Math.hypot(yBraceTop - 0.04, forkHalf - 0.005);
+  const diagLen = Math.hypot(yBraceTop - yBraceLow, zBraceLow);
   {
     const up = new THREE.Vector3(0, 1, 0);
     const dir = new THREE.Vector3();
@@ -143,7 +145,7 @@ export function buildRodRack(config) {
     for (const px of postXs) {
       for (const sz of [1, -1]) {
         const y0 = yBraceTop, z0 = 0;
-        const y1 = 0.04, z1 = sz * (forkHalf - 0.005);
+        const y1 = yBraceLow, z1 = sz * zBraceLow;
         dir.set(0, y1 - y0, z1 - z0).normalize();
         _q.setFromUnitVectors(up, dir);
         _p.set(px, (y0 + y1) / 2, (z0 + z1) / 2);
@@ -158,14 +160,16 @@ export function buildRodRack(config) {
   groups.diags = diags;
 
   // ---- 斜撑卡箍：斜撑与底叉交叉处、斜撑与立柱相交处 ----
-  const diagBlocks = instanced(blockGeo, mat.block, 8);
+  // 4 只斜撑×底叉交叉卡箍 + 2 只立柱上端卡箍（每柱两斜撑共用一只）= 6。
+  // 此前实例数写 8 只布了 6 个位置：余下 2 个实例为单位矩阵，在原点地面多出一块「漂浮方块」
+  const diagBlocks = instanced(blockGeo, clampMat, 6);
   {
     let di = 0;
     for (const px of postXs) {
       for (const sz of [1, -1]) {
-        // 交叉点：brace 从 (yBraceTop,0) 到 (0.04,±(forkHalf-0.005))，在 y=yFork 处 z≈±0.106
-        const t = (yBraceTop - yFork) / (yBraceTop - 0.04);
-        setMT(di++, diagBlocks, px, yFork, sz * (forkHalf - 0.005) * t);
+        // 交叉点：brace 从 (yBraceTop,0) 到 (yBraceLow,±zBraceLow)，在 y=yFork 处 z≈±0.177
+        const t = (yBraceTop - yFork) / (yBraceTop - yBraceLow);
+        setMT(di++, diagBlocks, px, yFork, sz * zBraceLow * t);
       }
     }
     for (const px of postXs) {
@@ -197,7 +201,7 @@ export function buildRodRack(config) {
 
     // 导轨夹扣：真实扣接在 ⌀12 顶档与中档横杆上，每板上下各一对夹扣（共 8 颗），受力点真实可信
     const clipGeo = new THREE.BoxGeometry(0.028, 0.034, 0.026);
-    const clips = instanced(clipGeo, mat.block, 8);
+    const clips = instanced(clipGeo, clampMat, 8);
     let ci = 0;
     const clampOff = panelW * 0.28;
     for (const cX of [cX0, cX1]) {
@@ -250,7 +254,7 @@ export function buildRodRack(config) {
     boardCount += 2;
     // 板夹（左右各两组）
     const clipGeo = new THREE.BoxGeometry(0.05, 0.035, 0.032);
-    const clips = instanced(clipGeo, mat.block, 4);
+    const clips = instanced(clipGeo, clampMat, 4);
     let ci = 0;
     for (const sx of [-1, 1]) {
       for (const yy of [acrY - acrH / 2 + 0.08, acrY + acrH / 2 - 0.08]) {
@@ -316,9 +320,10 @@ export function buildRodRack(config) {
     stats.profileLengthM += 2 * (W - 0.06);
   }
 
-  // ---- T 型夹块（横杆与立柱交汇处 + 底盘交点）----
-  const nBlocks = 12;
-  const blocks = instanced(blockGeo, mat.block, nBlocks);
+  // ---- T 型夹块（横杆与立柱交汇处 6 + 置物框侧连接 4 + 底盘横轴 4 = 14）----
+  // 此前写 12：右柱两只横轴夹块越界写入被丢弃（GLB 两柱横轴处各有两只夹块），模型与清单均少 2 件
+  const nBlocks = 14;
+  const blocks = instanced(blockGeo, clampMat, nBlocks);
   let bi = 0;
   for (const y of [yFrame, yMid, yTop]) {
     for (const px of postXs) {
@@ -336,35 +341,28 @@ export function buildRodRack(config) {
   group.add(blocks);
   groups.blocks = blocks;
 
-  // ---- 滚轮 / 地脚（轮在底叉端头 z=±0.20）----
+  // ---- 底叉端头夹块 ×4（底叉 ⌀20 穿过夹块；脚轮螺杆 / 地脚螺杆从底面插入）----
+  const endBlocks = instanced(endBlockGeo, clampMat, 4);
+  {
+    let ei = 0;
+    for (const px of postXs) for (const sz of [1, -1]) setMT(ei++, endBlocks, px, 0.113, sz * forkHalf);
+  }
+  group.add(endBlocks);
+  groups.endBlocks = endBlocks;
+
+  // ---- 滚轮 / 地脚（端头夹块正下方 z=±forkHalf；轮子沿 X 向拖尾朝外，与 GLB 一致）----
   let wheelParts = 0;
+  const footPts = postXs.flatMap((px) => [1, -1].map((sz) => ({ x: px, z: sz * forkHalf, yaw: outwardYaw(px, 0, 'x') })));
   if (casters) {
-    const wheels = instanced(wheelGeo, mat.block, 4);
-    const brks = instanced(brkGeo, mat.block, 4);
-    let wi = 0;
-    for (const px of postXs) {
-      for (const sz of [1, -1]) {
-        setMT(wi, wheels, px, 0.03, sz * forkHalf);
-        setMT(wi, brks, px, 0.08, sz * forkHalf, 1, 0.07, 1);
-        wi++;
-      }
-    }
+    const wheels = buildCasters(footPts, { H: 0.078, wheelD: 0.05, wheelW: 0.009, twin: true, twinGap: 0.005, trail: 0.023, mount: 'stem', palette: color === 'black' ? 'black' : 'chrome' });
     group.add(wheels);
-    group.add(brks);
     groups.wheels = wheels;
-    groups.brks = brks;
     wheelParts = 8;
   } else {
-    const feet = instanced(footGeo, mat.block, 4);
-    let fi = 0;
-    for (const px of postXs) {
-      for (const sz of [1, -1]) {
-        setMT(fi++, feet, px, 0.01, sz * forkHalf);
-      }
-    }
+    const feet = buildLevelFeet(footPts, { H: 0.078, palette: color === 'black' ? 'black' : 'chrome' });
     group.add(feet);
     groups.feet = feet;
-    wheelParts = 4;
+    wheelParts = 8; // 4 地脚 + 4 端头夹块（夹块两种底盘都存在）
   }
 
   // ---- 统计 ----

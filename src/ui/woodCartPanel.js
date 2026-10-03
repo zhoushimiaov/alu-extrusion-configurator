@@ -42,7 +42,7 @@ export function createWoodCartPanel(root, actions) {
   mount.appendChild(el('div', 'panel-title',
     `光轴木展车<span class="en">ROD & PLYWOOD CART</span>`));
   mount.appendChild(el('p', 'panel-lead',
-    '光轴 + 胶合板移动展车：柜体收纳、洞洞板背板、中部层板、顶部挂杆，一车多能。'));
+    '光轴 + 胶合板移动展车：洞洞板展墙、全进深层板与顶台板、正面卡片挂杆与顶部挂架，3 寸脚轮整体推行。'));
 
   const spec = el('div', 'spec-grid', `
     <div class="spec-cell"><div class="k">宽 W</div><div class="v" data-spec="w">0.86<small>m</small></div></div>
@@ -71,6 +71,8 @@ export function createWoodCartPanel(root, actions) {
   mount.appendChild(hField);
   const sField = mkStepper('层板数 SHELVES', 's', '1');
   mount.appendChild(sField);
+  const cField = mkStepper('展墙高度 BOARD H', 'c', '0.05');
+  mount.appendChild(cField);
 
   dragCleanup && dragCleanup();
   dragCleanup = attachDragSlider(mount, {
@@ -114,11 +116,11 @@ export function createWoodCartPanel(root, actions) {
     rowEl.appendChild(sw);
     return { rowEl, sw };
   };
-  const pegSw = mkSwitch('洞洞板背板', 'pegboard');
+  const pegSw = mkSwitch('洞洞板展墙', 'pegboard');
   mount.appendChild(pegSw.rowEl);
-  const topSw = mkSwitch('顶部挂杆', 'topRail');
+  const topSw = mkSwitch('顶部挂架（前后挂杆 + 台上展示杆）', 'topRail');
   mount.appendChild(topSw.rowEl);
-  const sideSw = mkSwitch('侧向挂杆', 'sideRail');
+  const sideSw = mkSwitch('侧向挂杆（左右各两道）', 'sideRail');
   mount.appendChild(sideSw.rowEl);
   const casterSw = mkSwitch('万向轮（取消则用调平地脚）', 'casters');
   mount.appendChild(casterSw.rowEl);
@@ -193,6 +195,8 @@ export function createWoodCartPanel(root, actions) {
     if (btn.dataset.act === 'h-') bump('height', '-', 0.1);
     if (btn.dataset.act === 's+') bump('shelves', '+', 1, true);
     if (btn.dataset.act === 's-') bump('shelves', '-', 1, true);
+    if (btn.dataset.act === 'c+') bump('cabinetH', '+', 0.05);
+    if (btn.dataset.act === 'c-') bump('cabinetH', '-', 0.05);
     for (const key of ['ohF', 'ohB', 'ohL', 'ohR']) {
       if (btn.dataset.act === key + '+' || btn.dataset.act === key + '-') {
         const dir = btn.dataset.act.endsWith('+') ? 1 : -1;
@@ -219,13 +223,14 @@ export function createWoodCartPanel(root, actions) {
   markDrag(dField, 'depth', '0.05');
   markDrag(hField, 'height', '0.1');
   markDrag(sField, 'shelves', '1');
+  markDrag(cField, 'cabinetH', '0.05');
   markDrag(ohFField, 'ohF', '0.005');
   markDrag(ohBField, 'ohB', '0.005');
   markDrag(ohLField, 'ohL', '0.005');
   markDrag(ohRField, 'ohR', '0.005');
 
   function syncSpecs(c) {
-    const conf = [['width', wField, 'w'], ['depth', dField, 'd'], ['height', hField, 'h'], ['shelves', sField, 's']];
+    const conf = [['width', wField, 'w'], ['depth', dField, 'd'], ['height', hField, 'h'], ['shelves', sField, 's'], ['cabinetH', cField, 'c']];
     for (const [key, field, act] of conf) {
       const n = field.querySelector('[data-num]');
       n.textContent = key === 'shelves' ? c[key] + ' 块' : c[key].toFixed(2) + ' m';

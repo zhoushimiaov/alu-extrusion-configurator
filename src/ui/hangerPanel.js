@@ -1,6 +1,6 @@
-// 光轴挂衣架配置面板（tab 第六产品）
-// 可调：宽 W / 深 D / 总高 H、抽屉层数、滚轮、表面配色
-import { HANGER_COLORS, LIMITS as HANGER_LIMITS, DEFAULT_HANGER_CONFIG, INSTALL_STEPS_HANGER } from '../config/hanger.js';
+// 光轴挂衣架配置面板（tab 第七产品）
+// 可调：样式（光轴抽屉柜 / 原木水磨石）、宽 W / 深 D / 总高 H、抽屉层数（原木款为储物模块）、滚轮、表面 / 木色
+import { HANGER_COLORS, HANGER_STYLES, ATELIER_TONES, ATELIER_MODULES, LIMITS as HANGER_LIMITS, DEFAULT_HANGER_CONFIG, INSTALL_STEPS_HANGER } from '../config/hanger.js';
 import { makeClamp } from '../config/clamp.js';
 import { attachDragSlider } from './dragSlider.js';
 import { calcMarketPrice } from './marketPrice.js';
@@ -43,8 +43,12 @@ export function createHangerPanel(root, actions) {
 
   mount.appendChild(el('div', 'panel-title',
     `光轴挂衣架<span class="en">ROD CLOTHES HANGER</span>`));
-  mount.appendChild(el('p', 'panel-lead',
-    '光轴移动挂衣架：四角立柱 + 底柜 + 三层挂杆横杆，抽屉层数可调，滚轮底盘可整体推行。'));
+  const lead = el('p', 'panel-lead', '');
+  mount.appendChild(lead);
+  const LEADS = {
+    classic: '光轴移动挂衣架：四角 ⌀30 立柱 + 顶部置物搁板 + 居中挂衣杆 + 底部抽屉柜，滚轮底盘可整体推行。',
+    atelier: '原木水磨石挂衣架（按参考模型复刻）：原木圆杆环梁 + 十字木套筒 + 藤编搁板 + V 形托架挂衣杆，水磨石底座承托收纳箱与长凳。',
+  };
 
   const spec = el('div', 'spec-grid', `
     <div class="spec-cell"><div class="k">宽 W</div><div class="v" data-spec="w">0.60<small>m</small></div></div>
@@ -53,6 +57,19 @@ export function createHangerPanel(root, actions) {
     <div class="spec-cell"><div class="k">零件</div><div class="v" data-spec="p">0<small>件</small></div></div>`);
   mount.appendChild(spec);
   mount.appendChild(el('hr', 'sec-rule'));
+
+  // 样式（切换时套用该样式的底盘预设：原木款原型为落地底座）
+  const styleField = el('div', null, `<div class="field-label"><span>样式 STYLE</span></div>`);
+  const styleSeg = el('div', 'seg');
+  styleSeg.setAttribute('role', 'radiogroup');
+  for (const key of Object.keys(HANGER_STYLES)) {
+    const b = el('button', null, HANGER_STYLES[key].label);
+    b.dataset.seg = 'style'; b.dataset.val = key;
+    b.setAttribute('role', 'radio');
+    styleSeg.appendChild(b);
+  }
+  styleField.appendChild(styleSeg);
+  mount.appendChild(styleField);
 
   const mkStepper = (label, key, step) => {
     const f = el('div', null, `
@@ -82,7 +99,7 @@ export function createHangerPanel(root, actions) {
   });
 
   // 滚轮开关
-  const wheelRow = el('div', 'switch-row', `<span class="label">万向轮底盘（取消则用调平地脚）</span>`);
+  const wheelRow = el('div', 'switch-row', `<span class="label" data-wheel-label>万向轮底盘（取消则用调平地脚）</span>`);
   const wheelSw = el('div', 'switch');
   wheelSw.setAttribute('role', 'switch');
   wheelSw.tabIndex = 0;
@@ -97,15 +114,22 @@ export function createHangerPanel(root, actions) {
   mount.appendChild(wheelRow);
 
   // 配色
-  const colorField = el('div', null, `<div class="field-label"><span>表面 FINISH</span></div>`);
+  const colorField = el('div', null, `<div class="field-label"><span data-color-label>表面 FINISH</span></div>`);
   const swatches = el('div', 'swatches');
   for (const key of Object.keys(HANGER_COLORS)) {
     const s = el('button', 'swatch');
     s.dataset.color = key;
-    s.style.background = '#' + HANGER_COLORS[key].hex.toString(16).padStart(6, '0');
-    s.title = HANGER_COLORS[key].label;
-    s.setAttribute('aria-label', HANGER_COLORS[key].label);
     swatches.appendChild(s);
+  }
+  // 色板随样式切换：抽屉柜款为金属表面，原木款为木色（同一 color 键）
+  function paintSwatches(style) {
+    const table = style === 'atelier' ? ATELIER_TONES : HANGER_COLORS;
+    swatches.querySelectorAll('.swatch').forEach((s) => {
+      const t = table[s.dataset.color];
+      s.style.background = '#' + t.hex.toString(16).padStart(6, '0');
+      s.title = t.label;
+      s.setAttribute('aria-label', t.label);
+    });
   }
   colorField.appendChild(swatches);
   mount.appendChild(colorField);
@@ -158,6 +182,9 @@ export function createHangerPanel(root, actions) {
     if (btn.dataset.act === 't+') bump('drawers', '+', 1, true);
     if (btn.dataset.act === 't-') bump('drawers', '-', 1, true);
     if (btn.dataset.color) hangerStore.set({ color: btn.dataset.color });
+    if (btn.dataset.seg === 'style' && btn.dataset.val !== c.style) {
+      hangerStore.set({ style: btn.dataset.val, ...(HANGER_STYLES[btn.dataset.val]?.preset || {}) });
+    }
     if (btn.dataset.sw) hangerStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
     if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(hangerStore.get());
     if (btn.dataset.export != null && actions.onExport) actions.onExport(hangerStore.get());
@@ -177,13 +204,26 @@ export function createHangerPanel(root, actions) {
 
   function syncSpecs(c) {
     const conf = [['width', wField, 'w'], ['depth', dField, 'd'], ['height', hField, 'h'], ['drawers', drField, 't']];
+    const atelier = c.style === 'atelier';
     for (const [key, field, act] of conf) {
       const n = field.querySelector('[data-num]');
-      n.textContent = key === 'drawers' ? c[key] + ' 层' : c[key].toFixed(2) + ' m';
+      n.textContent = key === 'drawers'
+        ? (atelier ? ATELIER_MODULES[c.drawers] : c[key] + ' 层')
+        : c[key].toFixed(2) + ' m';
       const [lo, hi] = hangerStore.limits[key];
       field.querySelector(`[data-act="${act}-"]`).disabled = c[key] <= lo;
       field.querySelector(`[data-act="${act}+"]`).disabled = c[key] >= hi;
     }
+    lead.textContent = LEADS[atelier ? 'atelier' : 'classic'];
+    drField.querySelector('.field-label span').textContent = atelier ? '储物模块 MODULES' : '抽屉层数 DRAWERS';
+    wheelRow.querySelector('[data-wheel-label]').textContent = atelier ? '隐藏式万向轮（取消则底座落地）' : '万向轮底盘（取消则用调平地脚）';
+    colorField.querySelector('[data-color-label]').textContent = atelier ? '木色 WOOD' : '表面 FINISH';
+    paintSwatches(c.style);
+    styleSeg.querySelectorAll('button').forEach((b) => {
+      const on = b.dataset.val === (c.style || 'classic');
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+    });
     wheelSw.classList.toggle('on', c.wheels);
     wheelSw.setAttribute('aria-checked', String(c.wheels));
     swatches.querySelectorAll('.swatch').forEach(s => {

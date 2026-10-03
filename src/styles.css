@@ -799,6 +799,9 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
   padding: 8px 0;
 }
 .switch-row .label { font-size: 13.5px; color: var(--fg-2); }
+/* 依赖条件不满足的开关（如：挂板需先开挂杆且中板非「无」）：置灰不可点，值保留 */
+.switch-row.is-disabled { opacity: .42; }
+.switch-row.is-disabled .switch { pointer-events: none; }
 .switch {
   flex: none;
   width: 44px; height: 26px;

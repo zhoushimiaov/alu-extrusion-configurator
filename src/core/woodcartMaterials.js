@@ -24,10 +24,10 @@ export function getWoodCartMaterials(woodTone) {
   const key = 'woodcart:' + woodTone;
   if (cache.has(key)) return cache.get(key);
   const tones = {
-    birch: { base: 0xd8bd8f, streak: '150,110,60' },
+    birch: { base: 0xcf9d63, streak: '140,90,40' },
     oak: { base: 0xc49a6c, streak: '120,80,40' },
     walnut: { base: 0x6b4a32, streak: '35,20,10' },
-  }[woodTone] || { base: 0xd8bd8f, streak: '150,110,60' };
+  }[woodTone] || { base: 0xcf9d63, streak: '140,90,40' };
 
   const wood = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 0.66, metalness: 0.02,

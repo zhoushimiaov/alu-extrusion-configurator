@@ -89,6 +89,8 @@ export function getRodMaterials(colorKey) {
     rod: mk(c.hex, c.roughness, c.metalness),
     zinc: new THREE.MeshStandardMaterial({ color: 0xc3c8cd, roughness: 0.38, metalness: 0.75, envMapIntensity: 0.9 }),
     block: new THREE.MeshStandardMaterial({ color: 0x2e3237, roughness: 0.5, metalness: 0.6 }),
+    // 铝本色夹块（参考实拍：展架卡箍/端头夹块为喷砂铝）
+    blockAlu: new THREE.MeshStandardMaterial({ color: 0xc2c7cc, roughness: 0.36, metalness: 0.85, envMapIntensity: 1.0 }),
     poster: new THREE.MeshStandardMaterial({ color: 0xdfe3e8, roughness: 0.7, metalness: 0.1 }),
     paper: new THREE.MeshStandardMaterial({ color: 0xf4f2ec, roughness: 0.88, metalness: 0 }),
     posterPanel: new THREE.MeshStandardMaterial({ color: 0xdbe0e5, roughness: 0.65, metalness: 0.05 }),

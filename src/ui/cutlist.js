@@ -42,12 +42,15 @@ export function configLineFor(cfg, kind = 'profile', stats = null) {
     wText = (cfg.width + 0.06).toFixed(2);
     hText = (cfg.height + 0.20).toFixed(2);
   } else if (kind === 'hanger') {
-    const { HANGER_COLORS } = labelsFor('hanger');
+    const { HANGER_COLORS, HANGER_STYLES, ATELIER_TONES, ATELIER_MODULES } = labelsFor('hanger');
+    const atelier = cfg.style === 'atelier';
     title = '光轴挂衣架 · 算料单';
     const tags = [];
-    if (cfg.wheels) tags.push('万向轮');
-    tags.push(`${cfg.drawers} 层抽屉`);
-    configLine = `宽 ${cfg.width.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · 总高 ${cfg.height.toFixed(2)} m · ${HANGER_COLORS[cfg.color].label} · ${tags.join(' / ')}`;
+    if (cfg.wheels) tags.push(atelier ? '隐藏式万向轮' : '万向轮');
+    tags.push(atelier ? (ATELIER_MODULES?.[cfg.drawers] ?? `${cfg.drawers} 模块`) : `${cfg.drawers} 层抽屉`);
+    const styleLabel = HANGER_STYLES?.[cfg.style || 'classic']?.label;
+    const tone = (atelier ? ATELIER_TONES : HANGER_COLORS)?.[cfg.color]?.label || '';
+    configLine = `${styleLabel ? styleLabel + ' · ' : ''}宽 ${cfg.width.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · 总高 ${cfg.height.toFixed(2)} m · ${tone} · ${tags.join(' / ')}`;
     extraStats = [];
     wText = (cfg.width + 0.03).toFixed(2);
     hText = (cfg.height + 0.10).toFixed(2);

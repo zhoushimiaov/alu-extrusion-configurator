@@ -45,7 +45,7 @@ import { INSTALL_STEPS_ROD, BACK_TYPES, SHELF_TYPES, ROD_COLORS } from './config
 import { INSTALL_STEPS_CART, ACRYLIC_TYPES, WOOD_FINISHES } from './config/cart.js';
 import { INSTALL_STEPS_WOODCART, WOOD_TONES } from './config/woodcart.js';
 import { INSTALL_STEPS_CRATES, CRATE_SCHEMES } from './config/crates.js';
-import { INSTALL_STEPS_HANGER, HANGER_COLORS } from './config/hanger.js';
+import { INSTALL_STEPS_HANGER, HANGER_COLORS, HANGER_STYLES, ATELIER_TONES, ATELIER_MODULES } from './config/hanger.js';
 import { INSTALL_STEPS_BOOKSHELF, PANEL_MATERIALS, BOOK_STYLES } from './config/bookshelf.js';
 import { PROFILE_SERIES, DECK_TYPES, COLORS } from './config/product.js';
 
@@ -55,7 +55,7 @@ registerLabels('product', { PROFILE_SERIES, DECK_TYPES, COLORS });
 registerLabels('cart', { ACRYLIC_TYPES, WOOD_FINISHES });
 registerLabels('woodcart', { WOOD_TONES });
 registerLabels('crates', { CRATE_SCHEMES });
-registerLabels('hanger', { HANGER_COLORS });
+registerLabels('hanger', { HANGER_COLORS, HANGER_STYLES, ATELIER_TONES, ATELIER_MODULES });
 registerLabels('books', { PANEL_MATERIALS, BOOK_STYLES });
 
 const canvas = document.getElementById('gl');
@@ -90,9 +90,11 @@ hotspotLayer?.addEventListener('touchstart', (e) => {
 }, { passive: true });
 // 光轴展架视口内拖拽箭头（宽 / 高两个方向）
 const rodHandles = webglFailed ? null : createRodHandles(canvas, camera, renderer, controls, rodStore, () => (rodCurrent?.bounds) || { W: 1.0, H: 1.4, D: 0.42 });
-// 支撑点橙色标记层（配件可视化）：数据来自各 build 的 stats.supports，型材架无支撑件选项自然为空
+// 支撑点橙色标记层（配件可视化）：数据来自各 build 的 stats.supports，型材架无支撑件选项自然为空。
+// 默认关闭（HUD「支撑点标记」开关按需显示），避免橙色标记常驻抢画面；?supports=1 直达开启（QA）
 const supportMarkers = webglFailed ? null : createSupportMarkers();
-if (supportMarkers) scene.add(supportMarkers.group);
+let supportsOn = /[?&]supports=1/.test(location.search);
+if (supportMarkers) { scene.add(supportMarkers.group); supportMarkers.setVisible(supportsOn); }
 
 // 接地接触贴片：预览特性（?ground=1），默认关闭，审美方向待用户确认后决定是否常开
 const GROUND_PREVIEW = /[?&]ground=1/.test(location.search);
@@ -397,7 +399,7 @@ let explodeAuxHidden = false;
 function applyExplodeAux(hidden) {
   explodeAuxHidden = hidden;
   if (rodHandles) rodHandles.setVisible(!hidden);
-  if (supportMarkers) supportMarkers.setVisible(!hidden);
+  if (supportMarkers) supportMarkers.setVisible(supportsOn && !hidden);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
 }
 
@@ -465,7 +467,13 @@ const hud = createHud(hudLeft, hudRight, {
   },
   setSpin: (on) => { if (!webglFailed) controls.autoRotate = on; },
   setXray: (on) => setXray(on),
+  setSupports: (on) => {
+    supportsOn = on;
+    if (supportMarkers) supportMarkers.setVisible(on && !explodeAuxHidden);
+    window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+  },
 });
+if (supportsOn) hud.setSupportsUi(true);
 const hudRod = hud;
 
 // ---- 视口左侧浮动工具条：缩放 / 全屏 ----
@@ -564,7 +572,8 @@ const rodActions = {
   onPrint: makePrintAction('rod'),
   onAdd: (cfg) => {
     const p = `¥ ${calcRodPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
-    const summary = `柱距 ${cfg.width.toFixed(2)} m · 柱长 ${cfg.height.toFixed(2)} m · ${cfg.style === 'poster' ? '海报架' : '挂画架'}`;
+    const styleLabel = { poster: '海报架', panel: '双联展板', acrylic: '亚克力展示屏' }[cfg.style] || '海报架';
+    const summary = `柱距 ${cfg.width.toFixed(2)} m · 柱长 ${cfg.height.toFixed(2)} m · ${styleLabel}`;
     const { totalCount } = addConfigItem({
       kind: 'rod',
       title: '光轴展架',
@@ -726,7 +735,9 @@ const hangerActions = {
   onPrint: makePrintAction('hanger'),
   onAdd: (cfg) => {
     const p = `¥ ${calcHangerPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
-    const summary = `挂衣架 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${cfg.drawers} 抽屉`;
+    const summary = cfg.style === 'atelier'
+      ? `原木水磨石 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${ATELIER_MODULES[cfg.drawers]}`
+      : `光轴抽屉柜 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${cfg.drawers} 抽屉`;
     const { totalCount } = addConfigItem({
       kind: 'hanger',
       title: '挂衣架',
@@ -846,8 +857,8 @@ const SHARE_META = {
   books: ['光轴书架', '铬管框架阅读装置：斜面展板逐层陈列，交叉拉索张紧，木箱脚轮基座。'],
   cart: ['移动边几', '光轴 + 玻璃/亚克力台面的极简移动边几，小空间随手移动。'],
   crates: ['周转箱架', '2040 铝架 + 抽拉式物流周转箱：层数可调、箱色自由搭配，满载可推行。'],
-  woodcart: ['光轴木展车', '光轴 + 胶合板移动展车：柜体收纳、洞洞板背板、顶部挂杆。'],
-  hanger: ['光轴挂衣架', '光轴移动挂衣架：四角立柱 + 底柜 + 三层挂衣横杆，滚轮可推行。'],
+  woodcart: ['光轴木展车', '光轴 + 胶合板移动展车：洞洞板展墙、层板与顶台板、卡片挂杆与顶部挂架。'],
+  hanger: ['光轴挂衣架', '两种样式：光轴抽屉柜移动挂衣架 / 原木水磨石挂衣架（藤编搁板 + 收纳箱长凳）。'],
 };
 function updateShareMeta(kind) {
   const [title, desc] = SHARE_META[kind] || SHARE_META.profile;
@@ -1166,6 +1177,14 @@ if (webglFailed) {
   };
   // QA 调试：暴露当前产品 group，供浏览器端逐 mesh 包围盒核查（对抗性审查用）
   window.__ALU_GROUP = () => active()?.group || null;
+  // QA 调试：静止机位（细节特写截图用），参数为世界坐标 [x,y,z]
+  window.__ALU_VIEW = (pos, tgt) => {
+    controls.autoRotate = false;
+    camera.position.set(pos[0], pos[1], pos[2]);
+    controls.target.set(tgt[0], tgt[1], tgt[2]);
+    controls.update();
+    invalidateView();
+  };
 
   loader.textContent = '正在生成骨架 …';
   mountActiveProduct();

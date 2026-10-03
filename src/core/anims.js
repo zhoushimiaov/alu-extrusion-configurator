@@ -162,6 +162,7 @@ export function createAnims(camera, controls) {
       ['axles', new THREE.Vector3(0, -0.10, 0)],
       ['forkZs', new THREE.Vector3(0, -0.10, 0)],
       ['brks', new THREE.Vector3(0, -0.15, 0)],
+      ['endBlocks', new THREE.Vector3(0, -0.10, 0)],
 
       // ---- 移动边几（buildCartTable）----
       ['glass', new THREE.Vector3(0, 0.35, 0)],
@@ -173,6 +174,9 @@ export function createAnims(camera, controls) {
       ['beamsX', new THREE.Vector3(0, 0, 0.20)],
       ['beamsZ', new THREE.Vector3(0.18, 0, 0)],
       ['hubs', new THREE.Vector3(0, -0.15, 0)],
+      ['hangPanels', new THREE.Vector3(0, 0, 0.30)],
+      ['hangClamps', new THREE.Vector3(0, 0.04, 0.38)],
+      ['glassCaps', new THREE.Vector3(0, 0.42, 0)],
       ['mounts', new THREE.Vector3(0, -0.15, 0)],
 
       // ---- 周转箱收纳架（buildCratesRack）----
@@ -199,6 +203,14 @@ export function createAnims(camera, controls) {
       ['openBox', new THREE.Vector3(0, 0, 0.28)],
       ['topPanel', new THREE.Vector3(0, 0.15, 0)],
       ['braces', new THREE.Vector3(0, 0, -0.25)],
+      ['plinth', new THREE.Vector3(0, -0.14, 0)],
+      ['modules', new THREE.Vector3(0, 0, 0.42)],
+      ['sleeves', new THREE.Vector3(0, 0.10, 0.14)],
+      ['brackets', new THREE.Vector3(0, -0.06, 0.26)],
+      ['hangRail', new THREE.Vector3(0, -0.12, 0.22)],
+      ['cardRails', new THREE.Vector3(0, 0, 0.26)],
+      ['railClamps', new THREE.Vector3(0, 0, 0.30)],
+      ['slides', new THREE.Vector3(0, 0, 0.16)],
 
       // ---- 通用部件（脚轮 / 地脚）----
       ['wheels', new THREE.Vector3(0, -0.15, 0)],

@@ -44,7 +44,7 @@ export function createCartPanel(root, actions) {
   mount.appendChild(el('div', 'panel-title',
     `移动边几<span class="en">ROLLING CART TABLE</span>`));
   mount.appendChild(el('p', 'panel-lead',
-    '铝型材移动边几：木纹板+型材组合腿 + 钢化玻璃台面 + 橙色亚克力中板 + 光轴挂杆，四轮推行。'));
+    '铝型材移动边几：木纹板+型材组合腿 + 钢化玻璃台面 + 橙色亚克力中板与挂杆立板 + 光轴挂杆，四轮推行。'));
 
   const spec = el('div', 'spec-grid', `
     <div class="spec-cell"><div class="k">宽 W</div><div class="v" data-spec="w">0.54<small>m</small></div></div>
@@ -121,6 +121,8 @@ export function createCartPanel(root, actions) {
   mount.appendChild(glassSw.rowEl);
   const railSw = mkSwitch('前后光轴挂杆', 'rodRails');
   mount.appendChild(railSw.rowEl);
+  const hangSw = mkSwitch('挂杆亚克力立板（随中板材质）', 'hangPanels');
+  mount.appendChild(hangSw.rowEl);
   const casterSw = mkSwitch('万向轮底盘（取消则用调平地脚）', 'casters');
   mount.appendChild(casterSw.rowEl);
 
@@ -212,6 +214,12 @@ export function createCartPanel(root, actions) {
     glassSw.sw.setAttribute('aria-checked', String(c.glassTop));
     railSw.sw.classList.toggle('on', c.rodRails);
     railSw.sw.setAttribute('aria-checked', String(c.rodRails));
+    hangSw.sw.classList.toggle('on', c.hangPanels);
+    hangSw.sw.setAttribute('aria-checked', String(c.hangPanels));
+    // 立板挂在挂杆上、材质随中板：任一条件不满足时开关置灰（值保留，恢复条件后立即生效）
+    const hangAvail = c.rodRails && c.midAcrylic !== 'none';
+    hangSw.rowEl.classList.toggle('is-disabled', !hangAvail);
+    hangSw.sw.setAttribute('aria-disabled', String(!hangAvail));
     casterSw.sw.classList.toggle('on', c.casters);
     casterSw.sw.setAttribute('aria-checked', String(c.casters));
   }

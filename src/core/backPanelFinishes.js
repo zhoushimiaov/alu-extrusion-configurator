@@ -5,7 +5,7 @@ import { PANEL_COLORS } from '../config/product.js';
 
 if (!PANEL_COLORS.spangle) {
   PANEL_COLORS.spangle = {
-    label: '幻彩镀锌',
+    label: '镀锌锌花',
     hex: 0xc6ccd3,
     roughness: 0.42,
     metalness: 0.5,

@@ -9,7 +9,7 @@ export const BOOK_STYLES = {
 // 展板材质（塔式斜面板）
 export const PANEL_MATERIALS = {
   gray:    { label: '麻灰板',   hex: 0xb9beb2, roughness: 0.62, metalness: 0.05 },
-  spangle: { label: '幻彩镀锌', hex: 0xc6ccd3, roughness: 0.5,  metalness: 0.45, spangle: true },
+  spangle: { label: '镀锌锌花', hex: 0xc6ccd3, roughness: 0.5,  metalness: 0.45, spangle: true },
   white:   { label: '哑白',     hex: 0xe8e6e0, roughness: 0.6,  metalness: 0.08 },
 };
 

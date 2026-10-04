@@ -1,6 +1,8 @@
 // 面板分区装饰（接线层后处理）：panel.js 为原封文件，分区标题 / 行布局类名在这里注入。
 // 只做 DOM 搬家与 class 加注，不删改任何带数据绑定的节点（spec/stepper/seg/list 的引用
 // 仍由原封 panel.js 持有，移动节点不影响其查询与订阅）。
+import { getSpangleTexture } from '../core/spangleTexture.js';
+
 export function decoratePanel(root, extras = {}) {
   if (!root || root.dataset.decorated) return;
   root.dataset.decorated = '1';
@@ -108,10 +110,17 @@ export function decoratePanel(root, extras = {}) {
     seg.addEventListener('click', () => setTimeout(syncRadio, 0));
   });
 
-  // 幻彩镀锌色板点：锌花渐变底（panel.js 原封按纯色 hex 渲染，在此做视觉增强）
+  // 镀锌锌花色板点：直接取 3D 用的锌花纹理缩略（panel.js 原封按纯色 hex 渲染，在此做视觉增强）
   const spangleSwatch = root.querySelector('.swatch[data-pcolor="spangle"]');
   if (spangleSwatch) {
-    spangleSwatch.style.background = 'linear-gradient(135deg,#e9edf1 0%,#b6bdc7 30%,#dfe3e8 50%,#aab2bd 72%,#d3d8de 100%)';
+    spangleSwatch.style.background = '#a9aeb4';
+    try {
+      const src = getSpangleTexture().image;
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      c.getContext('2d').drawImage(src, 0, 0, 220, 220, 0, 0, 64, 64);
+      spangleSwatch.style.background = `center / cover url(${c.toDataURL('image/png')})`;
+    } catch { /* 无 canvas 环境：保留纯色兜底 */ }
   }
 
   // 打印 / 导出 PDF：panel.js 原封无此按钮，装饰层注入动作区；回调由接线层传入

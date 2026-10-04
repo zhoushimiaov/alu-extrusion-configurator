@@ -17,5 +17,6 @@ export default {
   woodcart: { weightKg: 47.9, partCount: 67 },
   // 光轴挂衣架：classic 光轴抽屉柜（默认）/ atelier 原木水磨石（ref/挂衣架.glb 复刻，落地底座）
   hanger: { weightKg: 72.4, partCount: 32 },
-  hangerAtelier: { weightKg: 70.6, partCount: 45 },
+  //   2026-10-04 原木款底部改为 GLB 实测的「双抽屉柜（水磨石台面）+ 翻盖收纳箱」：原实心长凳 → 空腔抽屉柜，70.6/45 → 54.2/47
+  hangerAtelier: { weightKg: 54.2, partCount: 47 },
 };

@@ -36,7 +36,7 @@ export function createHud(hudLeft, hudRight, actions) {
       const d2 = c.depth !== undefined ? ` · 深 <b>${c.depth.toFixed(2)} m</b>` : '';
       const h2 = c.height !== undefined ? ` · 高 <b>${c.height.toFixed(2)} m</b>` : '';
       if (c.kind === 'books') {
-        const matLabel = { gray: '麻灰板', spangle: '幻彩镀锌', white: '哑白' }[c.panelMat] || '';
+        const matLabel = { gray: '麻灰板', spangle: '镀锌锌花', white: '哑白' }[c.panelMat] || '';
         if (c.style === 'table') { readout.innerHTML = `<div class="rl rl-a">光轴长桌 · ${c.tBays} 节 × ${c.tBayW.toFixed(2)} m · 深 ${c.depth.toFixed(2)} m</div>`; return; }
         readout.innerHTML = `<div class="rl rl-a">光轴书架 · ${c.levels} 层 × ${c.bays} 跨 · ${matLabel} · ${c.base ? '木箱脚轮' : '地脚'}</div>`;
         return;
@@ -58,7 +58,7 @@ export function createHud(hudLeft, hudRight, actions) {
       return;
     }
     if (c.kind === 'books') {
-      const matLabel = { gray: '麻灰板', spangle: '幻彩镀锌', white: '哑白' }[c.panelMat] || '';
+      const matLabel = { gray: '麻灰板', spangle: '镀锌锌花', white: '哑白' }[c.panelMat] || '';
       if (c.style === 'table') {
         readout.innerHTML =
           `<div class="rl rl-a">光轴长桌 · ${c.tBays} 节 × ${c.tBayW.toFixed(2)} m · 深 ${c.depth.toFixed(2)} m</div>` +

@@ -409,9 +409,12 @@ export function buildGlbFrame(config) {
       geometries.panels = panelGeometry;
       const panelMaterial = new THREE.MeshStandardMaterial({ color: panelCfg.hex, metalness: panelCfg.metalness, roughness: panelCfg.roughness });
       if (panelCfg.spangle) {
-        // 幻彩镀锌：程序化锌花纹理（repeat 按板面尺寸约 0.55m 一 Tile）
+        // 镀锌锌花：程序化锌花纹理（灰度已按实拍镀锌板标定，材质底色取白不再二次压暗；repeat 约 0.32m 一 Tile → 锌花约 1cm）
+        panelMaterial.color.set(0xffffff);
+        panelMaterial.metalness = 0.38;
+        panelMaterial.roughness = 0.42;
         const tex = getSpangleTexture();
-        tex.repeat.set(Math.max(1, Math.round((layout.W + .06) / .55)), Math.max(1, Math.round(panelRows[0][3] / .55)));
+        tex.repeat.set(Math.max(1, Math.round((layout.W + .06) / .32)), Math.max(1, Math.round(panelRows[0][3] / .32)));
         panelMaterial.map = tex;
       }
       const mesh = new THREE.InstancedMesh(panelGeometry, panelMaterial, panelRows.length);

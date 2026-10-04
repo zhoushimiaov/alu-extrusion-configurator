@@ -245,8 +245,9 @@ export function buildBookshelf(config) {
     const panelCfg = PANEL_MATERIALS[cfg.panelMat] || PANEL_MATERIALS.gray;
     const panelMat = new THREE.MeshStandardMaterial({ color: panelCfg.hex, roughness: panelCfg.roughness, metalness: panelCfg.metalness });
     if (panelCfg.spangle) {
+      panelMat.color.set(0xffffff); // 纹理灰度已按实拍标定
       const tex = getSpangleTexture().clone();
-      tex.repeat.set(2, 1);
+      tex.repeat.set(3, 1); // 展板约 1m × 0.33m → 锌花约 1cm（与型材架背板同密度）
       tex.needsUpdate = true;
       panelMat.map = tex;
     }

@@ -1,7 +1,7 @@
 // 光轴挂衣架配置（两种样式）
 // classic 光轴抽屉柜：4×⌀30 光轴立柱 + 顶框/置物搁板 + 居中挂衣杆 + 底部抽屉柜 + 2020 底框 + 万向轮
 // atelier 原木水磨石：复刻 ref/挂衣架.glb —— 水磨石底座 + 原木圆杆环梁 + 十字木套筒
-//         + 藤编搁板 + V 形托架挂衣杆 + 湖蓝收纳箱 / 水磨石长凳
+//         + 藤编搁板 + V 形托架挂衣杆 + 湖蓝双抽屉柜（水磨石台面）/ 翻盖收纳箱
 // 可调：样式 / 宽 W / 深 D / 总高 H（立柱长度）/ 抽屉层数（atelier 为储物模块数）/ 滚轮 / 表面（atelier 为木色）
 
 export const RAIL_BEAM = 0.02;     // 2020 横杆截面
@@ -39,7 +39,7 @@ export const ATELIER_TONES = {
 };
 
 // atelier 储物模块（drawers 参数 0-3）
-export const ATELIER_MODULES = ['无储物', '长凳', '长凳 + 收纳箱', '双箱 + 长凳'];
+export const ATELIER_MODULES = ['无储物', '抽屉柜', '抽屉柜 + 收纳箱', '双箱 + 抽屉柜'];
 
 export const HANGER_COLORS = {
   silver:    { label: '银色', hex: 0x9ba1a8, roughness: 0.30, metalness: 0.94 },

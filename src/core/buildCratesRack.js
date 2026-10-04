@@ -1,6 +1,6 @@
 // 周转箱收纳架参数化装配（参考图复刻 v3）
 // 结构（真实铝型材，对照参考实拍）：
-//   4×2040 立柱（makeTSlotShape(.04,.02) tall 截面，extrudeUp）
+//   4×2040 立柱（profilesExact 精确 2040 截面，与型材架 GLB 2020 同一实测槽口模板，extrudeUp）
 //   底框（双层 2020 叠梁）/ 顶框：X 梁贴立柱前后外侧面、Z 梁贴左右外侧，角部黑色加强角码板
 //   每层：左右 Z 向 2020 侧梁 + 黑色三节钢珠滑轨（外轨固定、中/内轨随抽出伸展）+ 前后托底横梁
 //   周转箱：不透明 PP 物流箱（网格加强筋 + 外翻唇边 + 短边把手孔 + 长边印字标签），沿 Z 向抽出
@@ -8,13 +8,18 @@
 import * as THREE from 'three';
 import { computeEnvelope } from './envelope.js';
 import { RAIL_BEAM, DENSITY_ALU, DEFAULT_CRATES_CONFIG, SCHEME_SEQ, CRATE_COLORS, CRATE_SCHEMES } from '../config/crates.js';
-import { makeTSlotShape, extrudeUp, extrudeAlongX, extrudeAlongZ } from './profiles.js';
+import { extrudeUp, extrudeAlongX, extrudeAlongZ } from './profiles.js';
+import { makeExact2020Shape, makeExact2040Shape, profileMaterialPair } from './profilesExact.js';
 import { buildCasters, buildLevelFeet, outwardYaw } from './casters.js';
 
 const _m4 = new THREE.Matrix4();
 
 function instanced(geo, mat, count) {
   return count > 0 ? new THREE.InstancedMesh(geo, mat.clone(), count) : null;
+}
+// 型材：[锯切端面, 阳极侧面] 材质对（与型材架同做法）
+function profileInstanced(geo, mat, count) {
+  return count > 0 ? new THREE.InstancedMesh(geo, profileMaterialPair(mat), count) : null;
 }
 
 const BEAM = 0.02;
@@ -117,23 +122,24 @@ export function buildCratesRack(config) {
   // ---- 几何（真实 T-slot 铝型材）----
   const postTopY = yTop + BEAM / 2 + 0.015;
   const postLen = postTopY - yPostBottom;
-  const postGeo = extrudeUp(makeTSlotShape(POST_W, POST_T), postLen);
+  // 截面精度与型材架同源：2040 立柱 / 2020 梁均为 GLB 实测槽口模板（profilesExact.js）
+  const postGeo = extrudeUp(makeExact2040Shape(), postLen);
   // 框梁：X 梁贴立柱前后外侧（z=±(pz+POST_T/2+BEAM/2)），长 = 立柱 X 外沿；
   //       Z 梁贴左右外侧（x=±(px+POST_W/2+BEAM/2)），长 = 覆盖 X 梁端头 → 四角闭合无穿插
   const frameLenX = W + POST_W;
   const frameLenZ = D + POST_T + 2 * BEAM;
   const zBeamX = pz + POST_T / 2 + BEAM / 2;
   const xBeamZ = px + POST_W / 2 + BEAM / 2;
-  const beamXGeo = extrudeAlongX(makeTSlotShape(BEAM, BEAM), frameLenX);
-  const beamZGeo = extrudeAlongZ(makeTSlotShape(BEAM, BEAM), frameLenZ);
+  const beamXGeo = extrudeAlongX(makeExact2020Shape(), frameLenX);
+  const beamZGeo = extrudeAlongZ(makeExact2020Shape(), frameLenZ);
   beamZGeo.translate(0, 0, -frameLenZ / 2);
   // 每层侧梁：前后立柱之间（贴立柱内侧面），长度 = 立柱 Z 外沿
   const railLen = D + POST_T;
-  const railGeo = extrudeAlongZ(makeTSlotShape(BEAM, BEAM), railLen);
+  const railGeo = extrudeAlongZ(makeExact2020Shape(), railLen);
   railGeo.translate(0, 0, -railLen / 2);
 
   // ---- 立柱 ×4 ----
-  const posts = instanced(postGeo, matAlu, 4);
+  const posts = profileInstanced(postGeo, matAlu, 4);
   let i = 0;
   for (const x of postXs) for (const z of postZs) {
     _m4.identity().setPosition(x, yPostBottom, z);
@@ -148,11 +154,11 @@ export function buildCratesRack(config) {
   const frameZGroup = new THREE.Group();
   const frameYs = [yBottom, yBottom2, yTop];
   for (const y of frameYs) {
-    const fx = instanced(beamXGeo, matAlu, 2);
+    const fx = profileInstanced(beamXGeo, matAlu, 2);
     _m4.identity().setPosition(0, y, -zBeamX); fx.setMatrixAt(0, _m4);
     _m4.identity().setPosition(0, y, zBeamX); fx.setMatrixAt(1, _m4);
     frameXGroup.add(fx);
-    const fz = instanced(beamZGeo, matAlu, 2);
+    const fz = profileInstanced(beamZGeo, matAlu, 2);
     _m4.identity().setPosition(-xBeamZ, y, 0); fz.setMatrixAt(0, _m4);
     _m4.identity().setPosition(xBeamZ, y, 0); fz.setMatrixAt(1, _m4);
     frameZGroup.add(fz);
@@ -200,7 +206,7 @@ export function buildCratesRack(config) {
   for (let t = 0; t < tiers; t++) railYs.push(railYOf(t));
   const yBaseOf = (t) => railYs[t] + railTopOffset;   // 箱底
   const SLIDE_H = 0.035;
-  const rails = instanced(railGeo, matAlu, tiers * 2);
+  const rails = profileInstanced(railGeo, matAlu, tiers * 2);
   let ri = 0;
   for (let t = 0; t < tiers; t++) {
     const ySide = yBaseOf(t) + SLIDE_H / 2;            // 侧梁与滑轨同高（滑轨锁在侧梁内侧槽）
@@ -213,8 +219,8 @@ export function buildCratesRack(config) {
   group.add(rails);
   groups.rails = rails;
 
-  const tierBeamGeo = extrudeAlongX(makeTSlotShape(BEAM, BEAM), frameLenX);
-  const tierBeams = instanced(tierBeamGeo, matAlu, tiers * 2);
+  const tierBeamGeo = extrudeAlongX(makeExact2020Shape(), frameLenX);
+  const tierBeams = profileInstanced(tierBeamGeo, matAlu, tiers * 2);
   let ti = 0;
   for (let t = 0; t < tiers; t++) {
     const yb = yBaseOf(t) - BEAM / 2 - 0.002;         // 托底横梁顶面低于箱底 2mm

@@ -47,7 +47,7 @@ export function createHangerPanel(root, actions) {
   mount.appendChild(lead);
   const LEADS = {
     classic: '光轴移动挂衣架：四角 ⌀30 立柱 + 顶部置物搁板 + 居中挂衣杆 + 底部抽屉柜，滚轮底盘可整体推行。',
-    atelier: '原木水磨石挂衣架（按参考模型复刻）：原木圆杆环梁 + 十字木套筒 + 藤编搁板 + V 形托架挂衣杆，水磨石底座承托收纳箱与长凳。',
+    atelier: '原木水磨石挂衣架（按参考模型复刻）：原木圆杆环梁 + 十字木套筒 + 藤编搁板 + V 形托架挂衣杆，水磨石底座承托双抽屉柜（水磨石台面）与翻盖收纳箱。',
   };
 
   const spec = el('div', 'spec-grid', `

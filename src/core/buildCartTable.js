@@ -12,7 +12,8 @@ import * as THREE from 'three';
 import { computeEnvelope } from './envelope.js';
 import { RAIL_D, DENSITY_ALU, DEFAULT_CART_CONFIG } from '../config/cart.js';
 import { getCartMaterials } from './cartMaterials.js';
-import { makeTSlotShape, extrudeUp, extrudeAlongX, extrudeAlongZ } from './profiles.js';
+import { extrudeUp, extrudeAlongX, extrudeAlongZ } from './profiles.js';
+import { makeExact2020Shape, profileMaterialPair } from './profilesExact.js';
 import { buildCasters, buildLevelFeet, outwardYaw } from './casters.js';
 
 const _m4 = new THREE.Matrix4();
@@ -65,8 +66,9 @@ export function buildCartTable(config) {
   const levels = [yBotLow, yBotHigh, yMid, yTop];
   const frameSpan = yTop - yBotHigh;
 
-  // ---- 共用几何（真实 T 槽截面，单位长度挤出 + 实例缩放长度）----
-  const slot = makeTSlotShape(BEAM, BEAM);
+  // ---- 共用几何（GLB 实测 2020 精确截面：深 T 槽 + 倒扣内腔 + 斜腹板 + 方孔芯，与型材架同源；
+  //      单位长度挤出 + 实例缩放长度）----
+  const slot = makeExact2020Shape();
   const legGeo = extrudeUp(slot, 1);                       // y ∈ [0,1]
   const beamXGeo = extrudeAlongX(slot, 1);                 // 居中
   const beamZGeo = extrudeAlongZ(slot, 1); beamZGeo.translate(0, 0, -0.5);
@@ -75,7 +77,7 @@ export function buildCartTable(config) {
 
   // ---- 1. 腿：型材 + 左右木板 ----
   const legLen = yPost1 - yLeg0;
-  const aluPosts = instanced(legGeo, mat.beam, 4);
+  const aluPosts = new THREE.InstancedMesh(legGeo, profileMaterialPair(mat.beam), 4);
   {
     let k = 0;
     for (const x of postXs) for (const z of postZs) setMT(k++, aluPosts, x, yLeg0, z, 1, legLen, 1);
@@ -119,8 +121,8 @@ export function buildCartTable(config) {
   const beamsXGroup = new THREE.Group();
   const beamsZGroup = new THREE.Group();
   {
-    const bx = instanced(beamXGeo, mat.beam, levels.length * 2);
-    const bz = instanced(beamZGeo, mat.beam, levels.length * 2);
+    const bx = new THREE.InstancedMesh(beamXGeo, profileMaterialPair(mat.beam), levels.length * 2);
+    const bz = new THREE.InstancedMesh(beamZGeo, profileMaterialPair(mat.beam), levels.length * 2);
     let a = 0, b = 0;
     for (const y of levels) {
       for (const z of postZs) setMT(a++, bx, 0, y, z, lenX, 1, 1);

@@ -7,7 +7,8 @@
 //   水磨石底座 1.402×0.06×0.504 + 4 根 ⌀30 原木圆杆（柱距 1.273×0.400，杆长 2.43）
 //   + 两道木杆环梁（顶环 @柱顶-0.125，搁板环 @顶环-0.40）+ 十字木套筒
 //   + 藤编搁板（木端头，长 1.182 / 编织段 1.022 / 深 0.45）+ V 形托架吊挂中央挂衣杆（@搁板环-0.10）
-//   + 底部储物：湖蓝漆面收纳箱（带木嵌板盖）+ 水磨石面长凳（drawers 参数 = 储物模块数）
+//   + 底部储物（GLB 3DGeom-4~8 实测）：湖蓝双抽屉柜（0.80×0.39，抽面 0.18 高 / 20mm 厚凸出、20mm 拉手缝）
+//     + 5cm 水磨石台面；湖蓝翻盖收纳箱（0.40 宽，5cm 盖框 20mm 边 + 米色嵌板）。drawers 参数 = 储物组合
 import * as THREE from 'three';
 import { computeEnvelope } from './envelope.js';
 import { POST_D, DENSITY_ALU, DENSITY_PLY, DEFAULT_HANGER_CONFIG, HANGER_COLORS, ATELIER_TONES } from '../config/hanger.js';
@@ -442,6 +443,8 @@ function buildAtelier(cfg) {
   const matSleeve = new THREE.MeshStandardMaterial({ color: 0xffffff, map: ashGrainTex(tone.sleeve), roughness: 0.52, metalness: 0.0, envMapIntensity: 0.55 });
   const matTerrazzo = new THREE.MeshStandardMaterial({ color: 0xffffff, map: terrazzoTex(), roughness: 0.38, metalness: 0.0, envMapIntensity: 0.7 });
   const matTeal = new THREE.MeshPhysicalMaterial({ color: 0x8dbfcb, roughness: 0.42, metalness: 0.0, clearcoat: 0.35, clearcoatRoughness: 0.35, envMapIntensity: 0.8 });
+  // 抽面：同色略亮（GLB 抽面与柜体同材质；略提亮让 20mm 凸出的面在正视时可读）
+  const matTealFront = new THREE.MeshPhysicalMaterial({ color: 0x97c8d3, roughness: 0.38, metalness: 0.0, clearcoat: 0.4, clearcoatRoughness: 0.3, envMapIntensity: 0.85 });
   const matCream = new THREE.MeshStandardMaterial({ color: 0xebdfcd, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.5 });
   const matRattan = new THREE.MeshStandardMaterial({ color: 0xffffff, map: rattanTex(), roughness: 0.72, metalness: 0.0, envMapIntensity: 0.45 });
 
@@ -592,49 +595,86 @@ function buildAtelier(cfg) {
   group.add(shelfGroup);
   groups.shelf = shelfGroup;
 
-  // ---- 7. 底部储物模块（drawers 0-3：无 / 长凳 / 长凳+收纳箱(GLB) / 收纳箱+长凳+收纳箱）----
+  // ---- 7. 底部储物（drawers 0-3：无 / 抽屉柜 / 抽屉柜 + 收纳箱（GLB）/ 收纳箱 + 抽屉柜 + 收纳箱）----
+  // GLB 实测（相对底座顶面 P）：抽屉柜柜体 P+0.01..P+0.39，抽面 2 × 0.18（P..P+0.18、P+0.20..P+0.38，
+  //   20mm 厚凸出柜体，抽面间 20mm 拉手缝），柜顶水磨石台面 50mm；收纳箱箱体 P..P+0.40，盖 50mm（压箱口 10mm），
+  //   盖为 20mm 边框 + 下沉 3mm 米色嵌板。前 = +Z。
   const nMod = Math.max(0, Math.min(3, drawers));
   const spanX = 2 * (px - 0.037);        // GLB ±0.600
   const modD = Math.min(0.45, D - 0.054);
   const modGroup = new THREE.Group();
-  let boxCount = 0, benchCount = 0;
-  const boxH = 0.40, lidT = 0.05, benchBaseH = 0.20, benchTopH = 0.25;
+  const drawerGroup = new THREE.Group();
+  let boxCount = 0, chestCount = 0, drawerCount = 0;
+  const FRONT_T = 0.02, GAP = 0.02, RIM = 0.02;
+  const chestBodyH = 0.38, frontH = 0.18, slabT = 0.05;
+  const boxH = 0.40, lidT = 0.05;
   const boxW = nMod === 3 ? Math.min(0.4, spanX * 0.28) : Math.min(0.4, spanX / 3);
   const layout = [];                     // [kind, x0, x1]
-  if (nMod === 1) layout.push(['bench', -spanX / 2, spanX / 2]);
-  if (nMod === 2) { layout.push(['bench', -spanX / 2, spanX / 2 - boxW]); layout.push(['box', spanX / 2 - boxW, spanX / 2]); }
-  if (nMod === 3) { layout.push(['box', -spanX / 2, -spanX / 2 + boxW]); layout.push(['bench', -spanX / 2 + boxW, spanX / 2 - boxW]); layout.push(['box', spanX / 2 - boxW, spanX / 2]); }
+  if (nMod === 1) layout.push(['chest', -spanX / 2, spanX / 2]);
+  if (nMod === 2) { layout.push(['chest', -spanX / 2, spanX / 2 - boxW]); layout.push(['box', spanX / 2 - boxW, spanX / 2]); }
+  if (nMod === 3) { layout.push(['box', -spanX / 2, -spanX / 2 + boxW]); layout.push(['chest', -spanX / 2 + boxW, spanX / 2 - boxW]); layout.push(['box', spanX / 2 - boxW, spanX / 2]); }
   const unit = new THREE.BoxGeometry(1, 1, 1);
-  const tealParts = [], terrazzoParts = [], creamParts = [];
+  const tealParts = [], creamParts = [], frontParts = [], slabParts = [];
+  const zBack = -modD / 2, zFront = modD / 2;
+  const P = yPlTop;
   for (const [kind, x0, x1] of layout) {
     const w = x1 - x0 - 0.004, cx = (x0 + x1) / 2;
     if (kind === 'box') {
-      tealParts.push([cx, yPlTop + boxH / 2, 0, w, boxH, modD]);
-      tealParts.push([cx, yPlTop + boxH + 0.002 + lidT / 2, 0, w, lidT, modD]);            // 盖（2mm 缝）
-      creamParts.push([cx, yPlTop + boxH + 0.002 + lidT + 0.0015, 0, w - 0.04, 0.003, modD - 0.04]); // 木嵌板
+      // 箱体（箱口低于盖顶，盖压在箱口外沿）
+      tealParts.push([cx, P + boxH / 2, 0, w, boxH, modD]);
+      // 盖：四条 20mm 边框 + 下沉米色嵌板
+      const yLid = P + boxH - 0.01 + lidT / 2;
+      tealParts.push([cx, yLid, zFront - RIM / 2, w, lidT, RIM]);
+      tealParts.push([cx, yLid, zBack + RIM / 2, w, lidT, RIM]);
+      tealParts.push([cx - w / 2 + RIM / 2, yLid, 0, RIM, lidT, modD - 2 * RIM]);
+      tealParts.push([cx + w / 2 - RIM / 2, yLid, 0, RIM, lidT, modD - 2 * RIM]);
+      tealParts.push([cx, yLid - 0.003, 0, w - 2 * RIM, lidT - 0.006, modD - 2 * RIM]);   // 盖芯（顶面低 3mm）
+      creamParts.push([cx, yLid + lidT / 2 - 0.003 - 0.0005, 0, w - 2 * RIM, 0.001, modD - 2 * RIM]);
       boxCount++;
     } else {
-      tealParts.push([cx, yPlTop + benchBaseH / 2, 0, w, benchBaseH, modD]);
-      terrazzoParts.push([cx, yPlTop + benchBaseH + benchTopH / 2, 0, w, benchTopH, modD]);
-      benchCount++;
+      // 柜体（在抽面之后）
+      const bodyD = modD - FRONT_T;
+      tealParts.push([cx, P + 0.01 + chestBodyH / 2, zBack + bodyD / 2, w, chestBodyH, bodyD]);
+      // 抽面：两层；柜宽 > 0.9m 时每层分左右两列（单块抽面过宽不合实际）
+      const cols = w > 0.9 ? 2 : 1;
+      const colW = (w - (cols - 1) * GAP) / cols;
+      for (let r = 0; r < 2; r++) {
+        const yb = P + r * (frontH + GAP);
+        for (let c = 0; c < cols; c++) {
+          const fx = x0 + 0.002 + c * (colW + GAP) + colW / 2;
+          frontParts.push([fx, yb + frontH / 2, zFront - FRONT_T / 2, colW, frontH, FRONT_T]);
+          drawerCount++;
+        }
+      }
+      // 抽面间 / 上沿拉手缝内侧暗槽（凹进柜体的阴影面，读得出「缝」）
+      for (const yg of [P + frontH + GAP / 2, P + 2 * frontH + GAP + GAP / 2]) {
+        tealParts.push([cx, yg, zFront - FRONT_T - 0.006, w - 0.01, GAP - 0.002, 0.012]);
+      }
+      slabParts.push([cx, P + 0.01 + chestBodyH + slabT / 2, 0, w, slabT, modD]);
+      chestCount++;
     }
   }
-  const emitBoxes = (parts, mat) => {
+  const emitBoxes = (parts, mat, into) => {
     if (!parts.length) return;
     const m = new THREE.InstancedMesh(unit, mat.clone(), parts.length);
     parts.forEach(([x, y, z, sx, sy, sz], k) => m.setMatrixAt(k, _m4.compose(new THREE.Vector3(x, y, z), _q.identity(), new THREE.Vector3(sx, sy, sz))));
-    modGroup.add(m);
+    into.add(m);
   };
-  emitBoxes(tealParts, matTeal);
-  emitBoxes(creamParts, matCream);
-  // 水磨石凳面：逐块独立网格（每块按自身尺寸平铺 UV，实例缩放会拉伸碎石纹理）
-  for (const [x, y, z, sx, sy, sz] of terrazzoParts) {
+  emitBoxes(tealParts, matTeal, modGroup);
+  emitBoxes(creamParts, matCream, modGroup);
+  emitBoxes(frontParts, matTealFront, drawerGroup);
+  // 水磨石台面：逐块独立网格（每块按自身尺寸平铺 UV，实例缩放会拉伸碎石纹理）
+  for (const [x, y, z, sx, sy, sz] of slabParts) {
     const m = new THREE.Mesh(tiledBoxGeo(sx, sy, sz, 0.45), matTerrazzo);
     m.position.set(x, y, z);
     modGroup.add(m);
   }
   group.add(modGroup);
   groups.modules = modGroup;
+  if (drawerCount) {
+    group.add(drawerGroup);
+    groups.drawers = drawerGroup;
+  }
 
   // ---- 8. 底座隐藏式万向轮 / 落地 ----
   const footPts = [-1, 1].flatMap((sx) => [-1, 1].map((sz) => {
@@ -654,10 +694,11 @@ function buildAtelier(cfg) {
   stats.profileLengthM = poleLen;
   const plyVol = W * D * PLINTH_T * 0.5                       // 水磨石饰面底座（多层板芯，按半实心折算）
     + boxCount * (2 * (boxW * boxH + modD * boxH) + boxW * modD * 2) * 0.015
-    + benchCount * (spanX * modD * benchTopH * 0.35)          // 长凳：水磨石饰面 + 空腔骨架折算
+    + chestCount * (spanX - boxW * (nMod - 1)) * (chestBodyH * 2 + modD * 2) * 0.015
+    + drawerCount * 0.18 * 0.4 * 0.02
     + shelfL * shelfD * shelfT * 0.4;
   stats.weightKg = poleLen * poleVol * DENSITY_ASH + plyVol * DENSITY_PLY + 16 * 0.06 + 2 * 0.15 + (wheels ? 4 * 0.12 : 0);
-  stats.partCount = 1 + 4 + 4 + 2 + 1 + 16 + 2 + 6 + 3 + 1 + boxCount * 3 + benchCount * 2 + (wheels ? 4 : 0);
+  stats.partCount = 1 + 4 + 4 + 2 + 1 + 16 + 2 + 6 + 3 + 1 + boxCount * 3 + chestCount * 2 + drawerCount + (wheels ? 4 : 0);
 
   const addCut = (spec, sec, len, qty) => {
     const prev = stats.cutList.find(c => c.spec === spec && Math.abs(c.len - len) < 1e-6);
@@ -670,13 +711,14 @@ function buildAtelier(cfg) {
   stats.cutList.push({ spec: '水磨石饰面底座（60mm）', section: '板', len: +W.toFixed(2), qty: 1 });
   stats.cutList.push({ spec: '藤编搁板（木端头）', section: '板', len: +shelfL.toFixed(2), qty: 1 });
   if (boxCount) stats.cutList.push({ spec: '湖蓝漆面收纳箱（木嵌板盖）', section: '件', len: +boxW.toFixed(2), qty: boxCount });
-  const bench = layout.find((l) => l[0] === 'bench');
-  if (bench) stats.cutList.push({ spec: '水磨石面长凳', section: '件', len: +(bench[2] - bench[1]).toFixed(2), qty: benchCount });
+  const chest = layout.find((l) => l[0] === 'chest');
+  if (chest) stats.cutList.push({ spec: `湖蓝抽屉柜（${drawerCount / chestCount} 抽 · 水磨石台面）`, section: '件', len: +(chest[2] - chest[1]).toFixed(2), qty: chestCount });
   stats.panes = [];
   stats.hardware = [
     { name: '十字木套筒（竖套 + 横套）', qty: 16 },
     { name: 'V 形挂杆托架', qty: 2 },
     { name: '环形管夹', qty: 6 },
+    ...(drawerCount ? [{ name: '抽屉滑轨（三节 · 按压回弹）', qty: drawerCount }] : []),
     wheels ? { name: '隐藏式万向轮 1.5 寸（底座下）', qty: 4 } : { name: '底座防滑脚垫', qty: 4 },
   ];
   stats.supports = {
@@ -691,6 +733,6 @@ function buildAtelier(cfg) {
     bounds: { W: W + 0.06, H: yPostTop + 0.04, D: D + 0.06 },
     config: cfg,
     // 贴图按键全局缓存复用：不随单次 dispose 释放（材质本身释放）
-    dispose: () => disposeGroup(group, [matPole, matSleeve, matTerrazzo, matTeal, matCream, matRattan]),
+    dispose: () => disposeGroup(group, [matPole, matSleeve, matTerrazzo, matTeal, matTealFront, matCream, matRattan]),
   };
 }

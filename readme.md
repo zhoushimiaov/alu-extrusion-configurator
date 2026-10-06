@@ -15,7 +15,7 @@
 
 ## Screenshots / 截图
 
-![MODULO 配置器截图](docs/screenshots/shots-grid.jpg)
+![MODULO 配置器截图](docs/screenshots/shots-grid.svg)
 
 *左上：工业铝型材置物架 · 右上：光轴书架 · 左下：移动边几 · 右下：周转箱收纳架*
 *Top-left: aluminum shelving · Top-right: rod bookshelf · Bottom-left: rolling cart · Bottom-right: crate storage rack*

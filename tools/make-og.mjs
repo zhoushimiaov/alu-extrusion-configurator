@@ -48,6 +48,14 @@ const HIDE_UI_CSS = `
   .driver-popover, .driver-overlay { display: none !important; }
 `;
 
+// Chromium 截图偶发 Protocol error（captureScreenshot）：重试 3 次
+async function shoot(page, out, opts) {
+  for (let i = 0; i < 3; i++) {
+    try { return await page.screenshot({ path: out, ...opts }); }
+    catch (e) { if (i === 2) throw e; await page.waitForTimeout(800); }
+  }
+}
+
 async function renderHero(page, shot) {
   await page.goto('about:blank');
   await page.goto(`${DIST}#?c=${enc(shot.cfg)}`, { waitUntil: 'load' });
@@ -75,9 +83,9 @@ body { width: 1200px; height: 630px; overflow: hidden; font-family: Montserrat, 
 .blend { position: absolute; top: 0; bottom: 0; ${left ? 'right: 661px' : 'left: 661px'}; width: 16px; background: linear-gradient(${left ? '90deg' : '270deg'}, #f4f5f7 0%, rgba(244,245,247,0) 100%); }
 .copy { position: absolute; top: 0; bottom: 0; ${left ? 'left: 64px' : 'right: 64px'}; width: 440px; display: flex; flex-direction: column; justify-content: center; color: #16181b; }
 .brand { font-weight: 600; font-size: 54px; letter-spacing: .34em; line-height: 1; }
-.brand-cn { margin-top: 14px; font-size: 18px; letter-spacing: .5em; color: #5d636b; font-weight: 500; }
-.rule { width: 56px; height: 3px; background: #7b8f5a; margin: 30px 0 26px; border-radius: 2px; }
-.title { font-size: 34px; font-weight: 700; line-height: 1.32; letter-spacing: .04em; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+.brand-cn { margin-top: 14px; font-size: 22px; letter-spacing: .30em; color: #5d636b; font-weight: 500; }
+.rule { width: 56px; height: 3px; background: #7b8f5a; margin: 26px 0 22px; border-radius: 2px; }
+.title { font-size: 38px; font-weight: 700; line-height: 1.32; letter-spacing: .04em; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
 .sub { margin-top: 16px; font-size: 16.5px; line-height: 1.7; color: #4a5058; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
 .chips { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { font-size: 13px; padding: 6px 13px; border-radius: 999px; background: rgba(22,24,27,.06); color: #2c3036; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
@@ -87,9 +95,9 @@ body { width: 1200px; height: 630px; overflow: hidden; font-family: Montserrat, 
 <div class="blend"></div>
 <div class="copy">
   <div class="brand">MODULO</div>
-  <div class="brand-cn">模 数</div>
+  <div class="brand-cn">模数化拼装家具</div>
   <div class="rule"></div>
-  <div class="title">模数化拼装家具<br>实时 3D 配置器</div>
+  <div class="title">实时 3D 配置器</div>
   <div class="sub">逐层逐跨自由规划，算料、报价、安装说明随配置实时生成；一键导出算料单与 3D 模型。</div>
   <div class="chips"><span class="chip">铝型材置物架</span><span class="chip">光轴展架</span><span class="chip">光轴书架</span><span class="chip">移动边几</span><span class="chip">周转箱架</span><span class="chip">木展车</span><span class="chip">挂衣架</span></div>
 </div>
@@ -116,7 +124,7 @@ if (!RENDER3D) {
   await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
   await page.evaluate(() => document.fonts.ready);
   const out = path.resolve(opt('--out', path.join(ROOT, 'public/og-cover.jpg')));
-  await page.screenshot({ path: out, type: 'jpeg', quality: 90 });
+  await shoot(page, out, { type: 'jpeg', quality: 90 });
   console.log(`static hero (${path.basename(SRC)}) → ${path.relative(ROOT, out)}`);
 } else {
   const names = PREVIEW ? Object.keys(SHOTS) : [opt('--shot', 'iso')];
@@ -130,7 +138,7 @@ if (!RENDER3D) {
     await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready);
     const out = PREVIEW ? path.join(OUT_DIR, `og-${name}.jpg`) : path.resolve(opt('--out', path.join(ROOT, 'public/og-cover.jpg')));
-    await page.screenshot({ path: out, type: 'jpeg', quality: 86 });
+    await shoot(page, out, { type: 'jpeg', quality: 86 });
     console.log(`${name} → ${path.relative(ROOT, out)}`);
   }
 }

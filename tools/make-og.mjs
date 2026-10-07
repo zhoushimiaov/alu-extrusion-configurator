@@ -1,8 +1,10 @@
-// OG 分享图生成：纯 3D 场景主视觉（隐藏全部 UI）+ 品牌排版 → public/og-cover.jpg（2400×1260）
+// OG 分享图生成 → public/og-cover.jpg（2400×1260）
 //
-// 用法：npm run build && node tools/make-og.mjs [--shot <名字>] [--out <路径>] [--preview]
-//   --preview  只出各机位的候选图到 tools/qa-out/og-*.jpg，不覆盖 public/og-cover.jpg
-// 机位 / 配置都在下方 SHOTS 表里，改动后重跑即可（输出可复现：纹理均为固定种子）。
+// 默认模式（静态主视觉）：直接用 assets_src/og-hero.png（用户提供的产品图）作右侧主视觉，
+//   左侧品牌文字区，硬分区零重叠、无遮罩渐变：
+//   node tools/make-og.mjs [--src <图片路径>] [--out <路径>]
+// 3D 渲染模式（备用）：从 dist 场景按 SHOTS 机位截图合成：
+//   node tools/make-og.mjs --render3d [--shot iso|isoLow] [--preview]
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -62,22 +64,27 @@ async function renderHero(page, shot) {
 function composeHtml(heroPng, shot) {
   const fontsCss = readFileSync(path.join(ROOT, 'src/fonts.css'), 'utf8');
   const left = shot.text !== 'right';
+  // 静态主视觉：成品图整幅贴右（1024×976 → 661×630，无裁切），左侧文字硬分区；
+  // 无任何遮罩盖图，仅图左缘 16px 与底色融合，避免生硬接缝
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 ${fontsCss}
 * { margin: 0; box-sizing: border-box; }
 body { width: 1200px; height: 630px; overflow: hidden; font-family: Montserrat, "Microsoft YaHei", "PingFang SC", sans-serif; }
-.stage { position: relative; width: 1200px; height: 630px; background: #eef0f2 url(data:image/png;base64,${heroPng.toString('base64')}) center / cover no-repeat; }
-.veil { position: absolute; inset: 0; background: linear-gradient(${left ? '90deg' : '270deg'}, rgba(246,247,248,.97) 0%, rgba(246,247,248,.94) 38%, rgba(246,247,248,.30) 50%, rgba(246,247,248,0) 62%); }
-.copy { position: absolute; top: 0; bottom: 0; ${left ? 'left: 72px' : 'right: 72px'}; width: 460px; display: flex; flex-direction: column; justify-content: center; color: #16181b; }
+.stage { position: relative; width: 1200px; height: 630px; background: #f4f5f7; overflow: hidden; }
+.hero { position: absolute; top: 0; ${left ? 'right: 0' : 'left: 0'}; height: 630px; width: 661px; object-fit: cover; }
+.blend { position: absolute; top: 0; bottom: 0; ${left ? 'right: 661px' : 'left: 661px'}; width: 16px; background: linear-gradient(${left ? '90deg' : '270deg'}, #f4f5f7 0%, rgba(244,245,247,0) 100%); }
+.copy { position: absolute; top: 0; bottom: 0; ${left ? 'left: 64px' : 'right: 64px'}; width: 440px; display: flex; flex-direction: column; justify-content: center; color: #16181b; }
 .brand { font-weight: 600; font-size: 54px; letter-spacing: .34em; line-height: 1; }
 .brand-cn { margin-top: 14px; font-size: 18px; letter-spacing: .5em; color: #5d636b; font-weight: 500; }
-.rule { width: 56px; height: 3px; background: #7b8f5a; margin: 34px 0 30px; border-radius: 2px; }
+.rule { width: 56px; height: 3px; background: #7b8f5a; margin: 30px 0 26px; border-radius: 2px; }
 .title { font-size: 34px; font-weight: 700; line-height: 1.32; letter-spacing: .04em; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
-.sub { margin-top: 16px; font-size: 17px; line-height: 1.7; color: #4a5058; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
-.chips { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px; }
+.sub { margin-top: 16px; font-size: 16.5px; line-height: 1.7; color: #4a5058; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+.chips { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { font-size: 13px; padding: 6px 13px; border-radius: 999px; background: rgba(22,24,27,.06); color: #2c3036; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
-.url { position: absolute; ${left ? 'left: 72px' : 'right: 72px'}; bottom: 40px; font-size: 14px; letter-spacing: .18em; color: #6b727a; }
-</style></head><body><div class="stage"><div class="veil"></div>
+.url { position: absolute; ${left ? 'left: 64px' : 'right: 64px'}; bottom: 40px; font-size: 14px; letter-spacing: .18em; color: #6b727a; }
+</style></head><body><div class="stage">
+<img class="hero" src="data:image/png;base64,${heroPng.toString('base64')}" alt="">
+<div class="blend"></div>
 <div class="copy">
   <div class="brand">MODULO</div>
   <div class="brand-cn">模 数</div>
@@ -97,19 +104,35 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
 
-const names = PREVIEW ? Object.keys(SHOTS) : [opt('--shot', 'low')];
-for (const name of names) {
-  const shot = SHOTS[name];
-  if (!shot) throw new Error(`未知机位 ${name}（可选：${Object.keys(SHOTS).join(' / ')}）`);
-  const hero = await renderHero(page, shot);
-  const html = composeHtml(hero, shot);
-  const tmp = path.join(OUT_DIR, `og-compose-${name}.html`);
+const SRC = opt('--src', path.join(ROOT, 'assets_src/og-hero.png'));
+const RENDER3D = args.includes('--render3d');
+
+if (!RENDER3D) {
+  // 静态主视觉模式（默认）：用户提供的成品图直接合成，无遮罩、零重叠
+  const heroPng = readFileSync(SRC);
+  const html = composeHtml(heroPng, { text: 'left' });
+  const tmp = path.join(OUT_DIR, 'og-compose-hero.html');
   writeFileSync(tmp, html, 'utf8');
   await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
   await page.evaluate(() => document.fonts.ready);
-  const out = PREVIEW ? path.join(OUT_DIR, `og-${name}.jpg`) : path.resolve(opt('--out', path.join(ROOT, 'public/og-cover.jpg')));
-  await page.screenshot({ path: out, type: 'jpeg', quality: 86 });
-  console.log(`${name} → ${path.relative(ROOT, out)}`);
+  const out = path.resolve(opt('--out', path.join(ROOT, 'public/og-cover.jpg')));
+  await page.screenshot({ path: out, type: 'jpeg', quality: 90 });
+  console.log(`static hero (${path.basename(SRC)}) → ${path.relative(ROOT, out)}`);
+} else {
+  const names = PREVIEW ? Object.keys(SHOTS) : [opt('--shot', 'iso')];
+  for (const name of names) {
+    const shot = SHOTS[name];
+    if (!shot) throw new Error(`未知机位 ${name}（可选：${Object.keys(SHOTS).join(' / ')}）`);
+    const hero = await renderHero(page, shot);
+    const html = composeHtml(hero, shot);
+    const tmp = path.join(OUT_DIR, `og-compose-${name}.html`);
+    writeFileSync(tmp, html, 'utf8');
+    await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    const out = PREVIEW ? path.join(OUT_DIR, `og-${name}.jpg`) : path.resolve(opt('--out', path.join(ROOT, 'public/og-cover.jpg')));
+    await page.screenshot({ path: out, type: 'jpeg', quality: 86 });
+    console.log(`${name} → ${path.relative(ROOT, out)}`);
+  }
 }
 if (errors.length) console.log('page errors:', errors);
 await browser.close();

@@ -1177,9 +1177,12 @@ if (webglFailed) {
   };
   // QA 调试：暴露当前产品 group，供浏览器端逐 mesh 包围盒核查（对抗性审查用）
   window.__ALU_GROUP = () => active()?.group || null;
-  // QA 调试：静止机位（细节特写截图用），参数为世界坐标 [x,y,z]
-  window.__ALU_VIEW = (pos, tgt) => {
+  // QA / 素材：静止机位（细节特写、OG 分享图），参数为世界坐标 [x,y,z]；fov 可选（度）
+  window.__ALU_VIEW = (pos, tgt, fov, opts) => {
     controls.autoRotate = false;
+    // OG/轴测机位：窄视角 + 远机位需突破 maxDistance 钳制（仅 QA/OG 工具传 opts，常规会话不受影响）
+    if (opts && opts.noClamp) { controls.maxDistance = 200; controls.minDistance = 0.01; }
+    if (fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
     camera.position.set(pos[0], pos[1], pos[2]);
     controls.target.set(tgt[0], tgt[1], tgt[2]);
     controls.update();

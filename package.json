@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "node --test test/*.test.mjs",
     "analyze": "node tools/gz-analyze.mjs",
-    "smoke": "playwright test test/smoke.spec.mjs"
+    "smoke": "playwright test test/smoke.spec.mjs",
+    "og": "node tools/make-og.mjs"
   },
   "dependencies": {
     "driver.js": "^1.8.0",

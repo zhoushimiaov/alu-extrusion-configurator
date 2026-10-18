@@ -12,7 +12,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(WC_LIMITS, DEFAULT_WOODCART_CONFIG);
+const clampCfg = makeClamp(WC_LIMITS, DEFAULT_WOODCART_CONFIG, { enums: { woodTone: WOOD_TONES }, integerKeys: ['shelves'] });
 let state = { ...DEFAULT_WOODCART_CONFIG };
 const subs = new Set();
 export const woodcartStore = {

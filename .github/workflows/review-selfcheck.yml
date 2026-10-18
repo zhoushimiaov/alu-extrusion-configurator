@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - fix/code-review-selfcheck-20261018
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

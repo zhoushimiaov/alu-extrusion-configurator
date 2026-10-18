@@ -396,9 +396,9 @@ export function buildRodRack(config) {
   addCut('框侧连接轴', '12', +(zFrame * 2).toFixed(3), 2);
   addCut('底盘斜撑', '12', +diagLen.toFixed(3), 4);
   if (shelf === 'deck') addCut('层板托梁', '12', +(W - 0.06).toFixed(3), 2);
-  if (backPanel !== 'none') stats.cutList.push({ spec: backPanel === 'zinc' ? '镀锌背板' : '海报背板', section: '板', len: +Math.min(W - 0.10, yTop - yMid).toFixed(2), qty: 1 });
-  if (shelf === 'tray') stats.cutList.push({ spec: '置物托板', section: '板', len: +(W - 0.13).toFixed(2), qty: 1 });
-  if (shelf === 'deck') stats.cutList.push({ spec: '镀锌层板', section: '板', len: +(W - 0.06).toFixed(2), qty: 1 });
+  if (backPanel !== 'none') stats.cutList.push({ spec: backPanel === 'zinc' ? '镀锌背板' : '海报背板', section: '板', len: +Math.min(W - 0.10, yTop - yMid).toFixed(2), qty: 1, pricedViaPane: true });
+  if (shelf === 'tray') stats.cutList.push({ spec: '置物托板', section: '板', len: +(W - 0.13).toFixed(2), qty: 1, pricedViaPane: true });
+  if (shelf === 'deck') stats.cutList.push({ spec: '镀锌层板', section: '板', len: +(W - 0.06).toFixed(2), qty: 1, pricedViaPane: true });
   // 板件清单（比价引擎用：zinc 按面积、poster 按件一口价）
   if (style !== 'panel' && style !== 'acrylic') {
     stats.panes = [];

@@ -1028,8 +1028,10 @@ function hideLoader() {
 
 // ---- 渲染循环（按需渲染：静止时零 GPU 负载，只有交互/动画/自动旋转时才出帧）----
 if (webglFailed) {
-  loader.textContent = '正在生成骨架 …';
+  // WebGL 失败后仍可使用算料；不能一直保留覆盖全屏的加载层。
   mountActiveProduct();
+  hideLoader();
+  showToast('3D 预览不可用，仍可配置和导出算料单');
 } else {
   let frames = 0;
   let fpsTime = performance.now();

@@ -13,7 +13,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(ROD_LIMITS, DEFAULT_ROD_CONFIG);
+const clampCfg = makeClamp(ROD_LIMITS, DEFAULT_ROD_CONFIG, { enums: { style: ROD_STYLES, backPanel: BACK_TYPES, shelf: SHELF_TYPES, color: ROD_COLORS } });
 let state = { ...DEFAULT_ROD_CONFIG };
 const subs = new Set();
 export const rodStore = {

@@ -48,7 +48,12 @@ export function calcMarketPrice(stats) {
   let material = 0, hardware = 0, panes = 0;
 
   for (const c of stats.cutList || []) {
-    if (c.section === '板') continue; // 板件走 panes
+    // 板件只有明确声明由 panes 覆盖时才跳过，防止胶合板等主材被静默漏算。
+    if (c.section === '板') {
+      if (c.pricedViaPane && (stats.panes || []).length) continue;
+      unpriced.push(c.spec);
+      continue;
+    }
     const rule = matchCutRule(c);
     if (!rule) { unpriced.push(c.spec); continue; }
     const qtyM = c.len * c.qty;
@@ -70,7 +75,13 @@ export function calcMarketPrice(stats) {
       panes += current.posterFlat.price;
       lines.push({ label: p.label, detail: `1 张 × ¥${current.posterFlat.price}`, cost: current.posterFlat.price, query: current.posterFlat.query });
     } else {
-      const per = p.kind === 'acrylic' ? current.acrylicPerM2 : current.zincPerM2;
+      // 不识别的材料不可按镀锌板默认单价代替（例如玻璃、木板、水磨石）。
+      const per = p.kind === 'acrylic' ? current.acrylicPerM2
+        : p.kind === 'zinc' ? current.zincPerM2 : null;
+      if (!per || !Number.isFinite(p.areaM2) || p.areaM2 < 0) {
+        unpriced.push(p.label || p.kind || '未知板件');
+        continue;
+      }
       const cost = p.areaM2 * per.price;
       panes += cost;
       lines.push({ label: p.label, detail: `${p.areaM2.toFixed(2)} m² × ¥${per.price}/m²`, cost, query: per.query, range: per.range });

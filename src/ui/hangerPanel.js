@@ -13,7 +13,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(HANGER_LIMITS, DEFAULT_HANGER_CONFIG);
+const clampCfg = makeClamp(HANGER_LIMITS, DEFAULT_HANGER_CONFIG, { enums: { style: HANGER_STYLES, color: HANGER_COLORS }, integerKeys: ['drawers'] });
 let state = { ...DEFAULT_HANGER_CONFIG };
 const subs = new Set();
 export const hangerStore = {

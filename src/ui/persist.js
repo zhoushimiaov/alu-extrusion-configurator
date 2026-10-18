@@ -51,7 +51,9 @@ export function encodeCfg(obj) {
 
 export function decodeCfg(str) {
   try {
-    const s = String(str).replace(/-/g, '+').replace(/_/g, '/');
+    // 防止 URL/存储中的超大配置触发大量解码与 JSON 解析；正常 8×8 配置远小于此值。
+    if (typeof str !== 'string' || str.length > 16384) return null;
+    const s = str.replace(/-/g, '+').replace(/_/g, '/');
     const o = JSON.parse(decodeURIComponent(escape(atob(s))));
     return o && typeof o === 'object' && !Array.isArray(o) ? o : null;
   } catch { return null; }

@@ -12,7 +12,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(BOOK_LIMITS, DEFAULT_BOOKSHELF_CONFIG);
+const clampCfg = makeClamp(BOOK_LIMITS, DEFAULT_BOOKSHELF_CONFIG, { enums: { style: BOOK_STYLES, panelMat: PANEL_MATERIALS, color: FRAME_COLORS }, integerKeys: ['bays', 'levels', 'tBays'] });
 let state = { ...DEFAULT_BOOKSHELF_CONFIG };
 const subs = new Set();
 export const bookshelfStore = {

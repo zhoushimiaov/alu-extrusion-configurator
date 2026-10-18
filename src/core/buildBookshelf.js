@@ -58,7 +58,7 @@ export function buildBookshelf(config) {
 
   const group = new THREE.Group();
   const groups = {};
-  const stats = { profileLengthM: 0, weightKg: 0, partCount: 0, cutList: [], hardware: [] };
+  const stats = { profileLengthM: 0, weightKg: 0, partCount: 0, cutList: [], hardware: [], panes: [] };
   let rodLen = 0;        // 光轴总长（管件累计）
   let steelVol = 0;      // 钢材体积 m3
   let boardArea = 0;     // 展板面积 m2
@@ -94,6 +94,8 @@ export function buildBookshelf(config) {
       const glass = new THREE.Mesh(glassGeo, mat.acrylicClear);
       glass.position.y = tableH + 0.1;
       group.add(glass);
+      stats.cutList.push({ spec: '玻璃副层板 8mm', section: '板', len: +(W - 0.04).toFixed(2), qty: 1, pricedViaPane: true });
+      stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +((W - 0.04) * (D - 0.02)).toFixed(3), kind: 'glass' });
       const nStand = Math.max(4, cfg.tBays * 2 + 2);
       const standGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.1, 10);
       const stands = instanced(standGeo, mat.block, nStand);
@@ -324,7 +326,7 @@ export function buildBookshelf(config) {
       partCount += bookAdded;
       groups.books = group.children[group.children.length - 1];
     }
-    stats.cutList.push({ spec: `斜面展板 ${panelCfg.label}`, section: '板', len: +(cfg.bayW - 0.05).toFixed(2), qty: nPanels });
+    stats.cutList.push({ spec: `斜面展板 ${panelCfg.label}`, section: '板', len: +(cfg.bayW - 0.05).toFixed(2), qty: nPanels, pricedViaPane: true });
     stats.panes = [{ label: `斜面展板 ${panelCfg.label}`, areaM2: +boardArea.toFixed(3), kind: 'board' }];
 
     // ---- 亚克力前挡 ----

@@ -54,23 +54,46 @@ test('光轴书架侧托杆：逐层沿板坡向，法线间隙2mm，真实伸�
           near(Math.abs(axis.dot(slope)), 1, 'side support slope parallel to actual tilted shelf');
           near(rod.p.clone().sub(panel.p).dot(normal), -(0.014 / 2 + 0.005 + 0.002), 'rod center below shelf face');
           const postX = bounds[bay + edge];
-          near(rod.p.x, postX + (edge === 0 ? 0.022 : -0.022), 'rod positioned beside panel edge');
+          near(rod.p.x, postX + (edge === 0 ? -0.03 : 0.03), 'diagonal brace mounted OUTSIDE each bay');
+          assert.ok((edge === 0 ? rod.p.x < postX : rod.p.x > postX), 'side brace must be outside the bay boundary');
           const front = rod.p.clone().addScaledVector(axis, -rod.s.y / 2);
           const back = rod.p.clone().addScaledVector(axis, rod.s.y / 2);
           near(front.z, cfg.depth / 2 - 0.004, 'front rod endpoint');
           near(back.z, -cfg.depth / 2 + 0.004, 'rear rod endpoint');
-          const stubFront = instance(stubs, level * (cfg.bays + 1) * 2 + (bay + edge) * 2);
-          const stubBack = instance(stubs, level * (cfg.bays + 1) * 2 + (bay + edge) * 2 + 1);
+          const boundary = bay + edge;
+          const stubFront = instance(stubs, level * (cfg.bays + 1) * 2 + boundary * 2);
+          const stubBack = instance(stubs, level * (cfg.bays + 1) * 2 + boundary * 2 + 1);
+          const isLeft = boundary === 0;
+          const isRight = boundary === cfg.bays;
+          const isShared = !isLeft && !isRight;
+          const expectedCenter = postX + (isLeft ? -0.04 : isRight ? 0.04 : 0);
+          const expectedLength = isShared ? 0.20 : 0.12;
           for (const [tip, stub] of [[front, stubFront], [back, stubBack]]) {
-            near(stub.p.x, postX, 'stub begins at post');
+            near(stub.p.x, expectedCenter, 'off-center perimeter stub / centered shared stub');
+            near(stub.s.x, expectedLength, 'stub cut length matches actual span');
             near(stub.p.y, tip.y, 'stub and diagonal join Y');
             near(stub.p.z, tip.z, 'stub and diagonal join Z');
-            assert.ok(Math.abs(tip.x - stub.p.x) < stub.s.x / 2, 'stub spans diagonal endpoint in X');
+            assert.ok(Math.abs(tip.x - stub.p.x) + 0.005 < stub.s.x / 2, 'diagonal end joins within stub, not past end cap');
+            // Perimeter stub must visibly project 100 mm OUTWARD, retaining 20 mm inside the post.
+            if (!isShared) {
+              const innerExtent = isLeft ? stub.p.x + stub.s.x / 2 : stub.p.x - stub.s.x / 2;
+              const outerExtent = isLeft ? stub.p.x - stub.s.x / 2 : stub.p.x + stub.s.x / 2;
+              near(Math.abs(innerExtent - postX), 0.02, '20 mm inboard overlap');
+              near(Math.abs(outerExtent - postX), 0.10, '100 mm exterior tip projection');
+            } else {
+              near(stub.p.x - stub.s.x / 2, postX - 0.10, 'shared post projects 100mm left');
+              near(stub.p.x + stub.s.x / 2, postX + 0.10, 'shared post projects 100mm right');
+            }
           }
         }
       }
       assert.ok(built.stats.cutList.some(c => c.spec.includes('斜层板侧托光轴')));
-      assert.ok(built.stats.cutList.some(c => c.spec.includes('节点外伸短光轴')));
+      const stubCuts = built.stats.cutList.filter(c => c.spec.includes('节点外挑') || c.spec.includes('节点双向外挑'));
+      assert.equal(stubCuts.reduce((sum, c) => sum + c.qty, 0), stubs.count, 'BOM includes each support stub once');
+      const stubTotalLength = stubCuts.reduce((sum, c) => sum + c.len * c.qty, 0);
+      near(stubTotalLength,
+        cfg.levels * (0.12 * 4 + (cfg.bays - 1) * 0.20 * 2),
+        'BOM counts both perimeter and shared-post cut lengths');
       assert.ok(built.stats.hardware.some(c => c.name.includes('斜撑杆端金属转接套')));
       const sideCollars = built.groups.sidePostCollars;
       if (sideCollars) {

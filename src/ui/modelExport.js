@@ -60,7 +60,7 @@ function fileNameParts(kind, meta = {}) {
  * 把 sourceGroup 展平为世界坐标下的普通 Mesh 集合（InstancedMesh 逐实例展开）。
  * 只复制每个网格的几何/材质引用并按世界矩阵烘焙，不改动原场景对象。
  */
-function flattenToPlainMeshes(sourceGroup, rootName) {
+export function flattenToPlainMeshes(sourceGroup, rootName) {
   const exportRoot = new THREE.Group();
   exportRoot.name = rootName;
 

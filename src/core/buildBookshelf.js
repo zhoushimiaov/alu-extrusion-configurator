@@ -217,18 +217,28 @@ export function buildBookshelf(config) {
     group.add(rails);
     groups.rails = rails;
 
-    // ---- joint：每根横杆两端 T 型夹块（横杆抱住立柱的连接件）----
-    const clampGeo = new THREE.BoxGeometry(0.028, 0.03, 0.03);
-    const clamps = instanced(clampGeo, mat.block, railSegs.length * 2);
-    let ci = 0;
+    // ---- P2：真实节点语义：银色立柱抱箍，而不是覆盖整根柱子的 30mm 黑方块 ----
+    // 同一坐标可能被相邻两跨/顶层前后杆重复引用，需去重避免夹块叠面。
+    const clampNodes = new Map();
+    const addClampNode = (x, y, z) => {
+      clampNodes.set([x, y, z].map(v => v.toFixed(4)).join(':'), [x, y, z]);
+    };
     railSegs.forEach((sg) => {
-      setMT(ci++, clamps, sg[0], sg[1], sg[2], 1, 1, 1);
-      setMT(ci++, clamps, sg[3], sg[4], sg[5], 1, 1, 1);
+      addClampNode(sg[0], sg[1], sg[2]);
+      addClampNode(sg[3], sg[4], sg[5]);
     });
+    const clampPositions = [...clampNodes.values()];
+    const jointMaterial = new THREE.MeshStandardMaterial({
+      color: 0x939da4, metalness: 0.86, roughness: 0.29,
+    });
+    // 开口金属抱箍，内部原有的 ⌀18 竖杆可以透过端面看到。
+    const collarGeometry = () => new THREE.CylinderGeometry(0.013, 0.013, 0.024, 16, 1, true);
+    const clamps = instanced(collarGeometry(), jointMaterial, clampPositions.length);
+    clampPositions.forEach(([x, y, z], i) => setMT(i, clamps, x, y, z));
     group.add(clamps);
     groups.clamps = clamps;
-    partCount += ci;
-    stats.hardware.push({ name: 'T 型光轴夹块', qty: ci });
+    partCount += clampPositions.length;
+    stats.hardware.push({ name: '竖向光轴金属抱箍', qty: clampPositions.length });
 
     // ---- joint：立柱顶端球头端帽（参考照片的圆头出头）----
     const capGeo = new THREE.SphereGeometry(0.014, 12, 10);
@@ -314,6 +324,8 @@ export function buildBookshelf(config) {
     const stubLength = 0.12;
     const sideDiagSupports = instanced(strutGeo, mat.rod, nPanels * 2);
     const sideStubSupports = instanced(railGeo, mat.rod, cfg.levels * bndXs.length * 2);
+    // 斜杆端的转接抱箍沿杆轴线套入；短横杆则由立柱金属抱箍固定。
+    const sideDiagCouplers = instanced(strutGeo, jointMaterial, nPanels * 4);
     // 从斜板中心出发，沿坡向延长到前后节点 Z 截面，保证斜撑始终与斜板平行。
     const endpointsOf = (panel) => {
       const axisCenter = panel.center.clone().addScaledVector(panel.normal, -normalClearance);
@@ -323,11 +335,19 @@ export function buildBookshelf(config) {
       return [atZ(zFrontJoint), atZ(zBackJoint)];
     };
     let di = 0;
+    let couplingIndex = 0;
     let sideDiagLen = 0;
     for (const panel of panelPlacements) {
       const [front, back] = endpointsOf(panel);
+      const slope = back.clone().sub(front).normalize();
+      const sleeveHalfLen = 0.011;
       for (const x of [bndXs[panel.bay] + sideOffsetFromPost, bndXs[panel.bay + 1] - sideOffsetFromPost]) {
         setDir(di++, sideDiagSupports, x, front.y, front.z, x, back.y, back.z, diagRadius);
+        for (const endpoint of [front, back]) {
+          const a = endpoint.clone().addScaledVector(slope, -sleeveHalfLen);
+          const b = endpoint.clone().addScaledVector(slope, sleeveHalfLen);
+          setDir(couplingIndex++, sideDiagCouplers, x, a.y, a.z, x, b.y, b.z, 0.008);
+        }
         sideDiagLen += front.distanceTo(back);
       }
     }
@@ -341,10 +361,37 @@ export function buildBookshelf(config) {
         }
       }
     }
-    group.add(sideDiagSupports, sideStubSupports);
+    // 与原横杆抱箍位置近乎重合的节点不再重复套筒；其余短横杆按柱心单独抱紧。
+    const sideCollarPoints = [];
+    const isNearbyCollar = (a, b) =>
+      Math.abs(a[0] - b[0]) < 0.001 &&
+      Math.abs(a[1] - b[1]) < 0.018 &&
+      Math.abs(a[2] - b[2]) < 0.012;
+    for (let i = 0; i < cfg.levels; i++) {
+      const [front, back] = endpointsOf(panelPlacements[i * cfg.bays]);
+      for (const x of bndXs) {
+        for (const p of [front, back]) {
+          const candidate = [x, p.y, p.z];
+          if (![...clampPositions, ...sideCollarPoints].some(c => isNearbyCollar(candidate, c))) {
+            sideCollarPoints.push(candidate);
+          }
+        }
+      }
+    }
+    const sidePostCollars = sideCollarPoints.length
+      ? instanced(collarGeometry(), jointMaterial, sideCollarPoints.length) : null;
+    sideCollarPoints.forEach(([x, y, z], i) => setMT(i, sidePostCollars, x, y, z));
+    group.add(sideDiagSupports, sideStubSupports, sideDiagCouplers);
+    if (sidePostCollars) group.add(sidePostCollars);
     groups.sideDiagSupports = sideDiagSupports;
     groups.sideStubSupports = sideStubSupports;
-    partCount += di + si;
+    groups.sideDiagCouplers = sideDiagCouplers;
+    groups.sidePostCollars = sidePostCollars;
+    partCount += di + si + couplingIndex + sideCollarPoints.length;
+    stats.hardware.push(
+      { name: '斜撑杆端金属转接套', qty: couplingIndex },
+      { name: '短横杆立柱抱箍', qty: sideCollarPoints.length },
+    );
     rodLen += sideDiagLen + si * stubLength;
     steelVol += Math.PI * diagRadius * diagRadius * sideDiagLen
       + Math.PI * stubRadius * stubRadius * si * stubLength;

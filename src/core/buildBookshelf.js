@@ -280,7 +280,7 @@ export function buildBookshelf(config) {
         _m4.compose(_p, _q, _s);
         panels.setMatrixAt(bi, _m4);
         panelPlacements.push({
-          cx,
+          cx, level: i, bay: b,
           center: _p.clone(),
           rotation: _q.clone(),
           width: w,
@@ -300,6 +300,58 @@ export function buildBookshelf(config) {
     group.add(lips);
     groups.panels = panels;
     groups.lips = lips;
+
+    // ---- P1：斜层板侧向光轴支承 ----
+    // 直接从真实层板的坡向/法线推导，绝不使用独立的“层高 + 经验角度”。
+    // 支承沿每块板左右两侧走，轴心位于板下表面下 7mm（杆半径 5mm + 2mm 间隙）。
+    // 其两端伸到前后立柱附近，与 X 向短横杆在同一个 Y/Z 平面内真实交汇。
+    const diagRadius = 0.005;
+    const stubRadius = 0.0055;
+    const sideOffsetFromPost = 0.022;
+    const normalClearance = 0.014 / 2 + diagRadius + 0.002;
+    const zFrontJoint = D / 2 - 0.004;
+    const zBackJoint = -D / 2 + 0.004;
+    const stubLength = 0.12;
+    const sideDiagSupports = instanced(strutGeo, mat.rod, nPanels * 2);
+    const sideStubSupports = instanced(railGeo, mat.rod, cfg.levels * bndXs.length * 2);
+    // 从斜板中心出发，沿坡向延长到前后节点 Z 截面，保证斜撑始终与斜板平行。
+    const endpointsOf = (panel) => {
+      const axisCenter = panel.center.clone().addScaledVector(panel.normal, -normalClearance);
+      const atZ = z => axisCenter.clone().addScaledVector(
+        panel.tangent, (z - axisCenter.z) / panel.tangent.z,
+      );
+      return [atZ(zFrontJoint), atZ(zBackJoint)];
+    };
+    let di = 0;
+    let sideDiagLen = 0;
+    for (const panel of panelPlacements) {
+      const [front, back] = endpointsOf(panel);
+      for (const x of [bndXs[panel.bay] + sideOffsetFromPost, bndXs[panel.bay + 1] - sideOffsetFromPost]) {
+        setDir(di++, sideDiagSupports, x, front.y, front.z, x, back.y, back.z, diagRadius);
+        sideDiagLen += front.distanceTo(back);
+      }
+    }
+    let si = 0;
+    for (let i = 0; i < cfg.levels; i++) {
+      // 同层同坡角的跨共用立柱节点；短杆从立柱两侧各露出 60mm。
+      const [front, back] = endpointsOf(panelPlacements[i * cfg.bays]);
+      for (const x of bndXs) {
+        for (const p of [front, back]) {
+          setMT(si++, sideStubSupports, x, p.y, p.z, stubLength, stubRadius, stubRadius);
+        }
+      }
+    }
+    group.add(sideDiagSupports, sideStubSupports);
+    groups.sideDiagSupports = sideDiagSupports;
+    groups.sideStubSupports = sideStubSupports;
+    partCount += di + si;
+    rodLen += sideDiagLen + si * stubLength;
+    steelVol += Math.PI * diagRadius * diagRadius * sideDiagLen
+      + Math.PI * stubRadius * stubRadius * si * stubLength;
+    stats.cutList.push(
+      { spec: '斜层板侧托光轴 ⌀10', section: '⌀10', len: +(sideDiagLen / di).toFixed(3), qty: di },
+      { spec: '节点外伸短光轴 ⌀11', section: '⌀11', len: stubLength, qty: si },
+    );
 
     // ---- 样书：局部 XY 面必须与斜层板的局部 XY 面重合，厚度沿 Z 法线 ----
     if (cfg.books) {

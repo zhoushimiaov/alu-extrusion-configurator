@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { DEFAULT_CONFIG, normalizeConfig, LIMITS } from '../src/config/product.js';
 import { decodeCfg } from '../src/ui/persist.js';
+import { makeClamp } from '../src/config/clamp.js';
 import { calcMarketPrice } from '../src/ui/marketPrice.js';
 import { summarizeBom } from '../src/ui/bomSummary.js';
 import { flattenToPlainMeshes } from '../src/ui/modelExport.js';
@@ -30,6 +31,17 @@ test('型材架配置：非法 URL/存储数据不可突破层数、跨数与宽
   assert.equal(normalizeConfig({ levels: 2.5 }).levels, DEFAULT_CONFIG.levels);
   assert.equal(normalizeConfig({ bays: -1 }).bays, LIMITS.bays[0]);
   assert.equal(decodeCfg('A'.repeat(17000)), null);
+});
+
+test('通用 store 校验：非法枚举、布尔类型和非整数层数自动修正', () => {
+  const clamp = makeClamp(
+    { tiers: [2, 6], width: [0.4, 0.9] },
+    { tiers: 4, width: 0.6, scheme: 'mix', casters: true },
+    { integerKeys: ['tiers'], enums: { scheme: { mix: {}, white: {} } } },
+  );
+  assert.deepEqual(clamp({ tiers: 3.8, width: Infinity, scheme: '__bad__', casters: 'no' }), {
+    tiers: 4, width: 0.6, scheme: 'mix', casters: true,
+  });
 });
 
 test('报价：胶合板不会从 cutList 静默漏价', () => {

@@ -26,8 +26,10 @@ test('光轴书架侧托杆：逐层沿板坡向，法线间隙2mm，真实伸�
       const { panels, sideDiagSupports: diagonals, sideStubSupports: stubs } = built.groups;
       assert.equal(diagonals.count, cfg.bays * cfg.levels * 2);
       assert.equal(stubs.count, cfg.levels * (cfg.bays + 1) * 2);
-      const width = cfg.bays * cfg.bayW;
-      const bounds = Array.from({ length: cfg.bays + 1 }, (_, n) => -width / 2 + n * cfg.bayW);
+      // 使用构建器归一化后的配置；用例可能省略 bayW，不能以 undefined 计算边界。
+      const { bayW } = built.config;
+      const width = cfg.bays * bayW;
+      const bounds = Array.from({ length: cfg.bays + 1 }, (_, n) => -width / 2 + n * bayW);
 
       for (let n = 0; n < cfg.bays * cfg.levels; n++) {
         const panel = instance(panels, n);

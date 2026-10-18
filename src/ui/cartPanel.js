@@ -13,7 +13,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(CART_LIMITS, DEFAULT_CART_CONFIG);
+const clampCfg = makeClamp(CART_LIMITS, DEFAULT_CART_CONFIG, { enums: { midAcrylic: ACRYLIC_TYPES, woodFinish: WOOD_FINISHES } });
 let state = { ...DEFAULT_CART_CONFIG };
 const subs = new Set();
 export const cartStore = {

@@ -1,6 +1,8 @@
 // 算料单导出：支持型材架（product.js）与光轴展架（rodrack.js）两种配置
 // 各产品的枚举标签文案由 main.js 通过 registerLabels() 显式注册（替代 window.__ALU_LABELS 全局注入）；
 // 未注册时会抛错并指明缺失的 kind，调用方需保证导出前已注册。
+import { summarizeBom } from './bomSummary.js';
+
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const LABELS = {};
@@ -127,7 +129,7 @@ export function configLineFor(cfg, kind = 'profile', stats = null) {
 export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
   const now = new Date();
   const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const totalCutLen = stats.cutList.reduce((a, c) => a + c.len * c.qty, 0);
+  const { cutLengthM: totalCutLen } = summarizeBom(stats);
   const { title, configLine, extraStats, wText, hText } = configLineFor(cfg, kind, stats);
   const hwRows = [
     ['序号', '五金名称', '数量', '单位'],
@@ -185,7 +187,7 @@ export function downloadCutlist(cfg, stats, kind = 'profile') {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const name = kind === 'hanger' ? `挂衣架算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'woodcart' ? `光轴木展车算料单.xml` : kind === 'crates' ? `周转箱收纳架算料单_${cfg.tiers}层.xml` : kind === 'cart' ? `移动边几算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'rod' ? `光轴展架算料单_${cfg.width.toFixed(2)}m.xml` : `铝型材置物架算料单_${cfg.bays}x${cfg.levels}.xml`;
+  const name = kind === 'hanger' ? `挂衣架算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'woodcart' ? `光轴木展车算料单.xml` : kind === 'crates' ? `周转箱收纳架算料单_${cfg.tiers}层.xml` : kind === 'cart' ? `移动边几算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'rod' ? `光轴展架算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'books' ? `光轴书架算料单_${cfg.style === 'table' ? '长桌' : cfg.bays + '跨' + cfg.levels + '层'}.xml` : `铝型材置物架算料单_${cfg.bays}x${cfg.levels}.xml`;
   a.download = name;
   document.body.appendChild(a);
   a.click();

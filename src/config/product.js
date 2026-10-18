@@ -79,25 +79,35 @@ export const RIB_SPACING = 0.028;   // 层板条间距
 export const DECK_STRIP = { w: 0.024, h: 0.016, area: 9.2e-5 };  // 型材层板条截面
 export const PANEL_RIB = { w: 0.024, h: 0.008, area: 2.4e-5 };   // 侧板条截面
 
-/** 规整配置：补齐 decks / bayWidths 数组并裁剪到当前 bays / levels */
-export function normalizeConfig(cfg) {
-  const c = { ...cfg };
-  if (!Array.isArray(c.decks) || c.decks.length !== c.levels) {
-    const decks = [];
-    for (let i = 0; i < c.levels; i++) decks.push(c.decks && c.decks[i] ? c.decks[i] : 'rib');
-    c.decks = decks;
-  }
-  if (!Array.isArray(c.backs) || c.backs.length !== c.levels) {
-    const backs = [];
-    for (let i = 0; i < c.levels; i++) backs.push(c.backs && c.backs[i] === 'none' ? 'none' : 'panel');
-    c.backs = backs;
-  }
-  if (!Array.isArray(c.bayWidths) || c.bayWidths.length !== c.bays) {
-    const bw = [];
-    for (let i = 0; i < c.bays; i++) bw.push(c.bayWidths && c.bayWidths[i] ? +Number(c.bayWidths[i]).toFixed(2) : DEFAULT_BAY_WIDTH);
-    c.bayWidths = bw;
-  } else {
-    c.bayWidths = c.bayWidths.map(w => +Number(w).toFixed(2));
-  }
+/** 所有入口（面板、hash、localStorage、配置清单）共同使用的配置校验。
+ * 限制整数、数值范围和枚举，保证非法数据不会进入几何/算料循环。 */
+export function normalizeConfig(cfg = {}) {
+  const source = cfg && typeof cfg === 'object' && !Array.isArray(cfg) ? cfg : {};
+  const c = { ...DEFAULT_CONFIG, ...source };
+  const safeInt = (value, [lo, hi], fallback) =>
+    Number.isInteger(value) ? Math.min(hi, Math.max(lo, value)) : fallback;
+  const safeWidth = (value) =>
+    Number.isFinite(value)
+      ? +Math.min(LIMITS.bayWidth[1], Math.max(LIMITS.bayWidth[0], value)).toFixed(2)
+      : DEFAULT_BAY_WIDTH;
+  const safeEnum = (value, options, fallback) =>
+    Object.prototype.hasOwnProperty.call(options, value) ? value : fallback;
+
+  c.schemaVersion = 2;
+  c.bays = safeInt(c.bays, LIMITS.bays, DEFAULT_CONFIG.bays);
+  c.levels = safeInt(c.levels, LIMITS.levels, DEFAULT_CONFIG.levels);
+  c.series = safeEnum(c.series, PROFILE_SERIES, DEFAULT_CONFIG.series);
+  c.frameMode = safeEnum(c.frameMode, FRAME_MODES, DEFAULT_CONFIG.frameMode);
+  c.color = safeEnum(c.color, COLORS, DEFAULT_CONFIG.color);
+  c.panelColor = safeEnum(c.panelColor, PANEL_COLORS, DEFAULT_CONFIG.panelColor);
+  c.sidePanels = typeof c.sidePanels === 'boolean' ? c.sidePanels : DEFAULT_CONFIG.sidePanels;
+  c.props = typeof c.props === 'boolean' ? c.props : DEFAULT_CONFIG.props;
+
+  c.decks = Array.from({ length: c.levels }, (_, i) =>
+    safeEnum(Array.isArray(source.decks) ? source.decks[i] : null, DECK_TYPES, 'rib'));
+  c.backs = Array.from({ length: c.levels }, (_, i) =>
+    (Array.isArray(source.backs) && source.backs[i] === 'none') ? 'none' : 'panel');
+  c.bayWidths = Array.from({ length: c.bays }, (_, i) =>
+    safeWidth(Array.isArray(source.bayWidths) ? source.bayWidths[i] : DEFAULT_BAY_WIDTH));
   return c;
 }

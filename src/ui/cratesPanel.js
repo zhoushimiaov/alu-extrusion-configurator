@@ -12,7 +12,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(CRATES_LIMITS, DEFAULT_CRATES_CONFIG);
+const clampCfg = makeClamp(CRATES_LIMITS, DEFAULT_CRATES_CONFIG, { enums: { scheme: CRATE_SCHEMES }, integerKeys: ['tiers'] });
 let state = { ...DEFAULT_CRATES_CONFIG };
 const subs = new Set();
 export const cratesStore = {

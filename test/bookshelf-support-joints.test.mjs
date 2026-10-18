@@ -26,6 +26,17 @@ test('光轴书架侧托杆：逐层沿板坡向，法线间隙2mm，真实伸�
       const { panels, sideDiagSupports: diagonals, sideStubSupports: stubs } = built.groups;
       assert.equal(diagonals.count, cfg.bays * cfg.levels * 2);
       assert.equal(stubs.count, cfg.levels * (cfg.bays + 1) * 2);
+      assert.equal(built.groups.sideDiagCouplers.count, diagonals.count * 2);
+      assert.equal(built.groups.clamps.geometry.type, 'CylinderGeometry');
+      assert.ok(built.groups.clamps.material.metalness > 0.8, 'avoid bulky black square joints');
+      // 每个横杆节点只允许一个套筒（跨与顶层共享的节点不可重叠）。
+      const collarPositions = new Set();
+      for (let c = 0; c < built.groups.clamps.count; c++) {
+        const p = instance(built.groups.clamps, c).p;
+        const key = [p.x, p.y, p.z].map(v => v.toFixed(4)).join(':');
+        assert.ok(!collarPositions.has(key), 'duplicate post collar');
+        collarPositions.add(key);
+      }
       // 使用构建器归一化后的配置；用例可能省略 bayW，不能以 undefined 计算边界。
       const { bayW } = built.config;
       const width = cfg.bays * bayW;
@@ -60,6 +71,17 @@ test('光轴书架侧托杆：逐层沿板坡向，法线间隙2mm，真实伸�
       }
       assert.ok(built.stats.cutList.some(c => c.spec.includes('斜层板侧托光轴')));
       assert.ok(built.stats.cutList.some(c => c.spec.includes('节点外伸短光轴')));
+      assert.ok(built.stats.hardware.some(c => c.name.includes('斜撑杆端金属转接套')));
+      const sideCollars = built.groups.sidePostCollars;
+      if (sideCollars) {
+        for (let c = 0; c < sideCollars.count; c++) {
+          const p = instance(sideCollars, c).p;
+          assert.ok(![...collarPositions].some(key => {
+            const [x, y, z] = key.split(':').map(Number);
+            return Math.abs(x - p.x) < 0.001 && Math.abs(y - p.y) < 0.018 && Math.abs(z - p.z) < 0.012;
+          }), 'side collar must not overlap an existing rail collar');
+        }
+      }
     } finally {
       built.dispose();
     }

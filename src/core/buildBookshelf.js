@@ -258,6 +258,7 @@ export function buildBookshelf(config) {
     const panels = instanced(panelGeo, panelMat, nPanels);
     const lipGeo = new THREE.BoxGeometry(1, 0.03, 0.012);
     const lips = instanced(lipGeo, panelMat, nPanels);
+    const panelPlacements = []; // 与层板同源的书本摆放姿态，避免各自计算造成角度偏差
     let bi = 0;
     for (let i = 0; i < cfg.levels; i++) {
       const yLow = postBase + i * pitch + 0.05;
@@ -278,6 +279,16 @@ export function buildBookshelf(config) {
         _s.set(w, len, 1);
         _m4.compose(_p, _q, _s);
         panels.setMatrixAt(bi, _m4);
+        panelPlacements.push({
+          cx,
+          center: _p.clone(),
+          rotation: _q.clone(),
+          width: w,
+          length: len,
+          // 层板局部 XY 平面旋转后的坡向与正面法线（单位向量）。
+          tangent: new THREE.Vector3(0, dy / len, -dz / len),
+          normal: new THREE.Vector3(0, dz / len, dy / len),
+        });
         // 前挡唇：竖向小条贴在板下沿前方
         setMT(bi, lips, cx, yb + 0.012, zb + 0.012, w - 0.004, 1, 1);
         boardArea += w * len;
@@ -290,41 +301,34 @@ export function buildBookshelf(config) {
     groups.panels = panels;
     groups.lips = lips;
 
-    // ---- 样书：每层斜面板上平躺一本大开本（跟随倾角，靠前挡唇）----
+    // ---- 样书：局部 XY 面必须与斜层板的局部 XY 面重合，厚度沿 Z 法线 ----
     if (cfg.books) {
-      // 颜色池：低饱和杂志色
       const bookColors = [0xb7c0c4, 0xd9cbb2, 0xc7a98d, 0x8f9a8c, 0xd6d2cb, 0xa8b0b8];
-      const nBooks = cfg.levels * cfg.bays;
-      const bookGeo = new THREE.BoxGeometry(1, 0.03, 1);
-      // 每块板一本（材质各异 → 用非实例 Mesh，量小可接受）
-      let bookAdded = 0;
-      for (let i = 0; i < cfg.levels; i++) {
-        const yLow = postBase + i * pitch + 0.05;
-        const yHigh = postBase + (i + 1) * pitch;
-        for (let b = 0; b < cfg.bays; b++) {
-          const cx = (bndXs[b] + bndXs[b + 1]) / 2;
-          const w = cfg.bayW - 0.05;
-          const yb = yLow + 0.012, zb = D / 2 - 0.025;
-          const yt = yHigh - 0.012, zt = -D / 2 + 0.03;
-          const dy = yt - yb, dz = zb - zt;
-          const len = Math.hypot(dy, dz);
-          const bm = new THREE.MeshStandardMaterial({ color: bookColors[(i * cfg.bays + b) % bookColors.length], roughness: 0.8, metalness: 0.02 });
-          const book = new THREE.Mesh(bookGeo, bm);
-          // 书平铺在板面上：板中心略偏下（靠前挡唇），厚度沿板法线抬起
-          const nz = dy / len, ny = dz / len; // 板法线 (0, ny, nz) 归一（朝前上）
-          const fx = 0.62; // 沿坡向下偏移比例（靠近前挡唇）
-          const bx = cx, by = yb + dy * (1 - fx) + ny * 0.02, bz = zb - dz * (1 - fx) + nz * 0.02;
-          _q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.atan2(-dz, dy));
-          _p.set(bx, by, bz);
-          _s.set(w * 0.66, 0.028, len * 0.5);
-          _m4.compose(_p, _q, _s);
-          book.applyMatrix4(_m4);
-          group.add(book);
-          bookAdded++;
-        }
-      }
-      partCount += bookAdded;
-      groups.books = group.children[group.children.length - 1];
+      const bookThickness = 0.018; // 18mm 的平铺样书；比层板薄
+      const panelThickness = 0.014;
+      const surfaceGap = 0.002; // 避免与斜面展板发生 z-fighting
+      const booksGroup = new THREE.Group();
+      booksGroup.name = 'displayBooks';
+      const bookGeo = new THREE.BoxGeometry(1, 1, 1);
+      // 复用层板本身的倾斜旋转，不能将 XZ 面的书套用 XY 面的旋转。
+      panelPlacements.forEach((panel, index) => {
+        const bm = new THREE.MeshStandardMaterial({
+          color: bookColors[index % bookColors.length], roughness: 0.8, metalness: 0.02,
+        });
+        const book = new THREE.Mesh(bookGeo, bm);
+        book.name = `displayBook_${index}`;
+        // 从前下沿向坡上移动到板长的 38% 处，平面内留足前后边距。
+        // 书的下表面位于层板上表面之上 2mm；法线与层板始终一致。
+        book.position.copy(panel.center)
+          .addScaledVector(panel.tangent, -panel.length * 0.12)
+          .addScaledVector(panel.normal, panelThickness / 2 + bookThickness / 2 + surfaceGap);
+        book.quaternion.copy(panel.rotation);
+        book.scale.set(panel.width * 0.66, panel.length * 0.5, bookThickness);
+        booksGroup.add(book);
+      });
+      group.add(booksGroup);
+      partCount += panelPlacements.length;
+      groups.books = booksGroup;
     }
     stats.cutList.push({ spec: `斜面展板 ${panelCfg.label}`, section: '板', len: +(cfg.bayW - 0.05).toFixed(2), qty: nPanels, pricedViaPane: true });
     stats.panes = [{ label: `斜面展板 ${panelCfg.label}`, areaM2: +boardArea.toFixed(3), kind: 'board' }];

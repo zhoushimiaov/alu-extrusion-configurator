@@ -12,6 +12,7 @@ const ROOT_NAMES = {
   crates: 'CrateRack',
   woodcart: 'WoodCart',
   hanger: 'ClothesHanger',
+  books: 'RodBookshelf',
 };
 
 function fileNameParts(kind, meta = {}) {
@@ -35,6 +36,14 @@ function fileNameParts(kind, meta = {}) {
     if (w) parts.push('W' + w);
     if (h) parts.push('H' + h);
     if (meta.shelves) parts.push(meta.shelves + 'S');
+  } else if (kind === 'books') {
+    if (meta.style === 'table') {
+      if (meta.tBays) parts.push(meta.tBays + 'B');
+      const w = num(meta.tBayW); if (w) parts.push('W' + w);
+    } else {
+      if (meta.bays) parts.push(meta.bays + 'b');
+      if (meta.levels) parts.push(meta.levels + 'L');
+    }
   } else if (kind === 'hanger') {
     const w = num(meta.width); const h = num(meta.height);
     if (w) parts.push('W' + w);
@@ -56,14 +65,26 @@ function flattenToPlainMeshes(sourceGroup, rootName) {
   exportRoot.name = rootName;
 
   sourceGroup.updateMatrixWorld(true);
+  // 展平后的 Mesh 默认可见；导出时必须继承源节点及祖先的可见性。
+  // stripsLOD 仅用于远景预览；无论当前距离多远，始终导出高精度 strips。
+  const isExportable = (mesh) => {
+    let node = mesh;
+    while (node) {
+      if (node.name === 'stripsLOD' || node.userData?.exportSkip === true) return false;
+      if (!node.visible && node.name !== 'strips') return false;
+      if (node === sourceGroup) break;
+      node = node.parent;
+    }
+    return true;
+  };
   const instMatrix = new THREE.Matrix4();
   const worldMatrix = new THREE.Matrix4();
   let meshCount = 0;
   let instanceCount = 0;
 
   sourceGroup.traverse((o) => {
+    if (!o.isMesh || !isExportable(o)) return;
     if (o.isInstancedMesh) {
-      sourceGroup.updateMatrixWorld(true);
       for (let i = 0; i < o.count; i++) {
         o.getMatrixAt(i, instMatrix);
         worldMatrix.multiplyMatrices(o.matrixWorld, instMatrix);

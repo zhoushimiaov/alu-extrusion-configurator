@@ -299,8 +299,8 @@ export function buildCartTable(config) {
   addCut('框梁 2020 · 两侧', '2020', +lenZ.toFixed(3), levels.length * 2);
   stats.cutList.push({ spec: '腿部木纹板 60×18', section: '板', len: +boardLen.toFixed(3), qty: 8 });
   if (rodRails) addCut('光轴挂杆', '⌀12', +railLen.toFixed(3), railCount);
-  if (glassTop) stats.cutList.push({ spec: '钢化玻璃台面 8mm', section: '板', len: +glassW.toFixed(2), qty: 1 });
-  if (midAcrylic !== 'none') stats.cutList.push({ spec: midAcrylic === 'amber' ? '橙色亚克力中板' : '磨砂亚克力中板', section: '板', len: +(lenX - 0.004).toFixed(2), qty: 1 });
+  if (glassTop) stats.cutList.push({ spec: '钢化玻璃台面 8mm', section: '板', len: +glassW.toFixed(2), qty: 1, pricedViaPane: true });
+  if (midAcrylic !== 'none') stats.cutList.push({ spec: midAcrylic === 'amber' ? '橙色亚克力中板' : '磨砂亚克力中板', section: '板', len: +(lenX - 0.004).toFixed(2), qty: 1, pricedViaPane: true });
   stats.panes = panes;
   stats.hardware = [
     casters ? { name: '万向轮 1.75 寸 平板式（镀铬轮叉 · 带刹车）', qty: 4 } : { name: '调平地脚 M10', qty: 4 },

@@ -93,6 +93,24 @@ test('光轴展架:切换 + 价格区块 + 导出按钮', async ({ page }) => {
   expect(appErrors(page)).toEqual([]);
 });
 
+test('WebGL 不可用：七产品仍可切换并显示算料操作', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') return null;
+      return original.call(this, type, ...args);
+    };
+  });
+  const runtimeErrors = [];
+  page.on('pageerror', (err) => runtimeErrors.push(String(err)));
+  await page.goto(dist + '#rod');
+  for (const kind of ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'profile']) {
+    await page.locator(`#product-tabs button[data-kind="${kind}"]`).click();
+    await expect(page.locator('#panel').getByRole('button', { name: '导出算料单' })).toBeVisible();
+  }
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('构建产物内含 OG meta 与模型导出器', () => {
   const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
   expect(html).toContain('og:image');

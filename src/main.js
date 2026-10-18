@@ -772,7 +772,7 @@ function mountActiveProduct() {
   if (panel && typeof panel.dispose === 'function') panel.dispose();
   panelRoot.innerHTML = '';
   hotspotLayer.style.display = productKind === 'profile' ? '' : 'none';
-  hotspots.setHidden(productKind !== 'profile');
+  hotspots?.setHidden(productKind !== 'profile');
   if (productKind === 'rod') {
     setInstallSteps(INSTALL_STEPS_ROD);
     panel = createRodPanel(panelRoot, rodActions);
@@ -883,7 +883,7 @@ function switchTo(kind) {
   persist(productKind, PRODUCT_STORES[productKind].get());
   syncSwitchLabel();
   mountActiveProduct();
-  if (anims.exploded) {
+  if (anims?.exploded) {
     const act = active();
     if (act?.groups) anims.explode(act.groups, true);
   }
@@ -1104,13 +1104,7 @@ if (webglFailed) {
     hotspotLayer.style.display = auxHidden ? 'none' : '';
     // 层板 LOD：远景（视距超阈值）用板条纹理整板替换亚像素板条几何（根治摩尔纹）。
     // stripsLOD 仅 GLB 模式生成；爆炸态两组都保留各自偏移，可见性切换独立于爆炸。
-    postfx.render();
-    // 打印报告快照：渲染后同一任务内同步抓帧（无 preserveDrawingBuffer 时合成前抓取有效）
-    if (captureCb) {
-      const cb = captureCb;
-      captureCb = null;
-      try { cb(canvas.toDataURL('image/jpeg', 0.88)); } catch { cb(null); }
-    }
+    // 在实际渲染前确定 LOD，防止距离跨阈值后一帧才切换。
     const a = active();
     if (a && productKind === 'profile' && a.groups?.stripsLOD) {
       const camDist = camera.position.distanceTo(controls.target);
@@ -1120,6 +1114,13 @@ if (webglFailed) {
         a.groups.strips.visible = !far;
         a.groups.stripsLOD.visible = far;
       }
+    }
+    postfx.render();
+    // 打印报告快照：渲染后同一任务内同步抓帧（无 preserveDrawingBuffer 时合成前抓取有效）
+    if (captureCb) {
+      const cb = captureCb;
+      captureCb = null;
+      try { cb(canvas.toDataURL('image/jpeg', 0.88)); } catch { cb(null); }
     }
     if (a && !backView) {
       dims.update(a.stats?.envelope || a.bounds, center);

@@ -104,6 +104,7 @@ test('WebGL 不可用：七产品仍可切换并显示算料操作', async ({ pa
   const runtimeErrors = [];
   page.on('pageerror', (err) => runtimeErrors.push(String(err)));
   await page.goto(dist + '#rod');
+  await expect(page.locator('#loader')).toHaveCSS('display', 'none', { timeout: 5000 });
   for (const kind of ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'profile']) {
     await page.locator(`#product-tabs button[data-kind="${kind}"]`).click();
     await expect(page.locator('#panel').getByRole('button', { name: '导出算料单' })).toBeVisible();

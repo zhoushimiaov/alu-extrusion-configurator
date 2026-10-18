@@ -28,9 +28,13 @@ jobs:
         run: node tools/check-import-case.mjs
       - name: Run unit and regression tests
         run: npm test
+      - name: Validate seven-product geometry constraints
+        run: node tools/qa-geometry.mjs
       - name: Build offline single-file distribution
         run: npm run build
       - name: Install Chromium for fallback smoke check
         run: npx playwright install --with-deps chromium
       - name: Test no-WebGL fallback for all products
         run: npx playwright test test/smoke.spec.mjs --grep "WebGL 不可用"
+      - name: Existing browser smoke regression suite
+        run: npm run smoke

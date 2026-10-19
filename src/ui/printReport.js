@@ -16,6 +16,7 @@ const PRODUCT_TITLES = {
   woodcart: '光轴木展车',
   hanger: '光轴挂衣架',
   books: '光轴书架',
+  sheet: '镀锌板书架（原型）',
 };
 
 function money(n) { return '¥ ' + Math.round(n || 0).toLocaleString('zh-CN'); }

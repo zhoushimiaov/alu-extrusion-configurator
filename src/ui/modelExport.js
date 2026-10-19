@@ -13,6 +13,7 @@ const ROOT_NAMES = {
   woodcart: 'WoodCart',
   hanger: 'ClothesHanger',
   books: 'RodBookshelf',
+  sheet: 'GalvanizedCabinet',
 };
 
 function fileNameParts(kind, meta = {}) {

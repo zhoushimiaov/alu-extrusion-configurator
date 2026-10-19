@@ -44,7 +44,7 @@ test('经典挂衣架：挂衣杆及承托杆双向贯穿，四个立柱节点�
     const halfZ = (config.depth - POST_D) / 2;
     const yTopRail = 0.068 + 0.02 + config.height - POST_D / 2;
     const yHang = yTopRail - 0.24;
-    const ySupport = yHang;
+    const ySupport = yHang - 0.028; // 两实体光轴间4mm净距，由T形桥接件连接
     try {
       assert.equal(hangRail.name, 'hangerMainRod');
       assert.equal(hangSupports.children.length, 2, 'one depth-bearing rail per side');
@@ -52,6 +52,9 @@ test('经典挂衣架：挂衣杆及承托杆双向贯穿，四个立柱节点�
       assert.equal(hangSaddles.children.length, 2, 'the central hanging rail has a metal seat on each side');
       assert.equal(posts.count, 4);
       near(hangRail.position.y, yHang, 'hanger lowered from upper frame');
+      near(hangRail.position.y - ySupport, 0.028, 'orthogonal rods no longer occupy one solid axis');
+      near(hangRail.position.y - 0.015 - (ySupport + 0.009), 0.004,
+        'real surfaces of both rods have 4mm clearance');
       near(hangRail.scale.y, config.width + 0.11, 'single Ø30 main rod spans whole width and both external ends');
       near(hangRail.position.x - hangRail.scale.y / 2, -config.width / 2 - 0.055, 'left tip is externally visible');
       near(hangRail.position.x + hangRail.scale.y / 2, config.width / 2 + 0.055, 'right tip is externally visible');
@@ -65,7 +68,7 @@ test('经典挂衣架：挂衣杆及承托杆双向贯穿，四个立柱节点�
         near(support.position.z, 0, 'support centered front-to-back');
         near(support.scale.y, config.depth + 0.09, 'support is one continuous through-rod, not a loose stub');
         near(support.scale.y / 2 - halfZ, 0.06, 'support projects 60mm beyond each post center');
-        near(support.position.y, hangRail.position.y, 'T node axes are coplanar, never floating');
+        near(hangRail.position.y - support.position.y, 0.028, 'perpendicular rods have separate centerlines');
         near(support.position.z - support.scale.y / 2, -config.depth / 2 - 0.045, 'rear end cap projects beyond frame');
         near(support.position.z + support.scale.y / 2, config.depth / 2 + 0.045, 'front end cap projects beyond frame');
         near(Math.abs(support.rotation.x), Math.PI / 2, 'support aligns with Z axis');
@@ -88,6 +91,17 @@ test('经典挂衣架：挂衣杆及承托杆双向贯穿，四个立柱节点�
       assert.ok(built.stats.cutList.some(c => c.spec.includes('侧向贯穿光轴') && c.qty === 2 && Math.abs(c.len - (config.depth + 0.09)) < 0.001));
       assert.ok(built.stats.cutList.some(c => c.spec.includes('主挂衣杆贯穿') && c.qty === 1 && Math.abs(c.len - (config.width + 0.11)) < 0.001));
       assert.ok(built.stats.hardware.some(c => c.name.includes('T 型穿接套筒') && c.qty === 2));
+      const bridges = built.groups.hangCrossBridges.children;
+      assert.equal(bridges.length, 4, 'each T connection uses a vertical bridge and side rod sleeve');
+      for (const x of [-halfX, halfX]) {
+        const link = bridges.find(o => o.name === 'hangerVerticalTBridge' && Math.abs(o.position.x - x) < 1e-6);
+        const sleeve = bridges.find(o => o.name === 'hangerDepthRodSleeve' && Math.abs(o.position.x - x) < 1e-6);
+        assert.ok(link && sleeve, 'physical T connector fits both rods');
+        near(link.position.y, (yHang + ySupport) / 2, 'connector centered between actual rods');
+        near(link.geometry.parameters.height, 0.044, 'bridge has overlap into both members');
+        near(sleeve.position.y, ySupport, 'bottom sleeve centered over the Ø18 rod');
+      }
+      assert.ok(built.stats.hardware.some(h => h.name.includes('T 型竖向桥接件') && h.qty === 2));
       const { rearTie, rearTieCollars } = built.groups;
       assert.equal(rearTieCollars.children.length, 2, 'rear beam uses two post sleeves, no square clamps');
       near(rearTie.scale.y, config.width + 0.09, 'rear rod spans full rack with external tip on both sides');
@@ -103,11 +117,11 @@ test('经典挂衣架：加厚顶板、四个真实承托片、角撑端耳板�
   ]) {
     const model = buildHanger({ style: 'classic', ...cfg });
     try {
-      const { shelf, shelfTabs, braces, braceJoints, bracePins } = model.groups;
+      const { shelf, shelfTabs, braces, braceJoints, bracePins, braceFrameCollars, hangRail } = model.groups;
       const px = cfg.width / 2 - POST_D / 2;
       const pz = cfg.depth / 2 - POST_D / 2;
       const yTopRail = 0.068 + 0.02 + cfg.height - POST_D / 2;
-      const arm = Math.min(0.19, pz - 0.047);
+      const arm = Math.min(0.155, pz - 0.047);
       near(shelf.scale.y, 0.026, '26mm real top shelf thickness');
       near(shelf.position.y + shelf.scale.y / 2, yTopRail + POST_D / 2 - 0.001, 'shelf top flush with top frame');
       assert.equal(shelfTabs.children.length, 4);
@@ -116,6 +130,7 @@ test('经典挂衣架：加厚顶板、四个真实承托片、角撑端耳板�
       near(braces.geometry.parameters.radiusTop, 0.006, 'Ø12 diagonal braces');
       assert.equal(braceJoints.children.length, 8, 'each outboard brace has two metal sleeves');
       assert.equal(bracePins.children.length, 8, 'each fitting has a real short X-direction through pin');
+      assert.equal(braceFrameCollars.children.length, 8, 'top beam and upright have their own independent collars');
 
       for (const tab of shelfTabs.children) {
         near(tab.position.y + 0.003, shelf.position.y - shelf.scale.y / 2, 'shelf rests directly on tab');
@@ -128,29 +143,44 @@ test('经典挂衣架：加厚顶板、四个真实承托片、角撑端耳板�
         const axis = new THREE.Vector3(0, 1, 0).applyQuaternion(q).normalize();
         const a = p.clone().addScaledVector(axis, s.y / 2);
         const b = p.clone().addScaledVector(axis, -s.y / 2);
-        const expected = [a, b];
-        for (const end of expected) {
-          assert.ok(
-            braceJoints.children.some(tab => tab.position.distanceTo(end) < 1e-4),
-            'actual diagonal brace endpoint lies inside metal corner fitting'
-          );
-        }
+        const topSleeve = braceJoints.children[2 * i];
+        const bottomSleeve = braceJoints.children[2 * i + 1];
+        near(topSleeve.position.distanceTo(b.clone().addScaledVector(axis, 0.024)), 0,
+          'upper sleeve recessed 24mm from physical top-beam joint');
+        near(bottomSleeve.position.distanceTo(a.clone().addScaledVector(axis, -0.024)), 0,
+          'lower sleeve recessed 24mm from upright joint');
+        // The sleeve never sits directly on top of the steel frame beam.
+        assert.ok(topSleeve.position.distanceTo(braceFrameCollars.children[2*i].position) > 0.035,
+          'upper sleeve and top beam collar have distinct, separated centers');
         near(Math.abs(p.x), px + 0.032, 'brace is 32mm OUTSIDE the side-frame centerline');
         assert.ok(pz - arm >= 0.047 - 1e-6, 'brace does not cross the center in shallow racks');
       }
       for (const [i, fitting] of braceJoints.children.entries()) {
         const pin = bracePins.children[i];
+        const collar = braceFrameCollars.children[i];
         const xPost = Math.sign(fitting.position.x) * px;
         near(pin.position.x, (xPost + fitting.position.x) / 2, 'joining pin bridges outer brace to inner side frame');
-        near(pin.position.y, fitting.position.y, 'pin meets diagonal sleeve at the same Y');
-        near(pin.position.z, fitting.position.z, 'pin meets diagonal sleeve at the same Z');
+        near(pin.position.y, collar.position.y, 'pin axis meets beam/upright collar Y');
+        near(pin.position.z, collar.position.z, 'pin axis meets beam/upright collar Z');
+        near(collar.position.x, xPost, 'frame collar stays on actual load-bearing post');
+        near(fitting.position.distanceTo(collar.position), 0.04, 'sleeve recessed 24mm along shaft plus 32mm outboard');
         near(pin.scale.y, 0.062, 'pin spans enough to penetrate both mating members');
         const distance = Math.abs(fitting.position.x - xPost);
         near(distance, 0.032, 'brace offset from post center');
-        assert.ok(pin.scale.y > distance + 0.01, 'positive overlap prevents a disconnected rod end');
+        assert.ok(pin.scale.y > distance + 0.01, 'positive overlap prevents disconnected pin');
+        if (i % 2 === 0) {
+          assert.equal(collar.name, 'braceTopBeamCollar');
+          near(Math.abs(collar.rotation.x), Math.PI/2, 'collar coaxial with Z-oriented top rail');
+        } else {
+          assert.equal(collar.name, 'braceUprightCollar');
+          near(collar.rotation.x, 0, 'collar coaxial with Y-oriented upright');
+          assert.ok(collar.position.y - hangRail.position.y > 0.07,
+            'lower diagonal fitting clears the garment-rod T joint by 70mm');
+        }
       }
       assert.ok(model.stats.hardware.some(h => h.name.includes('斜撑端部金属套筒') && h.qty === 8));
       assert.ok(model.stats.hardware.some(h => h.name.includes('斜撑水平连接穿销') && h.qty === 8));
+      assert.ok(model.stats.hardware.some(h => h.name.includes('斜撑梁柱金属抱箍') && h.qty === 8));
       assert.ok(model.stats.cutList.some(c => c.spec.includes('外挂斜撑光轴 ⌀12') && c.qty === 4));
       assert.ok(model.stats.cutList.some(c => c.spec.includes('后框贯穿横撑 ⌀14') && c.qty === 1));
       near(model.groups.rearTie.geometry.parameters.radiusTop, 0.007, 'Ø14 rear through rod');

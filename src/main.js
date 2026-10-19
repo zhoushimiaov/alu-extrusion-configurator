@@ -25,6 +25,9 @@ import { createCartPanel, cartStore, calcCartPrice } from './ui/cartPanel.js';
 import { createWoodCartPanel, woodcartStore, calcWoodCartPrice } from './ui/woodCartPanel.js';
 import { createHangerPanel, hangerStore, calcHangerPrice } from './ui/hangerPanel.js';
 import { createBookshelfPanel, bookshelfStore, calcBookshelfPrice } from './ui/bookshelfPanel.js';
+import { createSheetPanel, sheetStore } from './ui/sheetPanel.js';
+import { createSheetPlaceholder, buildSheetCabinet, sheetPreviewStats, downloadOriginalSheetGlb } from './core/buildSheetCabinet.js';
+import { DEFAULT_SHEET_CONFIG, SHEET_ORIGINAL } from './config/sheet.js';
 import { buildWoodCart } from './core/buildWoodCart.js';
 import { buildHanger } from './core/buildHanger.js';
 import { buildBookshelf } from './core/buildBookshelf.js';
@@ -100,7 +103,7 @@ if (supportMarkers) { scene.add(supportMarkers.group); supportMarkers.setVisible
 const GROUND_PREVIEW = /[?&]ground=1/.test(location.search);
 const groundContact = (webglFailed || !GROUND_PREVIEW) ? null : createGroundContact();
 if (groundContact) scene.add(groundContact.group);
-let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : /^#books/.test(location.hash) ? 'books' : 'profile';
+let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : /^#books/.test(location.hash) ? 'books' : /^#sheet(?:[/?#]|$)/.test(location.hash) ? 'sheet' : 'profile';
 
 // ---- 配置恢复：分享链接（hash ?c=）优先，其次 localStorage ----
 // 白名单已由 persist.pickPersisted 按产品 schema 统一过滤，这里只做注入。
@@ -109,6 +112,7 @@ const PRODUCT_STORES = {
   profile: store, rod: rodStore, cart: cartStore,
   crates: cratesStore, woodcart: woodcartStore, hanger: hangerStore,
   books: bookshelfStore,
+  sheet: sheetStore,
 };
 for (const [kind, s] of Object.entries(PRODUCT_STORES)) {
   const saved = loadSaved(kind);
@@ -134,9 +138,11 @@ let cratesCurrent = null; // 周转箱收纳架
 let woodCartCurrent = null; // 光轴木展车
 let hangerCurrent = null;   // 光轴挂衣架
 let booksCurrent = null;    // 光轴书架
+let sheetCurrent = null;    // 镀锌板书架 GLB 原型
+let sheetLoadVersion = 0; // 控制异步 GLB 载入与产品切换之间的竞态
 let panel = null;
 const center = new THREE.Vector3(0, 0, 0);
-const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : productKind === 'books' ? booksCurrent : current);
+const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : productKind === 'books' ? booksCurrent : productKind === 'sheet' ? sheetCurrent : current);
 
 // 场景处理：阴影已全局关闭，此处仅按产品包围盒调整主光位置
 function stageProduct(p) {
@@ -246,6 +252,45 @@ function rebuildBooks({ isEntrance = false } = {}) {
   if (cost > 10) console.debug(`[ALU] rebuild books: ${cost.toFixed(1)}ms`);
 }
 
+function rebuildSheet({ isEntrance = false } = {}) {
+  if (webglFailed || productKind !== 'sheet') return;
+  const generation = ++sheetLoadVersion;
+  if (sheetCurrent) {
+    scene.remove(sheetCurrent.group);
+    sheetCurrent.dispose();
+  }
+  // Placeholder supplies verified source bounds immediately, so switchTo()/intro() never see null.
+  sheetCurrent = createSheetPlaceholder();
+  scene.add(sheetCurrent.group);
+  stageProduct(sheetCurrent);
+  hud.syncReadout(sheetStore.get(), sheetCurrent.stats);
+  panel.updateStats(sheetCurrent.stats);
+  panel.lastStats = sheetCurrent.stats;
+  window.__ALU_INVALIDATE?.();
+
+  buildSheetCabinet(sheetStore.get()).then(product => {
+    if (webglFailed || productKind !== 'sheet' || generation !== sheetLoadVersion) {
+      product.dispose();
+      return;
+    }
+    scene.remove(sheetCurrent.group);
+    sheetCurrent.dispose();
+    sheetCurrent = product;
+    scene.add(product.group);
+    stageProduct(product);
+    dimObstacleDirty = true;
+    if (anims?.exploded) anims.explode(product.groups, true);
+    hud.syncReadout(sheetStore.get(), product.stats);
+    panel.updateStats(product.stats);
+    panel.lastStats = product.stats;
+    window.__ALU_INVALIDATE?.();
+  }).catch(err => {
+    if (productKind !== 'sheet' || generation !== sheetLoadVersion) return;
+    console.error('[MEKIT] Galvanized cabinet GLB loading failed:', err);
+    showToast('镀锌板书架模型加载失败，请刷新重试');
+  });
+}
+
 function rebuildWoodCart({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'woodcart') return;
   const t0 = performance.now();
@@ -332,6 +377,13 @@ function syncWoodCartStatsOnly() {
   panel.updateStats(b.stats);
   panel.lastStats = b.stats;
   b.dispose();
+}
+
+function syncSheetStatsOnly() {
+  const s = sheetPreviewStats();
+  hud.syncReadout(sheetStore.get(), s);
+  panel.updateStats(s);
+  panel.lastStats = s;
 }
 
 function syncBooksStatsOnly() {
@@ -731,6 +783,26 @@ const bookActions = {
   },
 };
 
+const sheetActions = {
+  onAdd: (cfg) => {
+    const summary = '原始 GLB · 宽 4.30 × 高 2.35 × 深 0.60 m · 未拆件';
+    const { totalCount } = addConfigItem({
+      kind: 'sheet', title: '镀锌板书架', summary,
+      priceText: '待工程拆件与报价', cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary}`);
+  },
+  onExportModel: async () => {
+    try {
+      const name = await downloadOriginalSheetGlb();
+      showToast(`原始 3D 模型已导出 · ${name}`);
+    } catch (err) {
+      console.error('[MEKIT] sheet GLB export failed:', err);
+      showToast('模型导出失败，请重试');
+    }
+  },
+};
+
 const hangerActions = {
   onPrint: makePrintAction('hanger'),
   onAdd: (cfg) => {
@@ -792,6 +864,10 @@ function mountActiveProduct() {
     panel = createWoodCartPanel(panelRoot, woodcartActions);
     if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
+  } else if (productKind === 'sheet') {
+    panel = createSheetPanel(panelRoot, sheetActions);
+    if (webglFailed) syncSheetStatsOnly(); else rebuildSheet({ isEntrance: true });
+    if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'books') {
     setInstallSteps(INSTALL_STEPS_BOOKSHELF);
     panel = createBookshelfPanel(panelRoot, bookActions);
@@ -834,6 +910,8 @@ function unloadAll() {
   if (woodCartCurrent) { scene.remove(woodCartCurrent.group); woodCartCurrent.dispose(); woodCartCurrent = null; }
   if (hangerCurrent) { scene.remove(hangerCurrent.group); hangerCurrent.dispose(); hangerCurrent = null; }
   if (booksCurrent) { scene.remove(booksCurrent.group); booksCurrent.dispose(); booksCurrent = null; }
+  ++sheetLoadVersion; // 异步加载完成时禁止把已离开的书架重新挂入场景
+  if (sheetCurrent) { scene.remove(sheetCurrent.group); sheetCurrent.dispose(); sheetCurrent = null; }
 }
 function syncSwitchLabel() {
   productTabs.querySelectorAll('button').forEach(b => {
@@ -855,6 +933,7 @@ const SHARE_META = {
   profile: ['工业铝型材置物架', '逐层逐跨自由规划，实时算料报价，一键导出算料单与 3D 模型。'],
   rod: ['光轴展架', '双光轴立柱移动展示架：海报画面、镀锌背板与滚轮底盘，展陈更轻盈。'],
   books: ['光轴书架', '铬管框架阅读装置：斜面展板逐层陈列，交叉拉索张紧，木箱脚轮基座。'],
+  sheet: ['镀锌板书架', 'MEKIT 设计系统第八类结构：真实 Rhino GLB 材料柜原型，板材构造与折边后续参数化。'],
   cart: ['移动边几', '光轴 + 玻璃/亚克力台面的极简移动边几，小空间随手移动。'],
   crates: ['周转箱架', '2040 铝架 + 抽拉式物流周转箱：层数可调、箱色自由搭配，满载可推行。'],
   woodcart: ['光轴木展车', '光轴 + 胶合板移动展车：洞洞板展墙、层板与顶台板、卡片挂杆与顶部挂架。'],
@@ -940,6 +1019,7 @@ const PRODUCT_SUBS = [
   { kind: 'woodcart', store: woodcartStore, rebuild: (opts) => rebuildWoodCart(opts), statsOnly: () => syncWoodCartStatsOnly() },
   { kind: 'hanger', store: hangerStore, rebuild: (opts) => rebuildHanger(opts), statsOnly: () => syncHangerStatsOnly() },
   { kind: 'books', store: bookshelfStore, rebuild: (opts) => rebuildBooks(opts), statsOnly: () => syncBooksStatsOnly() },
+  { kind: 'sheet', store: sheetStore, rebuild: (opts) => rebuildSheet(opts), statsOnly: () => syncSheetStatsOnly() },
 ];
 for (const { kind, store: s, rebuild, statsOnly, extra } of PRODUCT_SUBS) {
   s.subscribe(debounce(() => {
@@ -1197,7 +1277,7 @@ if (webglFailed) {
   // QA 直达:#rod/side 或 #rod/front 时用对应静止视角替代入场动画
   const viewMatch = location.hash.startsWith('#node')
     ? [null, 'node']
-    : location.hash.match(/^#(?:rod|books|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
+    : location.hash.match(/^#(?:rod|books|sheet|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
   if (viewMatch) {
     const vp = anims.viewPos(viewMatch[1], active().bounds);
     camera.position.copy(vp.pos);

@@ -112,6 +112,8 @@ test('经典挂衣架：加厚顶板、四个真实承托片、角撑端耳板�
       near(shelf.position.y + shelf.scale.y / 2, yTopRail + POST_D / 2 - 0.001, 'shelf top flush with top frame');
       assert.equal(shelfTabs.children.length, 4);
       assert.equal(braces.count, 4);
+      assert.equal(braces.geometry.type, 'CylinderGeometry', 'top brace uses slender round-shaft language');
+      near(braces.geometry.parameters.radiusTop, 0.006, 'Ø12 diagonal braces');
       assert.equal(braceJoints.children.length, 8, 'each outboard brace has two metal sleeves');
       assert.equal(bracePins.children.length, 8, 'each fitting has a real short X-direction through pin');
 
@@ -149,7 +151,9 @@ test('经典挂衣架：加厚顶板、四个真实承托片、角撑端耳板�
       }
       assert.ok(model.stats.hardware.some(h => h.name.includes('斜撑端部金属套筒') && h.qty === 8));
       assert.ok(model.stats.hardware.some(h => h.name.includes('斜撑水平连接穿销') && h.qty === 8));
-      assert.ok(model.stats.cutList.some(c => c.spec.includes('外挂斜撑') && c.qty === 4));
+      assert.ok(model.stats.cutList.some(c => c.spec.includes('外挂斜撑光轴 ⌀12') && c.qty === 4));
+      assert.ok(model.stats.cutList.some(c => c.spec.includes('后框贯穿横撑 ⌀14') && c.qty === 1));
+      near(model.groups.rearTie.geometry.parameters.radiusTop, 0.007, 'Ø14 rear through rod');
       assert.ok(model.groups.rearTieCollars.children.every(x => x.geometry.type === 'CylinderGeometry'));
       assert.ok(model.stats.weightKg > 0);
     } finally { model.dispose(); }

@@ -79,7 +79,7 @@ export function createAnims(camera, controls) {
     const dirs = {
       front: [0, 0.06, 1],
       side: [1, 0.06, 0.001],
-      iso: [0.62, 0.5, 0.78],
+      iso: [1, 1, 1], // 标准等轴测观察方向：X/Y/Z 等夹角（俯角35.264°）
     };
     if (name === 'node' && bounds.nodeTarget) {
       const target=bounds.nodeTarget.clone();

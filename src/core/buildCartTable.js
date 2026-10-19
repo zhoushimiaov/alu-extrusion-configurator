@@ -162,7 +162,7 @@ export function buildCartTable(config) {
       name: 'GlassIsolatorPad', color: 0x89949b, roughness: 0.84, metalness: 0,
       transparent: true, opacity: 0.78, depthWrite: false,
     });
-    const pads = instanced(padGeo, padMat, 4);
+    const pads = new THREE.InstancedMesh(padGeo, padMat, 4); // 独立材质随玻璃组一起回收
     let padIndex = 0;
     for (const x of postXs) for (const z of postZs)
       setMT(padIndex++, pads, x, yPost1 + padT / 2, z);

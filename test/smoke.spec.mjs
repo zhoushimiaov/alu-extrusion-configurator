@@ -108,8 +108,8 @@ test('WebGL 不可用：八产品仍可切换并显示可用操作', async ({ pa
   for (const kind of ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'sheet', 'profile']) {
     await page.locator(`#product-tabs button[data-kind="${kind}"]`).click();
     if (kind === 'sheet') {
-      await expect(page.locator('#panel').getByRole('button', { name: '导出算料单（待开发）' })).toBeVisible();
-      await expect(page.locator('#panel').getByRole('button', { name: '导出算料单（待开发）' })).toBeDisabled();
+      await expect(page.locator('#panel').getByRole('button', { name: '导出工程算料单（待开发）' })).toBeVisible();
+      await expect(page.locator('#panel').getByRole('button', { name: '导出工程算料单（待开发）' })).toBeDisabled();
     } else {
       await expect(page.locator('#panel').getByRole('button', { name: '导出算料单' })).toBeVisible();
     }
@@ -123,8 +123,11 @@ test('镀锌板书架: 第八栏目和真实 GLB 原型预览信息', async ({ p
   const panel = page.locator('#panel');
   await expect(page.getByRole('tab', { name: '切换到镀锌板书架' })).toHaveAttribute('aria-selected', 'true');
   await expect(panel.locator('.panel-title')).toContainText('镀锌板书架');
-  await expect(panel.getByRole('button', { name: '导出 3D 模型 (.glb)' })).toBeVisible();
-  await expect(panel.getByRole('button', { name: '导出算料单（待开发）' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: '导出深化 3D 模型 (.glb)' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '下载原始 GLB' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '导出工程算料单（待开发）' })).toBeDisabled();
+  await expect(panel.getByRole('group', { name: '板厚' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '1.5 mm' })).toHaveAttribute('aria-pressed', 'true');
   await expect(panel).toContainText('原始 GLB');
   if (!(await isSoftwareGL(page))) {
     await page.waitForFunction(() => window.__ALU_GROUP?.()?.name === 'GalvanizedCabinet', null, { timeout: 25000 });

@@ -43,8 +43,17 @@ test('型材架:加载就绪 + 关键控件 + 视图切换', async ({ page }) =>
   await expect(panel.getByRole('button', { name: '阳极氧化黑色' })).toBeVisible();
   // 视图切换（HUD 内按钮）
   await page.getByRole('button', { name: '正视', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__ALU_PROJECTION?.())).toBe('orthographic');
   await page.getByRole('button', { name: '轴测', exact: true }).click();
-  await page.waitForTimeout(400);
+  await expect.poll(() => page.evaluate(() => window.__ALU_PROJECTION?.())).toBe('orthographic');
+  await page.getByRole('button', { name: '透视', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__ALU_PROJECTION?.())).toBe('perspective');
+  const targetBefore = await page.evaluate(() => window.__ALU_CAMERA_TARGET?.());
+  await page.getByRole('button', { name: '节点近看', exact: true }).click();
+  await page.waitForTimeout(1100);
+  const targetAfter = await page.evaluate(() => window.__ALU_CAMERA_TARGET?.());
+  expect(Math.hypot(...targetAfter.map((v,i) => v - targetBefore[i]))).toBeGreaterThan(0.10);
+  expect(await page.evaluate(() => window.__ALU_PROJECTION?.())).toBe('perspective');
   expect(appErrors(page)).toEqual([]);
 });
 
@@ -85,6 +94,14 @@ test('光轴展架:切换 + 价格区块 + 导出按钮', async ({ page }) => {
   await expect(panel.getByRole('button', { name: '导出 3D 模型 (.glb)' })).toBeVisible();
   await expect(panel.locator('[data-price]')).toContainText('¥');
   await expect(panel.locator('[data-mkt-breakdown]')).toContainText('材料 ¥');
+  // 支撑点标记必须确实作用于3D层，且数据与几何四轮一致。
+  await page.getByRole('button', { name: '支撑点标记', exact: true }).click();
+  const supports = await page.evaluate(() => window.__ALU_SUPPORTS?.());
+  expect(supports.markerCount).toBe(4);
+  expect(supports.visible).toBe(true);
+  await page.getByRole('button', { name: 'X 光透视', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'X 光透视', exact: true })).toHaveClass(/on/);
+  await page.getByRole('button', { name: 'X 光透视', exact: true }).click();
   // 切回型材架
   await page.getByRole('tab', { name: '切换到铝型材置物架' }).click();
   await page.waitForTimeout(600);

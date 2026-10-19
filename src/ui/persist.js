@@ -10,6 +10,7 @@ const LS_KEY = {
   woodcart: 'alu.cfg.woodcart',
   hanger: 'alu.cfg.hanger',
   books: 'alu.cfg.books',
+  sheet: 'alu.cfg.sheet',
 };
 
 // 持久化字段白名单：与各产品 DEFAULT_CONFIG 保持同步（test/persist-schema.test.mjs
@@ -22,9 +23,10 @@ const SCHEMA = {
   woodcart: ['schemaVersion', 'width', 'depth', 'height', 'shelves', 'cabinetH', 'pegboard', 'topRail', 'sideRail', 'casters', 'woodTone', 'ohF', 'ohB', 'ohL', 'ohR', 'ohLink'],
   hanger: ['schemaVersion', 'style', 'width', 'depth', 'height', 'drawers', 'wheels', 'color'],
   books: ['schemaVersion', 'kind', 'style', 'bays', 'levels', 'bayW', 'depth', 'tilt', 'base', 'wires', 'acrylic', 'panelMat', 'books', 'glassTop', 'color', 'tBays', 'tBayW'],
+  sheet: ['schemaVersion', 'kind', 'showGuides'],
 };
 
-const KINDS = ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books'];
+const KINDS = ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'sheet'];
 
 /** 从 hash 解析当前产品 kind（profile 无独立 hash 段，作为兜底）。
  *  匹配需带边界（`#rod` 命中但 `#rods` / `#rodX` 不命中），防止未来新增前缀冲突。 */

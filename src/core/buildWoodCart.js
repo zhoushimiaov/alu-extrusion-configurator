@@ -154,10 +154,14 @@ export function buildWoodCart(config) {
   const railXGeo = new THREE.CylinderGeometry(1, 1, 1, 12).rotateZ(Math.PI / 2);
   const railZGeo = new THREE.CylinderGeometry(1, 1, 1, 12).rotateX(Math.PI / 2);
   const crossGeo = new THREE.BoxGeometry(0.03, 0.03, 0.03);
+  // 顶部前后向、左右向挂杆处于两个明确的标高，各自接入通高立柱。
+  // 原来二者都用30mm方块，视觉上误认为一个错位/穿模的“十字节点”。
+  const hangingCollarGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.018, 18, 1, true);
   const railLenX = W + 0.06;
   const railLenZ = D + 0.06;
   let railCount = 0;
   const crossPts = [];
+  const hangingCollarPts = [];
   // 正面卡片挂杆：每格一根，约在格高 62% 处（参考图挂卡片 / 夹子）
   const cardYs = segPairs.map(([a, b]) => a + (b - a) * 0.62);
   const cardRails = instanced(railXGeo, mat.rod, cardYs.length);
@@ -175,7 +179,7 @@ export function buildWoodCart(config) {
     setMT(0, rails, 0, yHang, pz, railLenX, RAIL_D / 2, RAIL_D / 2);
     setMT(1, rails, 0, yHang, -pz, railLenX, RAIL_D / 2, RAIL_D / 2);
     setMT(2, rails, 0, yUpper, pz + 0.002, railLenX, RAIL_D / 2, RAIL_D / 2);
-    crossPts.push([-px, yHang, pz], [px, yHang, pz], [-px, yHang, -pz], [px, yHang, -pz], [-px, yUpper, pz], [px, yUpper, pz]);
+    hangingCollarPts.push([-px, yHang, pz], [px, yHang, pz], [-px, yHang, -pz], [px, yHang, -pz], [-px, yUpper, pz], [px, yUpper, pz]);
     group.add(rails);
     groups.rails = rails;
     stats.profileLengthM += 3 * railLenX;
@@ -188,7 +192,7 @@ export function buildWoodCart(config) {
     for (const x of postXs) {
       setMT(k++, sideRails, x, yHang - 0.04, 0, RAIL_D / 2, RAIL_D / 2, railLenZ);
       setMT(k++, sideRails, x, yUpper - 0.04, 0, RAIL_D / 2, RAIL_D / 2, railLenZ);
-      crossPts.push([x, yHang - 0.04, pz], [x, yHang - 0.04, -pz], [x, yUpper - 0.04, pz], [x, yUpper - 0.04, -pz]);
+      hangingCollarPts.push([x, yHang - 0.04, pz], [x, yHang - 0.04, -pz], [x, yUpper - 0.04, pz], [x, yUpper - 0.04, -pz]);
     }
     group.add(sideRails);
     groups.sideRails = sideRails;
@@ -199,6 +203,14 @@ export function buildWoodCart(config) {
   crossPts.forEach(([x, y, z], k) => setMT(k, crosses, x, y, z));
   group.add(crosses);
   groups.railClamps = crosses;
+  // 独立立柱套筒，沿柱轴设置：顶部X杆与下方Z杆相隔40mm，
+  // 每只套筒高度18mm，保留22mm明确间隙，且从立柱外壁伸出4mm。
+  const hangingCollars = instanced(hangingCollarGeo, mat.clamp, hangingCollarPts.length);
+  hangingCollarPts.forEach(([x, y, z], i) => setMT(i, hangingCollars, x, y, z));
+  if (hangingCollars) {
+    group.add(hangingCollars);
+    groups.hangingCollars = hangingCollars;
+  }
 
   // ---- 万向轮 / 地脚 ×4（底台四角）----
   const footPts = [-1, 1].flatMap((sx) => [-1, 1].map((sz) => {
@@ -225,9 +237,10 @@ export function buildWoodCart(config) {
   stats.weightKg = volRod * DENSITY_STEEL
     + plyArea * BOARD_T * DENSITY_PLY
     + (casters ? 4 * 0.32 : 4 * 0.06)
-    + (boardYs.length * 4 + crossPts.length) * 0.012;
+    + (boardYs.length * 4 + crossPts.length) * 0.012
+    + hangingCollarPts.length * 0.008;
   stats.partCount = 4 + 4 + 1 + shelves + 1 + (pegboard ? segPairs.length + 2 : 0)
-    + boardYs.length * 4 + railCount + crossPts.length + 4;
+    + boardYs.length * 4 + railCount + crossPts.length + hangingCollarPts.length + 4;
 
   // ---- 算料单 ----
   const addCut = (spec, sec, len, qty) => {
@@ -251,7 +264,8 @@ export function buildWoodCart(config) {
   stats.hardware = [
     casters ? { name: '万向轮 3 寸 平板式（黑色 · 带刹车）', qty: 4 } : { name: '调平地脚 M10', qty: 4 },
     { name: '光轴夹块（板下）', qty: boardYs.length * 4 },
-    { name: '十字光轴夹块（挂杆）', qty: crossPts.length },
+    { name: '十字光轴夹块（正面卡片挂杆）', qty: crossPts.length },
+    ...(hangingCollarPts.length ? [{ name: '独立圆形挂杆立柱套筒（上下错层）', qty: hangingCollarPts.length }] : []),
     { name: '立柱镀铬圆帽', qty: 4 },
   ];
 

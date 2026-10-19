@@ -65,6 +65,7 @@ export function createAnims(camera, controls) {
   // 包围球计算机距：任意宽高比下整机完整入画
   function fitDistance(bounds) {
     const { W, H, D } = bounds;
+    if (camera.isOrthographicCamera) return Math.max(1.5, Math.hypot(W, H, D) * 1.5);
     const radius = 0.5 * Math.sqrt(W * W + H * H + D * D);
     const vFov = THREE.MathUtils.degToRad(camera.fov);
     const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
@@ -250,5 +251,7 @@ export function createAnims(camera, controls) {
     }
   }
 
-  return { update, flyTo, intro, viewPos, reveal, revealGroups: reveal, explode, get exploded() { return exploded; }, REDUCED };
+  return { update, flyTo, intro, viewPos, reveal, revealGroups: reveal, explode,
+    setCamera(next) { camera = next; flight = null; },
+    get exploded() { return exploded; }, REDUCED };
 }

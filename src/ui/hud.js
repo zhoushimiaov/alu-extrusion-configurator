@@ -10,6 +10,7 @@ const ICONS = {
   front: svg('<rect x="5" y="4" width="14" height="16"/>'),
   side: svg('<path d="M5 7h10v13H5z"/><path d="M15 7l4-3v13l-4 3"/>'),
   iso: svg('<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/>'),
+  perspective: svg('<path d="m3 7 9-4 9 4v10l-9 4-9-4z"/><path d="m3 7 9 5 9-5M12 12v9"/>'),
   slot: svg('<rect x="4" y="4" width="16" height="16"/><path d="M10 4v5h4V4"/>'),
   node: svg('<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   explode: svg('<rect x="9.5" y="9.5" width="5" height="5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/>'),
@@ -142,10 +143,10 @@ export function createHud(hudLeft, hudRight, actions) {
   // 底部居中浮动控件条：视角图标组 + 爆炸 / 自转开关
   const viewGroup = document.createElement('div');
   viewGroup.className = 'chip-group';
-  const views = [['front', '正视'], ['side', '侧视'], ['iso', '轴测'], ['slot', '槽口'], ['node', '节点近看']];
+  const views = [['perspective', '透视'], ['front', '正视'], ['side', '侧视'], ['iso', '轴测'], ['slot', '槽口'], ['node', '节点近看']];
   for (const [key, label] of views) {
     const b = document.createElement('button');
-    b.className = 'chip' + (key === 'iso' ? ' on' : '');
+    b.className = 'chip' + (key === 'perspective' ? ' on' : '');
     b.innerHTML = ICONS[key];
     b.dataset.tip = label;
     b.setAttribute('aria-label', label);

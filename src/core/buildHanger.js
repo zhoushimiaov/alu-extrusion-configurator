@@ -130,7 +130,7 @@ function buildClassic(cfg) {
   }
   // ---- 挂衣横杆节点：两侧框承托杆 → 中央鞍座 → 挂衣主杆 ----
   // 旧版在 (±px, yHang, 0) 放两个方块，却没有与 z=±pz 的立柱连接：实际上悬空。
-  const yHang = yTopRail - 0.19; // 和顶板/斜撑拉开层级，留下真实衣架钩活动空间
+  const yHang = yTopRail - 0.24; // 低于角撑末端至少约5cm，让挂衣杆与角部五金不互相打架
   const hangRail = new THREE.Mesh(rodGeo, matAlu);
   hangRail.name = 'hangerMainRod';
   hangRail.rotation.z = Math.PI / 2;

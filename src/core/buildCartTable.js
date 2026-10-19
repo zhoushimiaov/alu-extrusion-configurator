@@ -153,6 +153,21 @@ export function buildCartTable(config) {
     setMT(2, edge, glassW / 2 - e / 2, yG, 0, e, GLASS_T + 0.0002, glassD - 2 * e);
     setMT(3, edge, -(glassW / 2 - e / 2), yG, 0, e, GLASS_T + 0.0002, glassD - 2 * e);
     gGroup.add(edge);
+    // 四角透明减震垫片：玻璃底面 y=yPost1+2mm，框架上表面 y=yPost1。
+    // 之前只在五金清单中列垫片，却没有几何；导致玻璃从侧面看悬浮2mm。
+    const padT = 0.002;
+    const padR = 0.009;
+    const padGeo = new THREE.CylinderGeometry(padR, padR, padT, 16);
+    const padMat = new THREE.MeshStandardMaterial({
+      name: 'GlassIsolatorPad', color: 0x89949b, roughness: 0.84, metalness: 0,
+      transparent: true, opacity: 0.78, depthWrite: false,
+    });
+    const pads = instanced(padGeo, padMat, 4);
+    let padIndex = 0;
+    for (const x of postXs) for (const z of postZs)
+      setMT(padIndex++, pads, x, yPost1 + padT / 2, z);
+    gGroup.add(pads);
+    groups.glassPads = pads;
     // 广告钉：镀铬圆帽 + 帽顶内六角
     const capGeo = new THREE.CylinderGeometry(0.0105, 0.0115, 0.0075, 24);
     const caps = instanced(capGeo, mat.rod, 4);
@@ -286,7 +301,7 @@ export function buildCartTable(config) {
     + (rodRails ? 8 * 0.05 : 0) + (hangCount ? 8 * 0.04 : 0)
     + nBeams * 2 * 0.012
     + (casters ? 4 * 0.15 : 4 * 0.05);
-  stats.partCount = 4 + 8 + nBeams + (glassTop ? 1 + 4 : 0) + (midAcrylic !== 'none' ? 1 : 0)
+  stats.partCount = 4 + 8 + nBeams + (glassTop ? 1 + 4 + 4 : 0) + (midAcrylic !== 'none' ? 1 : 0)
     + railCount + (rodRails ? 8 : 0) + hangCount + (hangCount ? 8 : 0) + 4;
 
   // ---- 算料单 ----

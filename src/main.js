@@ -17,6 +17,7 @@ import { createDimensions } from './core/dimensions.js';
 import { createHotspots } from './core/hotspots.js';
 import { createRodHandles } from './core/rodHandles.js';
 import { createSupportMarkers } from './core/supportMarkers.js';
+import { applyXrayTo } from './core/xray.js';
 import { createGroundContact } from './core/groundContact.js';
 import { store, fmtPrice, calcPrice, setInstallSteps } from './ui/store.js';
 import { createPanel } from './ui/panel.js';
@@ -71,10 +72,10 @@ const loader = document.getElementById('loader');
 installSpecCountUp(panelRoot); // 规格数字 count-up（显示层，不触碰 updateStats 写入）
 const toast = document.getElementById('toast');
 
-let renderer, scene, camera, controls, fitShadow, postfx;
+let renderer, scene, camera, controls, fitShadow, postfx, setProjectionCamera;
 let webglFailed = false;
 try {
-  ({ renderer, scene, camera, controls, fitShadow } = createScene(canvas));
+  ({ renderer, scene, camera, controls, fitShadow, setProjection: setProjectionCamera } = createScene(canvas));
   postfx = createPostFX(renderer, scene, camera);
 } catch (err) {
   webglFailed = true;
@@ -149,7 +150,22 @@ function stageProduct(p) {
   if (!p || !p.group) return;
   if (p.bounds) fitShadow(p.bounds);
   if (groundContact) groundContact.sync(p.stats?.envelope || p.bounds);
-  if (supportMarkers) supportMarkers.setPoints(p.stats?.supports?.points || []);
+  if (supportMarkers) {
+    let points = p.stats?.supports?.points || [];
+    // 型材架没有脚轮配置，但通高立柱底部仍是明确的落地点。
+    // 标注结构落点而非捏造轮组：基于当前渲染立柱的变换计算。
+    if (!points.length && productKind === 'profile' && p.groups?.posts?.isInstancedMesh) {
+      const mesh = p.groups.posts;
+      const mat = new THREE.Matrix4(), loc = new THREE.Vector3();
+      points = [];
+      for (let i = 0; i < mesh.count; i++) {
+        mesh.getMatrixAt(i, mat);
+        loc.setFromMatrixPosition(mat).applyMatrix4(mesh.matrixWorld);
+        points.push([loc.x, 0, loc.z]);
+      }
+    }
+    supportMarkers.setPoints(points);
+  }
   if (xrayOn) applyXrayTo(p.group, true);
 }
 
@@ -455,37 +471,9 @@ function applyExplodeAux(hidden) {
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
 }
 
-// ---- X 光透视：构件材质半透切换（接线层实现；线框/标注保持实显，composer 链兼容半透）----
+// ---- XRay 结构分层：统一 0.15 透明度已移至 core/xray.js，保留主要杆件可读性 ----
 let xrayOn = false;
-const _xrayMats = new WeakMap(); // 原材质 → 共享半透克隆（跨 rebuild 复用，避免拖参反复新建）
-function xrayMatOf(orig) {
-  let m = _xrayMats.get(orig);
-  if (!m) {
-    m = orig.clone();
-    m.transparent = true;
-    m.opacity = 0.15;
-    m.depthWrite = false;
-    _xrayMats.set(orig, m);
-  }
-  return m;
-}
-function applyXrayTo(group, on) {
-  if (!group) return;
-  group.traverse((o) => {
-    if (!o.isMesh && !o.isInstancedMesh) return;
-    if (on) {
-      if (!o.userData.__origMat) o.userData.__origMat = o.material;
-      const orig = o.userData.__origMat;
-      // 材质数组（多材质网格）逐项半透；不可克隆的材质保持原样退出
-      o.material = Array.isArray(orig)
-        ? orig.map((m) => (m && typeof m.clone === 'function' ? xrayMatOf(m) : m))
-        : (orig && typeof orig.clone === 'function' ? xrayMatOf(orig) : orig);
-    } else if (o.userData.__origMat) {
-      o.material = o.userData.__origMat;
-      delete o.userData.__origMat;
-    }
-  });
-}
+
 function setXray(on) {
   xrayOn = on;
   if (!webglFailed) {
@@ -495,20 +483,79 @@ function setXray(on) {
   hud.setXrayUi(on);
 }
 
+// 镜头切换时同步全部使用 camera 的渲染/投影/交互子模块；避免界面轴测，
+ // 尺寸线与射线拾取却仍引用旧的透视 camera。
+function changeProjection(mode, bounds) {
+  if (webglFailed) return;
+  const next = setProjectionCamera(mode, bounds);
+  if (next === camera) return;
+  camera = next;
+  postfx.setCamera(camera);
+  anims.setCamera(camera);
+  dims.setCamera(camera);
+  hotspots.setCamera(camera);
+  rodHandles.setCamera(camera);
+  window.__ALU_INVALIDATE?.();
+}
+
+function currentJointTarget(act) {
+  const b = act?.bounds || { W: 1, H: 1, D: 0.4 };
+  if (b.nodeTarget?.isVector3) return b.nodeTarget.clone();
+  act?.group?.updateMatrixWorld(true);
+  const preferred = ['blocks', 'clips', 'brkV', 'brackets', 'sideDiagCouplers',
+    'hangSaddles', 'sleeves', 'railClamps', 'corners'];
+  for (const key of preferred) {
+    const mesh = act?.groups?.[key];
+    if (!mesh) continue;
+    if (mesh.isInstancedMesh && mesh.count > 0) {
+      const m = new THREE.Matrix4(), v = new THREE.Vector3();
+      // Most products have an actual right-side joint among the first several instances.
+      let best = null, score = Infinity;
+      for (let i = 0; i < Math.min(mesh.count, 128); i++) {
+        mesh.getMatrixAt(i, m);
+        v.setFromMatrixPosition(m).applyMatrix4(mesh.matrixWorld);
+        const cost = Math.abs(v.x - b.W * 0.42) + Math.abs(v.y - b.H * 0.55)
+          + Math.abs(v.z - b.D * 0.3) * 0.5;
+        if (cost < score) { best = v.clone(); score = cost; }
+      }
+      if (best) return best;
+    }
+    if (mesh.isMesh) return mesh.getWorldPosition(new THREE.Vector3());
+  }
+  return new THREE.Vector3(b.W * 0.43, b.H * 0.5, b.D * 0.35);
+}
+
 // ---- HUD(单实例,双形态自适应)----
 const hud = createHud(hudLeft, hudRight, {
   setView: (name) => {
-    if (webglFailed) return;
+    if (webglFailed || !active()) return;
+    const act = active();
     if (name === 'node') {
       controls.autoRotate = false;
-      const act = active();
-      if (act?.groups) anims.explode(act.groups, false);
-      const boom = hudRight.querySelector('[aria-label="爆炸"]');
-      if (boom) boom.classList.remove('on');
+      if (act.groups) anims.explode(act.groups, false);
+      hudRight.querySelector('[aria-label="爆炸"]')?.classList.remove('on');
       applyExplodeAux(false);
+      const target = currentJointTarget(act);
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      if (dir.lengthSq() < 1e-6) dir.set(0.45, 0.3, 0.84);
+      if (camera.isOrthographicCamera) {
+        camera.zoom = 3.2;
+        camera.updateProjectionMatrix();
+      }
+      anims.flyTo(target.clone().addScaledVector(dir, 0.68), target, 850);
+      window.__ALU_INVALIDATE?.();
+      return; // 节点近看绝不能落回整个产品的 iso 视角。
     }
-    const vp = anims.viewPos(name, active().bounds);
+    if (['iso', 'front', 'side'].includes(name)) {
+      changeProjection('orthographic', act.bounds);
+      camera.zoom = 1;
+      camera.updateProjectionMatrix();
+    } else if (name === 'perspective') {
+      changeProjection('perspective', act.bounds);
+    }
+    const vp = anims.viewPos(name === 'perspective' ? 'iso' : name, act.bounds);
     anims.flyTo(vp.pos, vp.tgt, 900);
+    window.__ALU_INVALIDATE?.();
   },
   setExplode: (on) => {
     if (!webglFailed) {
@@ -520,13 +567,21 @@ const hud = createHud(hudLeft, hudRight, {
   setSpin: (on) => { if (!webglFailed) controls.autoRotate = on; },
   setXray: (on) => setXray(on),
   setSupports: (on) => {
+    if (on && supportMarkers && supportMarkers.pointCount === 0) {
+      supportsOn = false;
+      supportMarkers.setVisible(false);
+      hud.setSupportsUi(false);
+      showToast('当前产品尚未设置可标记的实际支撑落点');
+      return;
+    }
     supportsOn = on;
-    if (supportMarkers) supportMarkers.setVisible(on && !explodeAuxHidden);
-    window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+    supportMarkers?.setVisible(on && !explodeAuxHidden);
+    window.__ALU_INVALIDATE?.();
   },
 });
 if (supportsOn) hud.setSupportsUi(true);
 const hudRod = hud;
+
 
 // ---- 视口左侧浮动工具条：缩放 / 全屏 ----
 document.getElementById('view-tools')?.addEventListener('click', (e) => {
@@ -1258,8 +1313,14 @@ if (webglFailed) {
   window.__ALU_INVALIDATE = invalidateView;
   // 打印报告用：请求下一渲染帧同步抓取 canvas（dataURL）；WebGL 不可用时不存在
   window.__ALU_CAPTURE = (cb) => { captureCb = cb; needsRender = true; hotspotsDirty = true; };
-  // QA：读取当前产品支撑点数据（配件标记层数据源）
-  window.__ALU_SUPPORTS = () => active()?.stats?.supports || null;
+  // QA：读取实际展示出来的支撑点数量，以及当前相机的真实投影类型
+  window.__ALU_SUPPORTS = () => ({
+    ...(active()?.stats?.supports || {}),
+    markerCount: supportMarkers?.pointCount || 0,
+    visible: !!supportMarkers?.group.visible,
+  });
+  window.__ALU_PROJECTION = () => camera.isOrthographicCamera ? 'orthographic' : 'perspective';
+  window.__ALU_CAMERA_TARGET = () => controls.target.toArray();
   // QA 用：读取当前产品装配的场景侧规模（与渲染路径无关，后期链下同样有效）
   window.__ALU_STATS = () => {
     const root = active();

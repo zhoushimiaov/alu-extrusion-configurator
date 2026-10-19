@@ -148,7 +148,9 @@ function buildClassic(cfg) {
 
   // 两侧 Ø18 托杆沿 Z 方向贯穿前后立柱，端部各外露60mm（相对柱心）。
   const supportRadius = 0.009;
-  const ySupport = yHang; // 与主杆在同一标高，真实交叉连接
+  // 两组垂直的实体圆杆不能占用同一轴心。保留 4mm 净距，由金属 T 接头桥接。
+  const crossClearance = 0.004;
+  const ySupport = yHang - (POST_D / 2 + supportRadius + crossClearance);
   const supportGeo = new THREE.CylinderGeometry(supportRadius, supportRadius, 1, 16);
   const supportGroup = new THREE.Group();
   supportGroup.name = 'hangerSideSupports';
@@ -190,6 +192,30 @@ function buildClassic(cfg) {
   }
   topRailsGroup.add(saddles);
   groups.hangSaddles = saddles;
+
+  // 两根不同高度的实心圆杆通过短竖向连桥和 Ø18 侧杆套筒连接。
+  // 杆身不再彼此穿透，节点仍作为可见的 T 形装配。
+  const crossBridgeGroup = new THREE.Group();
+  crossBridgeGroup.name = 'hangerCrossBridges';
+  const crossBridgeGeo = new THREE.CylinderGeometry(0.007, 0.007, 0.044, 12);
+  const crossSleeveGeo = new THREE.CylinderGeometry(0.013, 0.013, 0.042, 16, 1, true);
+  for (const x of postXs) {
+    const bridge = new THREE.Mesh(crossBridgeGeo, matConnector);
+    bridge.name = 'hangerVerticalTBridge';
+    bridge.position.set(x, (yHang + ySupport) / 2, 0);
+    crossBridgeGroup.add(bridge);
+    const sleeve = new THREE.Mesh(crossSleeveGeo, matConnector);
+    sleeve.name = 'hangerDepthRodSleeve';
+    sleeve.rotation.x = Math.PI / 2;
+    sleeve.position.set(x, ySupport, 0);
+    crossBridgeGroup.add(sleeve);
+  }
+  topRailsGroup.add(crossBridgeGroup);
+  groups.hangCrossBridges = crossBridgeGroup;
+  stats.weightKg += 2 * (
+    Math.PI * 0.007 ** 2 * 0.044 +
+    Math.PI * (0.013 ** 2 - supportRadius ** 2) * 0.042
+  ) * DENSITY_ALU;
   group.add(topRailsGroup);
   groups.topRail = topRailsGroup;
 
@@ -224,7 +250,9 @@ function buildClassic(cfg) {
 
   // ---- 外侧斜撑：顶部侧梁/立柱 → X向连接穿销 → 外挂斜撑金属套筒 ----
   // 斜撑整体位于侧框外32mm（与光轴书架同一外露节点语言）。
-  const braceArm = Math.min(0.19, pz - 0.047);
+  // 原 190mm 臂长使下端套筒与下方挂衣杆/抱箍几乎贴在一起。
+  // 缩到 155mm 后始终保持约 85mm 以上的标高差。
+  const braceArm = Math.min(0.155, pz - 0.047);
   const braceLen = Math.SQRT2 * braceArm;
   const braceOuterOffset = 0.032;
   const pinRadius = 0.006;
@@ -234,6 +262,9 @@ function buildClassic(cfg) {
   braceJoints.name = 'topCornerBraceCouplers';
   const bracePins = new THREE.Group();
   bracePins.name = 'topCornerThroughPins';
+  const braceFrameCollars = new THREE.Group();
+  braceFrameCollars.name = 'topCornerFrameCollars';
+  const frameCollarGeo = new THREE.CylinderGeometry(0.019, 0.019, 0.028, 18, 1, true);
   const fittingGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.038, 16, 1, true);
   const pinGeo = new THREE.CylinderGeometry(pinRadius, pinRadius, 1, 12);
   let bi = 0;
@@ -247,12 +278,23 @@ function buildClassic(cfg) {
       _q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
       _m4.compose(endTop.clone().add(endPost).multiplyScalar(0.5), _q, _s);
       braces.setMatrixAt(bi++, _m4);
-      for (const end of [endTop, endPost]) {
+      for (const [isTop, end] of [[true, endTop], [false, endPost]]) {
+        // 套筒沿斜杆退入24mm：避免套筒实体与顶侧梁/立柱直接挤成一团。
+        const sleeveInset = 0.024;
         const sleeve = new THREE.Mesh(fittingGeo, matConnector);
         sleeve.name = 'braceEndSleeve';
-        sleeve.position.copy(end);
+        sleeve.position.copy(end).addScaledVector(direction, isTop ? sleeveInset : -sleeveInset);
         sleeve.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
         braceJoints.add(sleeve);
+
+        // 梁柱侧各有自己的抱箍：顶端抱在进深向梁上，下端抱在竖立柱上。
+        const collar = new THREE.Mesh(frameCollarGeo, matConnector);
+        collar.name = isTop ? 'braceTopBeamCollar' : 'braceUprightCollar';
+        collar.position.set(x, end.y, end.z);
+        if (isTop) collar.rotation.x = Math.PI / 2;
+        braceFrameCollars.add(collar);
+
+        // X 向穿销连接两套独立抱箍，保持外侧32mm离柱距离。
         const pin = new THREE.Mesh(pinGeo, matConnector);
         pin.name = 'braceThroughPin';
         pin.rotation.z = Math.PI / 2;
@@ -263,13 +305,15 @@ function buildClassic(cfg) {
     }
   }
   _s.set(1, 1, 1); _q.identity();
-  group.add(braces, braceJoints, bracePins);
+  group.add(braces, braceJoints, bracePins, braceFrameCollars);
   groups.braces = braces;
   groups.braceJoints = braceJoints;
   groups.bracePins = bracePins;
+  groups.braceFrameCollars = braceFrameCollars;
   stats.weightKg += 4 * braceLen * Math.PI * braceRadius ** 2 * DENSITY_ALU
-    + 8 * Math.PI * 0.012 ** 2 * 0.038 * DENSITY_ALU
-    + 8 * Math.PI * pinRadius ** 2 * pinLength * DENSITY_ALU;
+    + 8 * Math.PI * (0.012 ** 2 - braceRadius ** 2) * 0.038 * DENSITY_ALU
+    + 8 * Math.PI * pinRadius ** 2 * pinLength * DENSITY_ALU
+    + 8 * Math.PI * (0.019 ** 2 - (POST_D / 2) ** 2) * 0.028 * DENSITY_ALU;
 
   // ---- 5. 底部储物柜与抽屉 ----
   const cabH = 0.46;
@@ -406,9 +450,9 @@ function buildClassic(cfg) {
   }
 
   // ---- 9. 统计清单与算料 ----
-  // 旧基线50件基础上增加8只真实穿销和后横杆2只金属抱箍。
+  // 旧结构件数60；新增 T 型桥接组件4件、梁柱端金属抱箍8件。
   stats.partCount += 4 + 2 + 2 + 1 + 1 + 4 + 1 + (nDrawers > 0 ? nDrawers * 2 : 2) + 1 + 4 + 4 + 4
-    - 2 + 2 + 2 + 4 + 4 + 8 + 8 + 2;
+    - 2 + 2 + 2 + 4 + 4 + 8 + 8 + 2 + 4 + 8;
   const addCut = (spec, sec, len, qty) => {
     const prev = stats.cutList.find(c => c.spec === spec && Math.abs(c.len - len) < 1e-6);
     if (prev) prev.qty += qty; else stats.cutList.push({ spec, section: sec, len: +len.toFixed(3), qty });
@@ -427,10 +471,13 @@ function buildClassic(cfg) {
   stats.hardware = [
     wheels ? { name: '万向轮 1.75 寸 平板式（带刹车）', qty: 4 } : { name: '调平地脚 M10', qty: 4 },
     { name: '挂衣杆 T 型穿接套筒 Ø30', qty: 2 },
+    { name: '挂衣杆 T 型竖向桥接件', qty: 2 },
+    { name: '挂衣杆 Ø18 侧杆套筒', qty: 2 },
     { name: '侧向贯穿光轴立柱抱箍', qty: 4 },
     { name: '后框贯穿杆立柱抱箍', qty: 2 },
     { name: '顶部搁板金属承托片', qty: 4 },
     { name: '外挂斜撑端部金属套筒', qty: 8 },
+    { name: '外挂斜撑梁柱金属抱箍', qty: 8 },
     { name: '外挂斜撑水平连接穿销', qty: 8 },
     { name: '底框压铸角件', qty: 4 },
     ...(nDrawers > 0 ? [{ name: '铝合金极简横向拉手', qty: nDrawers }] : []),

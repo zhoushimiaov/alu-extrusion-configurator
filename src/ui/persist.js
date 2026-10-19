@@ -23,7 +23,7 @@ const SCHEMA = {
   woodcart: ['schemaVersion', 'width', 'depth', 'height', 'shelves', 'cabinetH', 'pegboard', 'topRail', 'sideRail', 'casters', 'woodTone', 'ohF', 'ohB', 'ohL', 'ohR', 'ohLink'],
   hanger: ['schemaVersion', 'style', 'width', 'depth', 'height', 'drawers', 'wheels', 'color'],
   books: ['schemaVersion', 'kind', 'style', 'bays', 'levels', 'bayW', 'depth', 'tilt', 'base', 'wires', 'acrylic', 'panelMat', 'books', 'glassTop', 'color', 'tBays', 'tBayW'],
-  sheet: ['schemaVersion', 'kind', 'showGuides'],
+  sheet: ['schemaVersion', 'kind', 'showGuides', 'thicknessMm', 'folds', 'fasteners', 'finish'],
 };
 
 const KINDS = ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'sheet'];

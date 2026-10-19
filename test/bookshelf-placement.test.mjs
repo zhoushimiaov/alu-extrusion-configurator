@@ -46,8 +46,8 @@ test('光轴书架：所有样书与各自斜层板共面平行、表面不穿�
         near(panelNormal.length(), 1);
         // Panel 14mm + book 18mm, separated by a 2mm surface gap.
         near(delta.dot(panelNormal), 0.014 / 2 + 0.018 / 2 + 0.002);
-        // Book center is 38% of panel length uphill from the front edge.
-        near(delta.dot(panelSlope), -0.12 * panelScale.y);
+        // Book center is 28% uphill from the lower/front edge, leaving 3% front margin.
+        near(delta.dot(panelSlope), -0.22 * panelScale.y);
         near(delta.x, 0);
         near(book.scale.z, 0.018);
         assert.ok(book.scale.x < panelScale.x);

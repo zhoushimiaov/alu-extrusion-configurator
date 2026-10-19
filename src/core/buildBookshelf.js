@@ -314,22 +314,20 @@ export function buildBookshelf(config) {
     // ---- P1：斜层板侧向光轴支承 ----
     // 直接从真实层板的坡向/法线推导，绝不使用独立的“层高 + 经验角度”。
     // 每跨左右斜撑外挂于立柱外侧30mm，轴心位于板下表面下7mm（杆半径5mm + 2mm净距）。
-    // 其两端伸到前后立柱附近，与 X 向短横杆在同一个 Y/Z 平面内真实交汇。
+    // 其两端与前后整根 X 向贯穿横杆在同一个 Y/Z 平面交汇。
     const diagRadius = 0.005;
     const stubRadius = 0.0055;
     // 斜撑外挂在每跨边界立柱外侧，而非藏在跨内。
     const outerOffset = 0.03; // 立柱轴线到外挂斜撑轴线：30mm
-    const stubInner = 0.02;   // 端部短杆从柱心向跨内保留20mm
-    const stubOuter = 0.10;   // 向外挑100mm，斜撑收口可见
-    const perimeterStubLength = stubInner + stubOuter;
-    const perimeterShift = (stubOuter - stubInner) / 2;
-    const sharedStubLength = stubOuter * 2; // 两跨共用立柱：左右对称挑出，避免短杆叠面
+    const rodOverhang = 0.10; // 每层贯穿横杆在最外侧立柱外各伸出100mm
+    const throughRodLength = W + rodOverhang * 2;
     const normalClearance = 0.014 / 2 + diagRadius + 0.002;
     const zFrontJoint = D / 2 - 0.004;
     const zBackJoint = -D / 2 + 0.004;
     const sideDiagSupports = instanced(strutGeo, mat.rod, nPanels * 2);
-    const sideStubSupports = instanced(railGeo, mat.rod, cfg.levels * bndXs.length * 2);
-    // 斜杆端的转接抱箍沿杆轴线套入；短横杆则由立柱金属抱箍固定。
+    // 每层前、后各一整根杆，跨数变化时仍是连续的一根而非节点拼接件。
+    const sideStubSupports = instanced(railGeo, mat.rod, cfg.levels * 2);
+    // 斜杆端的转接抱箍沿杆轴线套入；贯穿横杆则由立柱金属抱箍固定。
     const sideDiagCouplers = instanced(strutGeo, jointMaterial, nPanels * 4);
     // 从斜板中心出发，沿坡向延长到前后节点 Z 截面，保证斜撑始终与斜板平行。
     const endpointsOf = (panel) => {
@@ -357,23 +355,14 @@ export function buildBookshelf(config) {
       }
     }
     let si = 0;
-    let totalStubLen = 0;
     for (let i = 0; i < cfg.levels; i++) {
-      // 外围立柱的短杆向架外偏心：外挑100mm，内收20mm；
-      // 两跨共用立柱则用单根双侧外挑杆（每侧100mm），不重复生成重叠几何。
+      // 杆中心在整架的 X=0 位置：左右各外伸100mm，穿过所有立柱与外挂斜撑接头。
       const [front, back] = endpointsOf(panelPlacements[i * cfg.bays]);
-      bndXs.forEach((postX, index) => {
-        const isLeftEnd = index === 0;
-        const isRightEnd = index === bndXs.length - 1;
-        const centerX = postX + (isLeftEnd ? -perimeterShift : isRightEnd ? perimeterShift : 0);
-        const length = (isLeftEnd || isRightEnd) ? perimeterStubLength : sharedStubLength;
-        for (const p of [front, back]) {
-          setMT(si++, sideStubSupports, centerX, p.y, p.z, length, stubRadius, stubRadius);
-          totalStubLen += length;
-        }
-      });
+      for (const p of [front, back]) {
+        setMT(si++, sideStubSupports, 0, p.y, p.z, throughRodLength, stubRadius, stubRadius);
+      }
     }
-    // 与原横杆抱箍位置近乎重合的节点不再重复套筒；其余短横杆按柱心单独抱紧。
+    // 与原横杆抱箍位置近乎重合的节点不再重复套筒；贯穿横杆在各柱心处抱紧。
     const sideCollarPoints = [];
     const isNearbyCollar = (a, b) =>
       Math.abs(a[0] - b[0]) < 0.001 &&
@@ -396,25 +385,22 @@ export function buildBookshelf(config) {
     group.add(sideDiagSupports, sideStubSupports, sideDiagCouplers);
     if (sidePostCollars) group.add(sidePostCollars);
     groups.sideDiagSupports = sideDiagSupports;
-    groups.sideStubSupports = sideStubSupports;
+    groups.sideStubSupports = sideStubSupports; // 保留已有引用名
+    groups.sideThroughSupports = sideStubSupports;
     groups.sideDiagCouplers = sideDiagCouplers;
     groups.sidePostCollars = sidePostCollars;
     partCount += di + si + couplingIndex + sideCollarPoints.length;
     stats.hardware.push(
       { name: '斜撑杆端金属转接套', qty: couplingIndex },
-      { name: '短横杆立柱抱箍', qty: sideCollarPoints.length },
+      { name: '贯穿横杆立柱抱箍', qty: sideCollarPoints.length },
     );
-    rodLen += sideDiagLen + totalStubLen;
+    rodLen += sideDiagLen + si * throughRodLength;
     steelVol += Math.PI * diagRadius * diagRadius * sideDiagLen
-      + Math.PI * stubRadius * stubRadius * totalStubLen;
+      + Math.PI * stubRadius * stubRadius * si * throughRodLength;
     stats.cutList.push(
       { spec: '斜层板侧托光轴 ⌀10', section: '⌀10', len: +(sideDiagLen / di).toFixed(3), qty: di },
-      { spec: '节点外挑短光轴 ⌀11（端柱）', section: '⌀11', len: perimeterStubLength, qty: cfg.levels * 4 },
+      { spec: '前后贯穿横向光轴 ⌀11', section: '⌀11', len: +throughRodLength.toFixed(3), qty: si },
     );
-    if (cfg.bays > 1) stats.cutList.push({
-      spec: '节点双向外挑光轴 ⌀11（共柱）', section: '⌀11',
-      len: sharedStubLength, qty: cfg.levels * (cfg.bays - 1) * 2,
-    });
 
     // ---- 样书：局部 XY 面必须与斜层板的局部 XY 面重合，厚度沿 Z 法线 ----
     if (cfg.books) {
@@ -432,10 +418,10 @@ export function buildBookshelf(config) {
         });
         const book = new THREE.Mesh(bookGeo, bm);
         book.name = `displayBook_${index}`;
-        // 从前下沿向坡上移动到板长的 38% 处，平面内留足前后边距。
+        // 书中心在板长从前下沿起的28%处（原38%），靠近下部挡唇，仍不越出板边。
         // 书的下表面位于层板上表面之上 2mm；法线与层板始终一致。
         book.position.copy(panel.center)
-          .addScaledVector(panel.tangent, -panel.length * 0.12)
+          .addScaledVector(panel.tangent, -panel.length * 0.22)
           .addScaledVector(panel.normal, panelThickness / 2 + bookThickness / 2 + surfaceGap);
         book.quaternion.copy(panel.rotation);
         book.scale.set(panel.width * 0.66, panel.length * 0.5, bookThickness);

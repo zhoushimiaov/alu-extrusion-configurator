@@ -96,5 +96,5 @@ export function createHotspots(layer, camera, renderer, store, getBounds) {
     }
   }
 
-  return { sync, setHidden };
+  return { sync, setHidden, setCamera(next) { camera = next; } };
 }

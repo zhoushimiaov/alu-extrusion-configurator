@@ -43,7 +43,7 @@ function labelTexture(dark) {
     g.fillStyle = ink;
     g.textBaseline = 'alphabetic';
     g.font = '600 50px Georgia, "Times New Roman", serif';
-    g.fillText?.('MODULO CRATE', 18, 86);
+    g.fillText?.('MEKIT CRATE', 18, 86);
     g.fillRect(18, 116, 476, 3);
     g.font = 'italic 30px Georgia, serif';
     g.fillText?.('Industrial style', 18, 166);
@@ -91,7 +91,8 @@ export function buildCratesRack(config) {
   // ---- 周转箱尺寸约束 ----
   // X 向：箱长 = 两侧滑轨内轨之间；Z 向：箱宽留在立柱内表面以内（推入状态）
   const innerX = px - POST_W / 2;
-  const innerZ = pz - POST_W / 2;
+  // 立柱为 2040：X 向40mm，Z 向20mm。进深净距必须扣 Z 向10mm，不能错扣20mm。
+  const innerZ = pz - POST_T / 2;
   const LIP_OUT = 0.012;
   const DRAFT_MAX = 0.012;
   const GAP = 0.005;

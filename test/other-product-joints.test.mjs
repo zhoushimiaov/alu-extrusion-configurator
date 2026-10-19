@@ -49,19 +49,18 @@ test('木展车：上下错层挂杆各自有立柱套筒，间距真实且无�
       if (topRail && sideRail) {
         const zFront = p.config.depth / 2;
         const xLeft = -p.config.width / 2;
-        const atTop = [], atSide = [];
+        const jointY = [];
         for (let i=0; i<collar.count; i++) {
           const v = instanceCenter(collar, i);
-          if (Math.abs(v.x - xLeft) < 1e-5 && Math.abs(v.z-zFront)<1e-5) {
-            if (v.y > 1.9) atTop.push(v);
-            else if (v.y > 1.5) atSide.push(v);
-          }
+          if (Math.abs(v.x - xLeft) < 1e-5 && Math.abs(v.z-zFront)<1e-5)
+            jointY.push(v.y);
         }
-        assert.ok(atTop.length >= 1 && atSide.length >= 1, 'separate top and side collars share the same upright');
-        const topY = Math.max(...atTop.map(v=>v.y));
-        const sideY = Math.max(...atSide.map(v=>v.y));
-        near(topY - sideY, 0.04, 'top rail to side rail offset is explicit, not a false intersection');
-        assert.ok(topY - sideY - collar.geometry.parameters.height >= 0.02, 'sleeves visibly separated');
+        jointY.sort((a,b)=>b-a);
+        assert.equal(jointY.length,4, 'upper X/Z rails and lower presentation X/Z rails independently attach to the same upright');
+        near(jointY[0] - jointY[1], 0.04, 'top rail to side rail uses distinct 40mm elevations');
+        near(jointY[2] - jointY[3], 0.04, 'middle hanging rail pair also remains distinct');
+        assert.ok(jointY[0] - jointY[1] - collar.geometry.parameters.height >= 0.02,
+          'adjacent 18mm sleeves leave at least 20mm visible gap');
       }
     } finally { p.dispose(); }
   }

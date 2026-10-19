@@ -196,11 +196,11 @@ export function buildBookshelf(config) {
         railSegs.push([x0, yHigh, -D / 2, x1, yHigh, -D / 2]);
       }
     }
-    // 顶档前后杆
+    // 顶档只需补前杆：最顶层的后高杆已经位于 postBase+frameH、Z=-D/2。
+    // 以前重复生成同一根顶后杆，带来 z-fighting、重复杆长和重复夹箍判定。
     for (let b = 0; b < cfg.bays; b++) {
       const x0 = bndXs[b], x1 = bndXs[b + 1];
       railSegs.push([x0, postBase + frameH, D / 2, x1, postBase + frameH, D / 2]);
-      railSegs.push([x0, postBase + frameH, -D / 2, x1, postBase + frameH, -D / 2]);
     }
     // 塔式横杆全部为 X 向平行杆：railGeo 长度轴在局部 X，直接定长缩放
     // （此前误用 setDir——预旋转几何的长度轴在局部 X，len 被乘到半径轴上，

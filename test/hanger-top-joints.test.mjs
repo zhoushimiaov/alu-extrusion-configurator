@@ -4,6 +4,23 @@ import * as THREE from 'three';
 import { buildHanger } from '../src/core/buildHanger.js';
 import { DEFAULT_HANGER_CONFIG, POST_D } from '../src/config/hanger.js';
 
+// 原木款贴图在浏览器中使用 Canvas；Node 几何测试只需模拟绘图接口。
+const textureGradient = { addColorStop() {} };
+const canvasContext = new Proxy({}, {
+  get(_target, key) {
+    if (key === 'createLinearGradient' || key === 'createRadialGradient')
+      return () => textureGradient;
+    if (key === 'canvas') return { width: 256, height: 256 };
+    return () => {};
+  },
+  set() { return true; },
+});
+globalThis.document = {
+  createElement: tag => tag === 'canvas'
+    ? { width: 256, height: 256, getContext: () => canvasContext }
+    : {},
+};
+
 const near = (a, b, label, tolerance = 1e-5) =>
   assert.ok(Math.abs(a - b) < tolerance, `${label}: ${a} != ${b}`);
 

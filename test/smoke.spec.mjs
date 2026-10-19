@@ -93,7 +93,7 @@ test('光轴展架:切换 + 价格区块 + 导出按钮', async ({ page }) => {
   expect(appErrors(page)).toEqual([]);
 });
 
-test('WebGL 不可用：七产品仍可切换并显示算料操作', async ({ page }) => {
+test('WebGL 不可用：八产品仍可切换并显示可用操作', async ({ page }) => {
   await page.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function (type, ...args) {
@@ -105,11 +105,38 @@ test('WebGL 不可用：七产品仍可切换并显示算料操作', async ({ pa
   page.on('pageerror', (err) => runtimeErrors.push(String(err)));
   await page.goto(dist + '#rod');
   await expect(page.locator('#loader')).toHaveCSS('display', 'none', { timeout: 5000 });
-  for (const kind of ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'profile']) {
+  for (const kind of ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'sheet', 'profile']) {
     await page.locator(`#product-tabs button[data-kind="${kind}"]`).click();
-    await expect(page.locator('#panel').getByRole('button', { name: '导出算料单' })).toBeVisible();
+    if (kind === 'sheet') {
+      await expect(page.locator('#panel').getByRole('button', { name: '导出算料单（待开发）' })).toBeVisible();
+      await expect(page.locator('#panel').getByRole('button', { name: '导出算料单（待开发）' })).toBeDisabled();
+    } else {
+      await expect(page.locator('#panel').getByRole('button', { name: '导出算料单' })).toBeVisible();
+    }
   }
   expect(runtimeErrors).toEqual([]);
+});
+
+test('镀锌板书架: 第八栏目和真实 GLB 原型预览信息', async ({ page }) => {
+  await page.goto(dist + '#sheet');
+  await page.waitForFunction(() => window.__ALU_READY !== undefined, null, { timeout: 20000 });
+  const panel = page.locator('#panel');
+  await expect(page.getByRole('tab', { name: '切换到镀锌板书架' })).toHaveAttribute('aria-selected', 'true');
+  await expect(panel.locator('.panel-title')).toContainText('镀锌板书架');
+  await expect(panel.getByRole('button', { name: '导出 3D 模型 (.glb)' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '导出算料单（待开发）' })).toBeDisabled();
+  await expect(panel).toContainText('原始 GLB');
+  if (!(await isSoftwareGL(page))) {
+    await page.waitForFunction(() => window.__ALU_GROUP?.()?.name === 'GalvanizedCabinet', null, { timeout: 25000 });
+    const dims = await page.evaluate(() => {
+      const g = window.__ALU_GROUP();
+      const mesh = [...g.children];
+      return { name: g.name, children: mesh.length };
+    });
+    expect(dims.name).toBe('GalvanizedCabinet');
+    expect(dims.children).toBeGreaterThan(0);
+  }
+  expect(appErrors(page)).toEqual([]);
 });
 
 test('构建产物内含 OG meta 与模型导出器', () => {

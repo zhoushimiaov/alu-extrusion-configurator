@@ -85,7 +85,8 @@ function buildClassic(cfg) {
   const rodGeo = new THREE.CylinderGeometry(POST_D / 2, POST_D / 2, 1, 16);
   const clampGeo = new THREE.BoxGeometry(0.038, 0.038, 0.038);
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-  const braceGeo = new THREE.BoxGeometry(0.016, 1, 0.016);
+  const braceRadius = 0.006; // Ø12 光轴斜撑，替代厚重的 16×16 方杆
+  const braceGeo = new THREE.CylinderGeometry(braceRadius, braceRadius, 1, 12);
   const handleGeo = new THREE.BoxGeometry(1, 0.012, 0.018);
 
   // ---- 1. 四角 ⌀30 光轴立柱 ----
@@ -266,7 +267,7 @@ function buildClassic(cfg) {
   groups.braces = braces;
   groups.braceJoints = braceJoints;
   groups.bracePins = bracePins;
-  stats.weightKg += 4 * braceLen * 0.016 * 0.016 * DENSITY_ALU
+  stats.weightKg += 4 * braceLen * Math.PI * braceRadius ** 2 * DENSITY_ALU
     + 8 * Math.PI * 0.012 ** 2 * 0.038 * DENSITY_ALU
     + 8 * Math.PI * pinRadius ** 2 * pinLength * DENSITY_ALU;
 
@@ -350,7 +351,9 @@ function buildClassic(cfg) {
   const yRearTie = yPost0 + cabH + (H - cabH) * 0.45;
   const rearOverhang = 0.045;
   const rearLength = W + 2 * rearOverhang;
-  const rearTie = new THREE.Mesh(rodGeo, matAlu);
+  const rearTieRadius = 0.007; // Ø14 贯穿后横杆，沿用光轴书架的细杆语汇
+  const rearTieGeo = new THREE.CylinderGeometry(rearTieRadius, rearTieRadius, 1, 16);
+  const rearTie = new THREE.Mesh(rearTieGeo, matAlu);
   rearTie.name = 'rearThroughTieRod';
   rearTie.rotation.z = Math.PI / 2;
   rearTie.scale.set(1, rearLength, 1);
@@ -358,7 +361,7 @@ function buildClassic(cfg) {
   group.add(rearTie);
   groups.rearTie = rearTie;
   stats.profileLengthM += rearLength;
-  stats.weightKg += rearLength * Math.PI * (POST_D / 2) ** 2 * DENSITY_ALU;
+  stats.weightKg += rearLength * Math.PI * rearTieRadius ** 2 * DENSITY_ALU;
   const rearTieCollars = new THREE.Group();
   rearTieCollars.name = 'rearThroughTieCollars';
   const rearCollarGeo = new THREE.CylinderGeometry(0.020, 0.020, 0.032, 18, 1, true);
@@ -413,10 +416,10 @@ function buildClassic(cfg) {
   addCut('立柱 ⌀30 光轴', '⌀30', H, 4);
   addCut('主挂衣杆贯穿光轴 ⌀30', '⌀30', mainLength, 1);
   addCut('挂衣杆侧向贯穿光轴 ⌀18', '⌀18', supportLength, 2);
-  addCut('外挂斜撑 16×16', '16×16', braceLen, 4);
+  addCut('外挂斜撑光轴 ⌀12', '⌀12', braceLen, 4);
   addCut('顶框横杆 ⌀30 光轴', '⌀30', railLenX, 2);
   addCut('顶框纵杆 ⌀30 光轴', '⌀30', railLenZ, 2);
-  addCut('后框贯穿横撑 ⌀30 光轴', '⌀30', rearLength, 1);
+  addCut('后框贯穿横撑 ⌀14 光轴', '⌀14', rearLength, 1);
   addCut('底框横梁 2020', '20×20', frameLenX, 2);
   addCut('底框纵梁 2020', '20×20', frameLenZ, 2);
 

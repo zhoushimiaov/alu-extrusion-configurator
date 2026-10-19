@@ -240,15 +240,36 @@ export function buildRodRack(config) {
     const acrY = acrBottomY + acrH / 2;
     const acrGeo = new THREE.BoxGeometry(1, 1, 0.008);
     const acr = instanced(acrGeo, mat.acrylicClear, 1);
+    // 近全透射玻璃在白色棚拍场景中完全不可辨：改为带淡蓝灰体色的半透磨砂板，
+    // 保留真实8mm厚度与可见的轮廓；XRay 有独立材质策略，不再二次洗白。
+    acr.material.color.setHex(0xc0d0d9);
+    acr.material.transmission = 0.22;
+    acr.material.roughness = 0.48;
+    acr.material.transparent = true;
+    acr.material.opacity = 0.88;
+    acr.material.depthWrite = true;
     setMT(0, acr, 0, acrY, -0.014, acrW, acrH, 1);
     group.add(acr);
     groups.acr = acr;
-    boardCount += 1;
+    // 四边细银色包边：不遮挡整张板面，正侧视均能识别透明板轮廓。
+    const edgeThickness = 0.006;
+    const edgeMat = clampMat;
+    const edgeParts = instanced(new THREE.BoxGeometry(1, 1, 1), edgeMat, 4);
+    for (let i = 0; i < 2; i++) {
+      const sy = i === 0 ? -1 : 1;
+      setMT(i, edgeParts, 0, acrY + sy * acrH / 2, -0.014, acrW, edgeThickness, 0.010);
+      const sx = i === 0 ? -1 : 1;
+      setMT(i + 2, edgeParts, sx * acrW / 2, acrY, -0.014, edgeThickness, acrH, 0.010);
+    }
+    group.add(edgeParts);
+    groups.acrEdges = edgeParts;
+    boardCount += 5;
     // 丝印文字条（白底黑字示意：两条半透明白条）
     const stripGeo = new THREE.BoxGeometry(1, 1, 0.001);
     const strips = instanced(stripGeo, mat.printStrip, 2);
-    setMT(0, strips, 0, acrY + acrH * 0.18, -0.018, acrW * 0.82, 0.05, 1);
-    setMT(1, strips, 0, acrY + acrH * 0.08, -0.018, acrW * 0.62, 0.035, 1);
+    // 从相机正面(+Z)看，丝印应位于板的前表面而非被8mm板遮挡在后侧。
+    setMT(0, strips, 0, acrY + acrH * 0.18, -0.008, acrW * 0.82, 0.05, 1);
+    setMT(1, strips, 0, acrY + acrH * 0.08, -0.008, acrW * 0.62, 0.035, 1);
     group.add(strips);
     groups.printStrips = strips;
     boardCount += 2;
@@ -302,7 +323,23 @@ export function buildRodRack(config) {
     setMT(0, tray, 0, yFrame + 0.008, 0, W - 0.13, 1, 0.15);
     group.add(tray);
     groups.tray = tray;
-    boardCount += 1;
+    // 原托板 Z±75mm，置物框杆却在 Z±87mm：板底与杆件完全不接触。
+    // 两根Ø12跨宽承托光轴放在板下 Z±55mm，板底高于 yFrame 7mm；
+    // 光轴顶面位于 yFrame+7mm，实际接触板底，末端与左右侧框横杆交汇。
+    const trayJoists = instanced(railXGeo, mat.rod, 2);
+    for (let i = 0; i < 2; i++)
+      setMT(i, trayJoists, 0, yFrame + 0.001, i ? -0.055 : 0.055,
+        railLen, RAIL_D / 2, RAIL_D / 2);
+    group.add(trayJoists);
+    groups.trayJoists = trayJoists;
+    const trayClips = instanced(blockGeo, clampMat, 4);
+    let tci = 0;
+    for (const x of postXs) for (const z of [-0.055, 0.055])
+      setMT(tci++, trayClips, x, yFrame, z, 0.75, 0.65, 0.75);
+    group.add(trayClips);
+    groups.trayClips = trayClips;
+    boardCount += 7;
+    stats.profileLengthM += 2 * railLen;
   } else if (shelf === 'deck') {
     // 全深层板：铺满双杆框（W-0.06 × 0.17），略超出框沿便于搭放
     const deck = instanced(boardHGeo, mat.zinc, 1);
@@ -370,6 +407,7 @@ export function buildRodRack(config) {
   stats.profileLengthM += 2 * postLen + 2 * (forkHalf * 2) + 2 * (W + 0.02) + railTotal + nDiag * diagLen;
 
   const volRod = (2 * postLen * Math.PI * (ROD_D / 2) ** 2)
+    + (shelf === 'tray' ? 2 * railLen * Math.PI * (RAIL_D / 2) ** 2 : 0)
     + ((2 * (W + 0.02) + railTotal) * Math.PI * (RAIL_D / 2) ** 2)
     + (2 * forkHalf * 2 * Math.PI * (ROD_D / 2) ** 2)
     + (nDiag * diagLen * Math.PI * (RAIL_D / 2) ** 2);
@@ -396,6 +434,7 @@ export function buildRodRack(config) {
   addCut('框侧连接轴', '12', +(zFrame * 2).toFixed(3), 2);
   addCut('底盘斜撑', '12', +diagLen.toFixed(3), 4);
   if (shelf === 'deck') addCut('层板托梁', '12', +(W - 0.06).toFixed(3), 2);
+  if (shelf === 'tray') addCut('窄托板承托光轴', '12', +railLen.toFixed(3), 2);
   if (backPanel !== 'none') stats.cutList.push({ spec: backPanel === 'zinc' ? '镀锌背板' : '海报背板', section: '板', len: +Math.min(W - 0.10, yTop - yMid).toFixed(2), qty: 1, pricedViaPane: true });
   if (shelf === 'tray') stats.cutList.push({ spec: '置物托板', section: '板', len: +(W - 0.13).toFixed(2), qty: 1, pricedViaPane: true });
   if (shelf === 'deck') stats.cutList.push({ spec: '镀锌层板', section: '板', len: +(W - 0.06).toFixed(2), qty: 1, pricedViaPane: true });
@@ -417,6 +456,7 @@ export function buildRodRack(config) {
     { name: '横杆卡夹', qty: 8 },
     ...(backPanel !== 'none' ? [{ name: '背板挂扣', qty: 4 }] : []),
     ...(shelf === 'deck' ? [{ name: '层板托夹', qty: 4 }] : []),
+    ...(shelf === 'tray' ? [{ name: '窄托板承托端夹（示意）', qty: 4 }] : []),
   ];
 
   // 支撑点（标记层数据源）：轮/脚在底叉端头 z=±forkHalf

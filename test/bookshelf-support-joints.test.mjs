@@ -25,7 +25,8 @@ test('光轴书架侧托杆：逐层沿板坡向，法线间隙2mm，真实伸�
     try {
       const { panels, sideDiagSupports: diagonals, sideStubSupports: stubs } = built.groups;
       assert.equal(diagonals.count, cfg.bays * cfg.levels * 2);
-      assert.equal(stubs.count, cfg.levels * (cfg.bays + 1) * 2);
+      assert.equal(stubs.count, cfg.levels * 2, 'every level has only one continuous front rod and one rear rod');
+      assert.equal(built.groups.sideThroughSupports, stubs);
       assert.equal(built.groups.sideDiagCouplers.count, diagonals.count * 2);
       assert.equal(built.groups.clamps.geometry.type, 'CylinderGeometry');
       assert.ok(built.groups.clamps.material.metalness > 0.8, 'avoid bulky black square joints');
@@ -60,40 +61,26 @@ test('光轴书架侧托杆：逐层沿板坡向，法线间隙2mm，真实伸�
           const back = rod.p.clone().addScaledVector(axis, rod.s.y / 2);
           near(front.z, cfg.depth / 2 - 0.004, 'front rod endpoint');
           near(back.z, -cfg.depth / 2 + 0.004, 'rear rod endpoint');
-          const boundary = bay + edge;
-          const stubFront = instance(stubs, level * (cfg.bays + 1) * 2 + boundary * 2);
-          const stubBack = instance(stubs, level * (cfg.bays + 1) * 2 + boundary * 2 + 1);
-          const isLeft = boundary === 0;
-          const isRight = boundary === cfg.bays;
-          const isShared = !isLeft && !isRight;
-          const expectedCenter = postX + (isLeft ? -0.04 : isRight ? 0.04 : 0);
-          const expectedLength = isShared ? 0.20 : 0.12;
+          // 两跨共享同一根横杆：按层索引而非节点索引查找。
+          const stubFront = instance(stubs, level * 2);
+          const stubBack = instance(stubs, level * 2 + 1);
           for (const [tip, stub] of [[front, stubFront], [back, stubBack]]) {
-            near(stub.p.x, expectedCenter, 'off-center perimeter stub / centered shared stub');
-            near(stub.s.x, expectedLength, 'stub cut length matches actual span');
-            near(stub.p.y, tip.y, 'stub and diagonal join Y');
-            near(stub.p.z, tip.z, 'stub and diagonal join Z');
-            assert.ok(Math.abs(tip.x - stub.p.x) + 0.005 < stub.s.x / 2, 'diagonal end joins within stub, not past end cap');
-            // Perimeter stub must visibly project 100 mm OUTWARD, retaining 20 mm inside the post.
-            if (!isShared) {
-              const innerExtent = isLeft ? stub.p.x + stub.s.x / 2 : stub.p.x - stub.s.x / 2;
-              const outerExtent = isLeft ? stub.p.x - stub.s.x / 2 : stub.p.x + stub.s.x / 2;
-              near(Math.abs(innerExtent - postX), 0.02, '20 mm inboard overlap');
-              near(Math.abs(outerExtent - postX), 0.10, '100 mm exterior tip projection');
-            } else {
-              near(stub.p.x - stub.s.x / 2, postX - 0.10, 'shared post projects 100mm left');
-              near(stub.p.x + stub.s.x / 2, postX + 0.10, 'shared post projects 100mm right');
-            }
+            near(stub.p.x, 0, 'full-width through rod remains centered');
+            near(stub.s.x, width + 0.20, 'through rod total length = rack width + 2 × 100mm');
+            near(stub.p.y, tip.y, 'through rod and diagonal join Y');
+            near(stub.p.z, tip.z, 'through rod and diagonal join Z');
+            assert.ok(Math.abs(tip.x - stub.p.x) + 0.005 < stub.s.x / 2,
+              'diagonal endpoint intersects the continuous rod');
+            near(stub.p.x - stub.s.x / 2, -width / 2 - 0.10, 'left end extends 100mm past outermost post');
+            near(stub.p.x + stub.s.x / 2, width / 2 + 0.10, 'right end extends 100mm past outermost post');
           }
         }
       }
       assert.ok(built.stats.cutList.some(c => c.spec.includes('斜层板侧托光轴')));
-      const stubCuts = built.stats.cutList.filter(c => c.spec.includes('节点外挑') || c.spec.includes('节点双向外挑'));
-      assert.equal(stubCuts.reduce((sum, c) => sum + c.qty, 0), stubs.count, 'BOM includes each support stub once');
-      const stubTotalLength = stubCuts.reduce((sum, c) => sum + c.len * c.qty, 0);
-      near(stubTotalLength,
-        cfg.levels * (0.12 * 4 + (cfg.bays - 1) * 0.20 * 2),
-        'BOM counts both perimeter and shared-post cut lengths');
+      const fullRodCuts = built.stats.cutList.filter(c => c.spec.includes('前后贯穿横向光轴'));
+      assert.equal(fullRodCuts.length, 1, 'single BOM specification for each through rod');
+      assert.equal(fullRodCuts[0].qty, stubs.count, 'BOM uses 2 rods per level');
+      near(fullRodCuts[0].len, width + 0.20, 'BOM cut length equals actual full span');
       assert.ok(built.stats.hardware.some(c => c.name.includes('斜撑杆端金属转接套')));
       const sideCollars = built.groups.sidePostCollars;
       if (sideCollars) {

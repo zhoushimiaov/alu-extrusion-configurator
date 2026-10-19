@@ -785,7 +785,7 @@ const bookActions = {
 
 const sheetActions = {
   onAdd: (cfg) => {
-    const summary = '原始 GLB · 宽 4.30 × 高 2.35 × 深 0.60 m · 未拆件';
+    const summary = `原始材料柜 · 板厚 ${cfg.thicknessMm.toFixed(1)} mm · ${cfg.folds ? '带折边' : '无折边'} · 待工程拆件`;
     const { totalCount } = addConfigItem({
       kind: 'sheet', title: '镀锌板书架', summary,
       priceText: '待工程拆件与报价', cfg,
@@ -793,12 +793,24 @@ const sheetActions = {
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary}`);
   },
   onExportModel: async () => {
+    if (!sheetCurrent?.group || sheetCurrent.group.name !== 'GalvanizedCabinet') {
+      showToast('深化模型正在生成，请稍候'); return;
+    }
+    try {
+      const name = await downloadModel(sheetCurrent.group, 'sheet', sheetStore.get());
+      showToast(`深化 3D 模型已导出 · ${name}`);
+    } catch (err) {
+      console.error('[MEKIT] detailed sheet GLB export failed:', err);
+      showToast('深化模型导出失败，请重试');
+    }
+  },
+  onExportOriginal: async () => {
     try {
       const name = await downloadOriginalSheetGlb();
-      showToast(`原始 3D 模型已导出 · ${name}`);
+      showToast(`原始 3D 模型已下载 · ${name}`);
     } catch (err) {
-      console.error('[MEKIT] sheet GLB export failed:', err);
-      showToast('模型导出失败，请重试');
+      console.error('[MEKIT] original sheet GLB export failed:', err);
+      showToast('原始模型下载失败，请重试');
     }
   },
 };

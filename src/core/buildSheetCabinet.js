@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { computeEnvelope } from './envelope.js';
 import { originalGlbBytes } from '../assets/sheetCabinetGlb.js';
 import { SHEET_ORIGINAL } from '../config/sheet.js';
+import { thickenPlanarSheet, createSheetEdgeDetails } from './sheetDetailGeometry.js';
 
 let templatePromise;
 async function loadTemplate() {
@@ -66,18 +67,74 @@ export async function buildSheetCabinet(cfg = {}) {
   const { pivot, bounds, meshCount, guideCount } = await loadTemplate();
   const group = pivot.clone(true);
   group.name = 'GalvanizedCabinet';
+
+  // 永远保留用户的原始 GLB 模板；下方仅对当前场景副本追加展示层。
+  const thickness = ([1, 1.5, 2].includes(cfg.thicknessMm) ? cfg.thicknessMm : 1.5) / 1000;
+  const actualCfg = {
+    thicknessMm: thickness * 1000,
+    folds: cfg.folds !== false,
+    fasteners: cfg.fasteners !== false,
+  };
+  const useSatin = cfg.finish === 'satin';
+  const faceMetal = new THREE.MeshStandardMaterial({
+    name: 'GalvanizedSheetFace',
+    color: useSatin ? 0xb6bab9 : 0xc0c8c9,
+    metalness: useSatin ? 0.44 : 0.62,
+    roughness: useSatin ? 0.56 : 0.39,
+    side: THREE.DoubleSide,
+  });
+  const edgeMetal = new THREE.MeshStandardMaterial({
+    name: 'GalvanizedFoldedEdge',
+    color: useSatin ? 0xa4acae : 0xaab5ba,
+    metalness: 0.67, roughness: 0.45,
+  });
+  const rivetMetal = new THREE.MeshStandardMaterial({
+    name: 'GalvanizedFastenerHead',
+    color: 0x77868d, metalness: 0.76, roughness: 0.3,
+  });
+  const ownedGeometries = [];
+  let sheetSurfaces = 0, foldCount = 0, fastenerCount = 0;
+
+  // 防止向正在 traverse 的层级追加子节点而导致重复处理。
+  const originalMeshes = [];
   group.traverse(o => {
+    if (o.isMesh) originalMeshes.push(o);
     if (o.isLine || o.isLineSegments) o.visible = !!cfg.showGuides;
+  });
+  originalMeshes.forEach((mesh, i) => {
+    const thickened = thickenPlanarSheet(mesh.geometry, thickness);
+    if (thickened) {
+      mesh.geometry = thickened.geometry;
+      ownedGeometries.push(thickened.geometry);
+      sheetSurfaces++;
+      mesh.name = `FoldableSheet_${i}`;
+      mesh.userData.sheetThicknessMm = actualCfg.thicknessMm;
+      const details = createSheetEdgeDetails(thickened, actualCfg, edgeMetal, rivetMetal);
+      if (details.group.children.length) mesh.add(details.group);
+      ownedGeometries.push(...details.createdGeometry);
+      foldCount += details.foldCount;
+      fastenerCount += details.fastenerCount;
+    }
+    // 闭合的原始箱体保留原结构，统一金属视觉语言。
+    mesh.material = faceMetal;
   });
   const stats = {
     ...sheetPreviewStats(),
-    envelope: { ...bounds },
-    meshCount, guideCount,
+    envelope: { ...bounds }, meshCount, guideCount,
+    displayDetails: {
+      sheetSurfaces, foldCount, fastenerCount,
+      thicknessMm: actualCfg.thicknessMm, finish: useSatin ? 'satin' : 'zinc',
+    },
   };
   return {
     group, groups: { model: group }, stats, bounds: { ...bounds },
-    // 复用缓存模板的材质/geometry，不做 dispose 避免切换栏目时破坏下一次加载。
-    dispose() { group.removeFromParent(); },
+    dispose() {
+      group.removeFromParent();
+      ownedGeometries.forEach(g => g.dispose());
+      faceMetal.dispose();
+      edgeMetal.dispose();
+      rivetMetal.dispose();
+    },
   };
 }
 

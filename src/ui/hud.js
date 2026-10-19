@@ -35,6 +35,10 @@ export function createHud(hudLeft, hudRight, actions) {
       const w2 = c.width !== undefined ? `宽 <b>${c.width.toFixed(2)} m</b>` : '';
       const d2 = c.depth !== undefined ? ` · 深 <b>${c.depth.toFixed(2)} m</b>` : '';
       const h2 = c.height !== undefined ? ` · 高 <b>${c.height.toFixed(2)} m</b>` : '';
+      if (c.kind === 'sheet') {
+        readout.innerHTML = `<div class="rl rl-a">镀锌板书架 · 源模型 <b>${stats.envelope.W.toFixed(2)} × ${stats.envelope.H.toFixed(2)} × ${stats.envelope.D.toFixed(2)} m</b> · 原型预览</div>`;
+        return;
+      }
       if (c.kind === 'books') {
         const matLabel = { gray: '麻灰板', spangle: '镀锌锌花', white: '哑白' }[c.panelMat] || '';
         if (c.style === 'table') { readout.innerHTML = `<div class="rl rl-a">光轴长桌 · ${c.tBays} 节 × ${c.tBayW.toFixed(2)} m · 深 ${c.depth.toFixed(2)} m</div>`; return; }
@@ -55,6 +59,13 @@ export function createHud(hudLeft, hudRight, actions) {
       for (const d of c.decks) counts[d] = (counts[d] || 0) + 1;
       const deckText = Object.keys(counts).length === 1 ? DECK_TYPES[c.decks[0]].label : Object.entries(counts).map(([k, n]) => `${DECK_TYPES[k].label}${n}`).join(' / ');
       readout.innerHTML = `<div class="rl rl-a"><b>${c.bays} × ${c.levels}</b> 网格 · ${PROFILE_SERIES[c.series].label} · ${deckText}</div>`;
+      return;
+    }
+    if (c.kind === 'sheet') {
+      readout.innerHTML =
+        `<div class="rl rl-a">镀锌板书架 · 原始 GLB 模型 · 宽 <b>${stats.envelope.W.toFixed(2)} m</b> · 高 <b>${stats.envelope.H.toFixed(2)} m</b> · 深 <b>${stats.envelope.D.toFixed(2)} m</b></div>` +
+        `<div class="rl rl-b">模型网格 <b>${stats.meshCount}</b> 组 · 辅助线 <b>${stats.guideCount}</b> 组</div>` +
+        `<div class="rl rl-c">设计原型展示 · 尚未拆件，不作为下料、重量或采购依据</div>`;
       return;
     }
     if (c.kind === 'books') {

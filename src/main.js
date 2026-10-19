@@ -953,9 +953,9 @@ const SHARE_META = {
 };
 function updateShareMeta(kind) {
   const [title, desc] = SHARE_META[kind] || SHARE_META.profile;
-  document.title = 'MODULO 模数 · ' + title;
+  document.title = 'MEKIT · ' + title;
   for (const [sel, attr, val] of [
-    ['meta[property="og:title"]', 'content', 'MODULO 模数 · ' + title],
+    ['meta[property="og:title"]', 'content', 'MEKIT · ' + title],
     ['meta[property="og:description"]', 'content', desc],
     ['meta[name="description"]', 'content', desc],
   ]) {
@@ -1080,7 +1080,7 @@ function showToast(msg) {
 {
   const fire = () => {
     const diag = [
-      '=== MODULO 诊断信息 ===',
+      '=== MEKIT 诊断信息 ===',
       'UA: ' + navigator.userAgent,
       'URL: ' + location.href,
       'READY: ' + JSON.stringify(window.__ALU_READY || null),

@@ -409,6 +409,17 @@ export function buildRodRack(config) {
   }
   group.add(blocks);
   groups.blocks = blocks;
+  // 双联展板外侧两根立柱同样需要跨越 yFork↔yAxle 的25mm标高差：
+  // 现有 T 夹块下缘比底叉杆外缘高3mm，这正是侧面截图“没搭接”的视觉断口。
+  if (style === 'panel') {
+    const sleeves=instanced(new THREE.CylinderGeometry(0.011,0.011,0.030,14),clampMat,4);
+    let si=0;
+    for(const x of postXs)for(const z of [-axleOff,axleOff])
+      setMT(si++,sleeves,x,(yFork+yAxle)/2,z);
+    group.add(sleeves);
+    groups.panelOuterAxleSleeves=sleeves;
+    panelSupportCount+=4;
+  }
 
   // ---- 底叉端头夹块 ×4（底叉 ⌀20 穿过夹块；脚轮螺杆 / 地脚螺杆从底面插入）----
   const endBlocks = instanced(endBlockGeo, clampMat, 4);
@@ -495,6 +506,7 @@ export function buildRodRack(config) {
       { name:'双联展板竖杆夹具', qty:12 },
       { name:'中心立柱底叉/斜撑夹块', qty:5 },
       { name:'中心立柱跨层与横杆连接抱箍', qty:4 },
+      { name:'外侧立柱底叉跨层过渡袖套', qty:4 },
       { name:casters?'双联展板中心万向轮 2 寸':'双联展板中心调平地脚', qty:2 },
     ] : []),
   ];

@@ -94,7 +94,8 @@ export function createSheetEdgeDetails(sheet, cfg, finish, hardware) {
   group.name = 'SheetFabricationDetails';
   const createdGeometry = [];
   const t = cfg.thicknessMm / 1000;
-  const foldDepth = 0.018;
+  // 回折边由18mm缩至8mm，原版显示得像厚实木盒子；板面本体依然精确1–2mm。
+  const foldDepth = 0.008;
   let foldCount = 0;
   let fastenerCount = 0;
   const box = sheet.box;

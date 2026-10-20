@@ -129,7 +129,8 @@ test('WebGL 不可用：八产品仍可切换并显示可用操作', async ({ pa
       await expect(page.locator('#panel').getByRole('button', { name: '导出工程算料单（待开发）' })).toBeVisible();
       await expect(page.locator('#panel').getByRole('button', { name: '导出工程算料单（待开发）' })).toBeDisabled();
     } else {
-      await expect(page.locator('#panel').getByRole('button', { name: '导出算料单' })).toBeVisible();
+      await expect(page.locator('#panel').getByRole('button', { name: '采购清单 .xlsx' })).toBeVisible();
+      await expect(page.locator('#panel').getByRole('button', { name: '采购清单 .csv' })).toBeVisible();
     }
   }
   expect(runtimeErrors).toEqual([]);

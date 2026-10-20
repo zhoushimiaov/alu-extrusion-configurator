@@ -116,8 +116,8 @@ export function buildRodRack(config) {
 
   // ---- 底盘：每柱一根 ⌀20×0.4 Z 向底叉长杆 + 双 X 横轴 ----
   const forks = instanced(railZGeo, mat.rod, 2);
-  setMT(0, forks, postXs[0], yFork, 0, ROD_D / 2, ROD_D / 2, forkHalf);
-  setMT(1, forks, postXs[1], yFork, 0, ROD_D / 2, ROD_D / 2, forkHalf);
+  setMT(0, forks, postXs[0], yFork, 0, ROD_D / 2, ROD_D / 2, forkHalf * 2);
+  setMT(1, forks, postXs[1], yFork, 0, ROD_D / 2, ROD_D / 2, forkHalf * 2);
   group.add(forks);
   groups.forks = forks;
   const axles = instanced(railXGeo, mat.rod, 2);
@@ -188,7 +188,7 @@ export function buildRodRack(config) {
     const midSock=instanced(sockGeo,clampMat,1);
     setMT(0,midSock,0,0.12,0);
     const midFork=instanced(railZGeo,mat.rod,1);
-    setMT(0,midFork,0,yFork,0,ROD_D/2,ROD_D/2,forkHalf);
+    setMT(0,midFork,0,yFork,0,ROD_D/2,ROD_D/2,forkHalf*2);
     const midBraces=instanced(diagGeo,mat.rod,2);
     const up=new THREE.Vector3(0,1,0);
     for(let i=0;i<2;i++){
@@ -209,12 +209,24 @@ export function buildRodRack(config) {
     const midPts=[-forkHalf,forkHalf].map(z=>({x:0,z,yaw:outwardYaw(0,z,'x')}));
     const midWheels=casters ? buildCasters(midPts,{H:0.078,wheelD:0.05,wheelW:0.009,twin:true,twinGap:0.005,trail:0.023,mount:'stem',palette:color==='black'?'black':'chrome'})
       : buildLevelFeet(midPts,{H:0.078,palette:color==='black'?'black':'chrome'});
+    // X向两根底盘横轴位于 yAxle，比 Z向底叉高25mm。
+    // 用两只实体竖向跨层转接抱箍连接，避免截图中横向杆掠过中心底叉却未搭接。
+    const midAxleLinks=instanced(new THREE.BoxGeometry(0.034,0.046,0.033),clampMat,2);
+    setMT(0,midAxleLinks,0,(yAxle+yFork)/2,axleOff);
+    setMT(1,midAxleLinks,0,(yAxle+yFork)/2,-axleOff);
+    // 上/中两道横杆从中心立柱穿过，补两只穿轴T节点，防止中柱与横杆独立漂浮。
+    const midTopCollars=instanced(new THREE.BoxGeometry(0.034,0.032,0.030),clampMat,2);
+    setMT(0,midTopCollars,0,yMid,0);
+    setMT(1,midTopCollars,0,yTop,0);
+    group.add(midAxleLinks,midTopCollars);
+    groups.panelCenterAxleLinks=midAxleLinks;
+    groups.panelCenterTopCollars=midTopCollars;
     group.add(midPost,midSock,midFork,midBraces,midBraceClips,midEndBlocks,midWheels);
     groups.panelCenterPost=midPost;
     groups.panelCenterFork=midFork;
     groups.panelCenterBraces=midBraces;
     groups.panelCenterWheels=midWheels;
-    panelSupportCount=12; // 中柱1 锥套1 底叉1 斜撑2 斜撑夹3 端夹2 轮/脚2
+    panelSupportCount=16; // 中柱/底叉/斜撑/轮组12，加跨层转接抱箍2、上中节点2
     panelSupportLength=postLen+2*forkHalf+2*diagLen;
     panelSupportWeight=(postLen+2*forkHalf)*Math.PI*(ROD_D/2)**2*ROD_DENSITY
       +2*diagLen*Math.PI*(RAIL_D/2)**2*ROD_DENSITY
@@ -231,11 +243,11 @@ export function buildRodRack(config) {
     setMT(1,panels,cX1,panelY,panelZ,panelW,panelH,1);
     group.add(panels);groups.panels=panels;boardCount+=2;
     // 每板左右侧与三个标高各一个边夹；不是悬在横向顶杆上的8个孤立夹块。
-    const clips=instanced(new THREE.BoxGeometry(0.028,0.020,0.018),clampMat,12);
+    const clips=instanced(new THREE.BoxGeometry(0.028,0.020,0.038),clampMat,12);
     let ci=0;
     for(const cx of [cX0,cX1])for(const yy of [panelBottom+0.045,panelY,yTop-0.068]){
-      setMT(ci++,clips,cx-panelW/2,yy,panelZ+0.007);
-      setMT(ci++,clips,cx+panelW/2,yy,panelZ+0.007);
+      setMT(ci++,clips,cx-panelW/2,yy,panelZ+0.002);
+      setMT(ci++,clips,cx+panelW/2,yy,panelZ+0.002);
     }
     group.add(clips);groups.clips=clips;boardCount+=12;
     const trims=instanced(trimGeo,clampMat,2);
@@ -482,6 +494,7 @@ export function buildRodRack(config) {
     ...(style==='panel' ? [
       { name:'双联展板竖杆夹具', qty:12 },
       { name:'中心立柱底叉/斜撑夹块', qty:5 },
+      { name:'中心立柱跨层与横杆连接抱箍', qty:4 },
       { name:casters?'双联展板中心万向轮 2 寸':'双联展板中心调平地脚', qty:2 },
     ] : []),
   ];

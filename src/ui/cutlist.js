@@ -189,7 +189,7 @@ export function downloadCutlist(cfg, stats, kind = 'profile', format = 'xlsx') {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const suffix = kind === 'books' ? (cfg.style === 'table' ? '阅读长桌' : '展示杂志架')
+  const suffix = kind === 'table' ? '阅读长桌' : kind === 'books' ? (cfg.style === 'table' ? '阅读长桌' : '展示杂志架')
     : { hanger:'挂衣架', woodcart:'光轴木展车', crates:'周转箱架', cart:'移动边几', rod:'光轴展架',profile:'铝型材置物架' }[kind] || kind;
   a.download = `MEKIT采购清单_${suffix}.${csv ? 'csv' : 'xlsx'}`;
   document.body.appendChild(a);

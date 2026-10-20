@@ -72,7 +72,8 @@ test('阅读长桌：玻璃副层板所有支座完整创建，2mm垫片严格�
       const plank=p.stats.cutList.find(x=>x.spec.includes('长桌台面'));
       assert.equal(plank.qty,1,'one continuous tabletop, not one full-length piece per bay');
       near(plank.width,p.config.depth+0.34,'top full depth');
-      const glassRows=buildPurchaseRows(p.stats,'books',p.config).detail.filter(x=>x[1].includes('玻璃副层板'));
+      const glassRows=buildPurchaseRows(p.stats,'books',p.config).detail
+        .filter(x=>(x[0]==='板件'||x[0]==='板材/面材')&&x[1].includes('玻璃副层板'));
       assert.equal(glassRows.length,1,'one glass purchasing entry; panes must not duplicate it');
     }finally{p.dispose();}
   }

@@ -29,7 +29,7 @@ export const DEFAULT_HANGER_CONFIG = {
 
 export const HANGER_STYLES = {
   classic: { label: '光轴抽屉柜', preset: { wheels: true } },
-  atelier: { label: '原木水磨石', preset: { wheels: false } },   // GLB 原型为落地底座
+  atelier: { label: '原木水磨石', preset: { wheels: false, sideWires: false } },   // GLB 原型为落地底座
 };
 
 // atelier 样式下 color 键映射为木色（沿用同一配置键，分享链接与持久化无需新增字段）

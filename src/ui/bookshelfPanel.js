@@ -123,7 +123,7 @@ export function createBookshelfPanel(root, actions) {
     mount.appendChild(row);
     return sw;
   };
-  const wiresSw = mkSwitch('交叉拉索 CROSS WIRES', 'wires');
+  const wiresSw = mkSwitch('侧框 X 拉索 CROSS WIRES（含张紧端件，计入报价）', 'wires');
   const baseSw = mkSwitch('木箱基座（含脚轮，取消用调平地脚）', 'base');
   const acrylicSw = mkSwitch('亚克力前挡 ACRYLIC FRONT', 'acrylic');
   const glassSw = mkSwitch('玻璃副层板 GLASS SHELF', 'glassTop');
@@ -275,6 +275,7 @@ export function createBookshelfPanel(root, actions) {
     booksSw.parentElement.style.display = tower ? '' : 'none';
     booksSw.classList.toggle('on', c.books);
     booksSw.setAttribute('aria-checked', String(c.books));
+    wiresSw.parentElement.style.display = tower ? '' : 'none';
     wiresSw.classList.toggle('on', c.wires);
     wiresSw.setAttribute('aria-checked', String(c.wires));
     baseSw.classList.toggle('on', c.base);

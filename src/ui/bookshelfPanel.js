@@ -12,8 +12,12 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(BOOK_LIMITS, DEFAULT_BOOKSHELF_CONFIG, { enums: { style: BOOK_STYLES, panelMat: PANEL_MATERIALS, color: FRAME_COLORS }, integerKeys: ['bays', 'levels', 'tBays'] });
 function makeShelfStore(defaultConfig) {
+  // makeClamp 永远把 kind 还原成其 defaults.kind；每个独立产品必须各建一份校验器。
+  const clampCfg = makeClamp(BOOK_LIMITS, defaultConfig, {
+    enums: { style: BOOK_STYLES, panelMat: PANEL_MATERIALS, color: FRAME_COLORS },
+    integerKeys: ['bays', 'levels', 'tBays'],
+  });
   let current={...defaultConfig};
   const subs=new Set();
   const lockStyle=defaultConfig.kind==='table' ? 'table' : 'tower';

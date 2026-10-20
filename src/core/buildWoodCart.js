@@ -88,6 +88,20 @@ export function buildWoodCart(config) {
   setMT(0, top, ohOffX, yPlank, ohOffZ, boardW + ohLR, 1, boardD + ohFB);
   group.add(top);
   groups.top = top;
+  // 板材正面封边仅作为同一块胶合板的压合饰边，不新增采购零件。
+  // 3mm窄色带减轻多层板“无厚度纸片”的效果，并保持参考图的薄板语言。
+  const edgeBandMat = new THREE.MeshStandardMaterial({
+    color: woodTone === 'walnut' ? 0x896c55 : woodTone === 'oak' ? 0xcab18e : 0xe1c8a3,
+    roughness: 0.77, metalness: 0,
+  });
+  const frontEdgeBands = instanced(new THREE.BoxGeometry(1,0.003,0.003),edgeBandMat,shelves+1);
+  shelfYs.forEach((y,i)=>setMT(i,frontEdgeBands,ohOffX,y,
+    ohOffZ+(boardD+ohFB)/2-0.0015,boardW+ohLR,1,1));
+  setMT(shelves,frontEdgeBands,ohOffX,yPlank,
+    ohOffZ+(boardD+ohFB)/2-0.0015,boardW+ohLR,1,1);
+  frontEdgeBands.userData.displayOnly=true;
+  group.add(frontEdgeBands);
+  groups.frontEdgeBands=frontEdgeBands;
 
   // ---- 洞洞板展墙（分段夹在各层板之间，视觉连续）+ 两端封边立板 ----
   const pegW = boardW - 2 * DECK_T;
@@ -142,8 +156,14 @@ export function buildWoodCart(config) {
   groups.flanges = caps;
 
   // ---- 板下光轴夹块（每块板 × 4 立柱）----
-  const clampGeo = new THREE.BoxGeometry(0.034, 0.024, 0.034);
-  const boardYs = [...shelfYs.map((y) => y - BOARD_T / 2 - 0.012), yPlank - DECK_T / 2 - 0.012, deckTop + 0.012];
+  // Ø16 柱的板托套筒不能比立柱宽出太多：28×18×28mm；
+  // 每只夹块顶面刚好接触板底。此前底板夹块反而位于板面上方，视觉像穿板。
+  const clampGeo = new THREE.BoxGeometry(0.028, 0.018, 0.028);
+  const boardYs = [
+    ...shelfYs.map(y => y - BOARD_T / 2 - 0.009),
+    yPlank - DECK_T / 2 - 0.009,
+    deckY0 - 0.009,
+  ];
   const shelfClamps = instanced(clampGeo, mat.clamp, boardYs.length * 4);
   let ci = 0;
   for (const y of boardYs) for (const x of postXs) for (const z of postZs) setMT(ci++, shelfClamps, x, y, z);

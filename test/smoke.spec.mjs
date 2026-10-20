@@ -37,7 +37,8 @@ test('型材架:加载就绪 + 关键控件 + 视图切换', async ({ page }) =>
   // 关键控件（面板作用域，避开 HUD 重复）
   const panel = page.locator('#panel');
   await expect(panel.getByRole('button', { name: '加入配置清单' })).toBeVisible();
-  await expect(panel.getByRole('button', { name: '导出算料单' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '采购清单 .xlsx' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '采购清单 .csv' })).toBeVisible();
   await expect(panel.getByRole('button', { name: '导出 3D 模型 (.glb)' })).toBeVisible();
   await expect(panel.getByRole('button', { name: '阳极氧化银色' })).toBeVisible();
   await expect(panel.getByRole('button', { name: '阳极氧化黑色' })).toBeVisible();

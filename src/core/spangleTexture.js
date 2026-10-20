@@ -73,7 +73,7 @@ function makeVoronoi(G, S, rand, jitter = 0.8) {
  * @param G     每边晶粒数（平均晶粒直径 ≈ S/G 像素）
  * @param seed  随机种子
  */
-export function generateSpanglePixels(S = 1024, G = 30, seed = 20261004) {
+export function generateSpanglePixels(S = 1024, G = 46, seed = 20261004) {
   const rand = mulberry32(seed);
   const cell = S / G;
   const N = G * G;
@@ -100,7 +100,7 @@ export function generateSpanglePixels(S = 1024, G = 30, seed = 20261004) {
   const PA = Math.max(4, Math.round(G / 3)), PN = Math.max(16, G * 8);
   const warpA = makeValueNoise(PA, rand), warpB = makeValueNoise(PA, rand), grainN = makeValueNoise(PN, rand);
   const kA = PA / S, kN = PN / S;
-  const ampA = cell * 0.30, ampS = cell * 0.34;
+  const ampA = cell * 0.17, ampS = cell * 0.18;
 
   const tbuf = new Float32Array(S * S);
   for (let py = 0; py < S; py++) {
@@ -126,12 +126,12 @@ export function generateSpanglePixels(S = 1024, G = 30, seed = 20261004) {
     }
   }
   // 灰度标定到实拍镀锌板统计（参考照片实测：均值 133.8 / 标准差 30.2）。标准差取 25：
-  //   近看仍是锌花，远看（整架视距）不至于呈花岗岩式斑驳
+  //   2026-10-20: 对比参考实体镀锌钢板，减小可见锌花并降低纹理对比，远看更接近浅灰金属而非花岗岩噪声
   let sum = 0, sq = 0;
   for (let i = 0; i < tbuf.length; i++) { sum += tbuf[i]; sq += tbuf[i] * tbuf[i]; }
   const mean = sum / tbuf.length, std = Math.sqrt(Math.max(1e-9, sq / tbuf.length - mean * mean));
   const out = new Uint8ClampedArray(S * S);
-  for (let i = 0; i < tbuf.length; i++) out[i] = 138 + ((tbuf[i] - mean) / std) * 25;
+  for (let i = 0; i < tbuf.length; i++) out[i] = 186 + ((tbuf[i] - mean) / std) * 11;
   return out;
 }
 

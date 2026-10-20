@@ -19,6 +19,7 @@ const configs = {
   woodcart: (await import('../src/config/woodcart.js')).DEFAULT_WOODCART_CONFIG,
   hanger: (await import('../src/config/hanger.js')).DEFAULT_HANGER_CONFIG,
   books: (await import('../src/config/bookshelf.js')).DEFAULT_BOOKSHELF_CONFIG,
+  table: (await import('../src/config/bookshelf.js')).DEFAULT_TABLE_CONFIG,
   sheet: (await import('../src/config/sheet.js')).DEFAULT_SHEET_CONFIG,
 };
 

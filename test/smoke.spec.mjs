@@ -123,8 +123,12 @@ test('WebGL 不可用：八产品仍可切换并显示可用操作', async ({ pa
   page.on('pageerror', (err) => runtimeErrors.push(String(err)));
   await page.goto(dist + '#rod');
   await expect(page.locator('#loader')).toHaveCSS('display', 'none', { timeout: 5000 });
-  for (const kind of ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'sheet', 'profile']) {
+  for (const kind of ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'table', 'sheet', 'profile']) {
     await page.locator(`#product-tabs button[data-kind="${kind}"]`).click();
+    if (kind === 'table') {
+      await expect(page.locator('#panel').locator('.panel-title')).toContainText('阅读长桌');
+      await expect(page.locator('#panel').getByText('节数 BAYS')).toBeVisible();
+    }
     if (kind === 'sheet') {
       await expect(page.locator('#panel').getByRole('button', { name: '导出工程算料单（待开发）' })).toBeVisible();
       await expect(page.locator('#panel').getByRole('button', { name: '导出工程算料单（待开发）' })).toBeDisabled();

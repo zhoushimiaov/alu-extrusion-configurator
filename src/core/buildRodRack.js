@@ -220,7 +220,7 @@ export function buildRodRack(config) {
       +2*diagLen*Math.PI*(RAIL_D/2)**2*ROD_DENSITY
       +2*(casters?.12:.03)+0.07;
     const seam=0.022;
-    const panelW=Math.max(0.18,(W-0.08-seam)/2);
+    const panelW=Math.max(0.18,(W-0.04-seam)/2);
     const panelBottom=yFrame+0.025;
     const panelH=Math.max(0.30,yTop-0.024-panelBottom);
     const panelY=panelBottom+panelH/2;

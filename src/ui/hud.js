@@ -40,7 +40,7 @@ export function createHud(hudLeft, hudRight, actions) {
         readout.innerHTML = `<div class="rl rl-a">镀锌板书架 · 源模型 <b>${stats.envelope.W.toFixed(2)} × ${stats.envelope.H.toFixed(2)} × ${stats.envelope.D.toFixed(2)} m</b> · 原型预览</div>`;
         return;
       }
-      if (c.kind === 'books') {
+      if ((c.kind === 'books' || c.kind === 'table')) {
         const matLabel = { gray: '麻灰板', spangle: '镀锌锌花', white: '哑白' }[c.panelMat] || '';
         if (c.style === 'table') { readout.innerHTML = `<div class="rl rl-a">光轴长桌 · ${c.tBays} 节 × ${c.tBayW.toFixed(2)} m · 深 ${c.depth.toFixed(2)} m</div>`; return; }
         readout.innerHTML = `<div class="rl rl-a">光轴书架 · ${c.levels} 层 × ${c.bays} 跨 · ${matLabel} · ${c.base ? '木箱脚轮' : '地脚'}</div>`;
@@ -69,7 +69,7 @@ export function createHud(hudLeft, hudRight, actions) {
         `<div class="rl rl-c">设计原型展示 · 尚未拆件，不作为下料、重量或采购依据</div>`;
       return;
     }
-    if (c.kind === 'books') {
+    if ((c.kind === 'books' || c.kind === 'table')) {
       const matLabel = { gray: '麻灰板', spangle: '镀锌锌花', white: '哑白' }[c.panelMat] || '';
       if (c.style === 'table') {
         readout.innerHTML =

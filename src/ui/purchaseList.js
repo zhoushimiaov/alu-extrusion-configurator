@@ -7,7 +7,7 @@ const round = n => Number.isFinite(n) ? +n.toFixed(4) : '';
 const productName = (kind,cfg) => ({
   profile:'铝型材置物架',rod:'光轴展架',cart:'移动边几',crates:'周转箱架',
   woodcart:'光轴木展车',hanger:'挂衣架',books:cfg?.style==='table'?'阅读长桌':'展示杂志架',
-  sheet:'镀锌板书架',
+  sheet:'镀锌板书架',table:'阅读长桌',
 })[kind] || kind;
 
 export function buildPurchaseRows(stats,kind='profile',cfg={}) {

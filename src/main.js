@@ -629,7 +629,7 @@ if (btnMobileFs && layoutEl) {
 function makePrintAction(kind) {
   return async () => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     showToast('正在生成打印稿 …');
     let snapshot = null;
     if (!webglFailed && window.__ALU_CAPTURE) {
@@ -663,9 +663,9 @@ const profileActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'profile');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料 · 型材总长 ${s.profileLengthM.toFixed(1)} m`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料 · 型材总长 ${s.profileLengthM.toFixed(1)} m`);
   },
   onExportModel: async () => {
     if (!current || !current.group) { showToast('模型生成中,请稍候重试'); return; }
@@ -695,9 +695,9 @@ const rodActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'rod');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!rodCurrent || !rodCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
@@ -727,9 +727,9 @@ const cartActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'cart');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!cartCurrent || !cartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
@@ -759,9 +759,9 @@ const cratesActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'crates');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!cratesCurrent || !cratesCurrent.group) { showToast(`模型生成中,请稍候重试`); return; }
@@ -791,9 +791,9 @@ const woodcartActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'woodcart');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!woodCartCurrent || !woodCartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
@@ -813,7 +813,7 @@ const bookActions = {
     const p = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = cfg.style === 'table'
       ? `长桌 ${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m`
-      : `展示塔 ${cfg.levels} 层 × ${cfg.bays} 跨 · ${cfg.bayW.toFixed(2)} m`;
+      : `展示杂志架 ${cfg.levels} 层 × ${cfg.bays} 跨 · ${cfg.bayW.toFixed(2)} m`;
     const { totalCount } = addConfigItem({
       kind: 'books',
       title: '光轴书架',
@@ -825,9 +825,9 @@ const bookActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'books');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!booksCurrent || !booksCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
@@ -840,6 +840,20 @@ const bookActions = {
     }
   },
 };
+
+// 同一份模型 BOM 给所有产品分别输出 XLSX / CSV；CSV 用于通用采购系统。
+for (const [kind, actions] of [
+  ['profile', profileActions], ['rod', rodActions], ['cart', cartActions],
+  ['crates', cratesActions], ['woodcart', woodcartActions],
+  ['books', bookActions],
+]) {
+  actions.onExportCsv = (cfg) => {
+    const stats = panel?.lastStats;
+    if (!stats?.cutList) { showToast('采购数据生成中，请稍候重试'); return; }
+    downloadCutlist(cfg, stats, kind, 'csv');
+    showToast('采购清单 CSV 已导出 · ' + kind);
+  };
+}
 
 const sheetActions = {
   onAdd: (cfg) => {
@@ -891,9 +905,9 @@ const hangerActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'hanger');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!hangerCurrent || !hangerCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
@@ -910,6 +924,13 @@ const hangerActions = {
 // ---- 产品挂载 ----
 // panel.dispose() 释放订阅与全局监听；原封的 panel.js 不返回 dispose，
 // 由包装对象以「摘除容器」兜底（DOM 摘除后其 root 级监听器不再可达）。
+hangerActions.onExportCsv = (cfg) => {
+  const stats = panel?.lastStats;
+  if (!stats?.cutList) { showToast('采购数据生成中，请稍候重试'); return; }
+  downloadCutlist(cfg, stats, 'hanger', 'csv');
+  showToast('挂衣架采购清单 CSV 已导出');
+};
+
 function mountActiveProduct() {
   if (panel && typeof panel.dispose === 'function') panel.dispose();
   panelRoot.innerHTML = '';

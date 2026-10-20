@@ -24,10 +24,15 @@ export function onMarketRefresh(fn) {
 /** 规则匹配容错：match 可能是 RegExp（内置表）或字符串（未经清洗的远端表）；
  *  任何异常都返回 null（未计价），绝不让一项坏数据掀翻整张报价单。 */
 function matchCutRule(c) {
-  return current.rules.find(r => safeTest(r.match, c.section)) || null;
+  // 远端旧版定价表尚无新增钢索 SKU 时，仅对该新材料使用带来源提示的内置参考价。
+  // 不自动将不认识的普通材料按相似SKU报假价。
+  return current.rules.find(r => safeTest(r.match, c.section))
+    || (String(c.section).startsWith('钢索') ? MARKET.rules.find(r => safeTest(r.match, c.section)) : null);
 }
 function matchHwRule(name) {
-  return current.hardware.find(r => safeTest(r.match, name)) || null;
+  return current.hardware.find(r => safeTest(r.match, name))
+    || (String(name).startsWith('X拉索张紧端件')
+      ? MARKET.hardware.find(r => safeTest(r.match, name)) : null);
 }
 function safeTest(match, s) {
   try {

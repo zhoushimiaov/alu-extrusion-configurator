@@ -50,6 +50,15 @@ export const DEFAULT_BOOKSHELF_CONFIG = {
   glassTop: true,      // 长桌玻璃副层板
 };
 
+// 阅读长桌独立品类沿用相同物理尺寸字段，单独存储与分享，不与杂志架相互覆盖。
+export const DEFAULT_TABLE_CONFIG = {
+  ...DEFAULT_BOOKSHELF_CONFIG,
+  kind: 'table',
+  style: 'table',
+  depth: 0.45,
+  glassTop: true,
+};
+
 export const INSTALL_STEPS_BOOKSHELF = [
   { t: '基座就位', d: '木箱基座置于平整地面并装好四只脚轮（固定安装换调平地脚），校准水平。' },
   { t: '立柱安装', d: '铬管立柱按跨距插入基座顶面连接件，前后两排对齐，先不上死。' },

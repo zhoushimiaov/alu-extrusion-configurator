@@ -503,7 +503,7 @@ function currentJointTarget(act) {
   if (b.nodeTarget?.isVector3) return b.nodeTarget.clone();
   act?.group?.updateMatrixWorld(true);
   const preferred = ['blocks', 'clips', 'brkV', 'brackets', 'sideDiagCouplers',
-    'hangSaddles', 'sleeves', 'railClamps', 'corners'];
+    'hangSaddles', 'sleeves', 'railClamps', 'corners', 'depth', 'battens', 'segments'];
   for (const key of preferred) {
     const mesh = act?.groups?.[key];
     if (!mesh) continue;
@@ -548,10 +548,13 @@ const hud = createHud(hudLeft, hudRight, {
     }
     if (['iso', 'front', 'side'].includes(name)) {
       changeProjection('orthographic', act.bounds);
-      camera.zoom = 1;
-      camera.updateProjectionMatrix();
     } else if (name === 'perspective') {
       changeProjection('perspective', act.bounds);
+    }
+    // 退出正交节点近看时重置正交 zoom，否则槽口视角被永久放大。
+    if (camera.isOrthographicCamera) {
+      camera.zoom = 1;
+      camera.updateProjectionMatrix();
     }
     const vp = anims.viewPos(name === 'perspective' ? 'iso' : name, act.bounds);
     anims.flyTo(vp.pos, vp.tgt, 900);

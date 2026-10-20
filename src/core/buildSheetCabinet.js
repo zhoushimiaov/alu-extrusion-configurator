@@ -5,6 +5,7 @@ import { computeEnvelope } from './envelope.js';
 import { originalGlbBytes } from '../assets/sheetCabinetGlb.js';
 import { SHEET_ORIGINAL } from '../config/sheet.js';
 import { thickenPlanarSheet, createSheetEdgeDetails } from './sheetDetailGeometry.js';
+import { getSpangleTexture } from './spangleTexture.js';
 
 let templatePromise;
 async function loadTemplate() {
@@ -83,6 +84,10 @@ export async function buildSheetCabinet(cfg = {}) {
     roughness: useSatin ? 0.56 : 0.39,
     side: THREE.DoubleSide,
   });
+  // 锌灰金属叠加微细晶粒：仅用于有效板面UV，不把所有原始封闭几何误贴花纹。
+  const zincMetal = faceMetal.clone();
+  zincMetal.name = 'GalvanizedFineSpangle';
+  if (!useSatin) zincMetal.map = getSpangleTexture();
   const edgeMetal = new THREE.MeshStandardMaterial({
     name: 'GalvanizedFoldedEdge',
     color: useSatin ? 0xa4acae : 0xaab5ba,
@@ -105,6 +110,22 @@ export async function buildSheetCabinet(cfg = {}) {
     const thickened = thickenPlanarSheet(mesh.geometry, thickness);
     if (thickened) {
       mesh.geometry = thickened.geometry;
+      // Rhino三角面通常没有有效UV；按板面真实尺寸投影，0.48m重复一个晶粒纹理。
+      // 做投影后同一零件的相邻薄面UV固定，不会被拉成巨型锌花。
+      if (!useSatin) {
+        const p = thickened.geometry.getAttribute('position');
+        const normal = thickened.normal;
+        const dominant = Math.abs(normal.y) > 0.8 ? 'y'
+          : Math.abs(normal.x) > 0.8 ? 'x' : 'z';
+        const uv = new Float32Array(p.count * 2);
+        for (let vi=0;vi<p.count;vi++) {
+          const x=p.getX(vi),y=p.getY(vi),z=p.getZ(vi);
+          uv[vi*2] = (dominant === 'x' ? z : x) / 0.48;
+          uv[vi*2+1] = (dominant === 'y' ? z : y) / 0.48;
+        }
+        thickened.geometry.setAttribute('uv', new THREE.BufferAttribute(uv,2));
+        mesh.material = zincMetal;
+      }
       ownedGeometries.push(thickened.geometry);
       sheetSurfaces++;
       mesh.name = `FoldableSheet_${i}`;
@@ -116,22 +137,49 @@ export async function buildSheetCabinet(cfg = {}) {
       fastenerCount += details.fastenerCount;
     }
     // 闭合的原始箱体保留原结构，统一金属视觉语言。
-    mesh.material = faceMetal;
+    if (!thickened || useSatin) mesh.material = faceMetal;
   });
+
+  // Rhino 原型右侧是裸露的分格端口。新增独立金属薄板终止面，
+  // 位置从源 GLB 整机 bounds 推导，不修改44个源网格，也不冒充可下料工程零件。
+  const endCapGroup = new THREE.Group();
+  endCapGroup.name = 'RightEndClosure';
+  const endT = thickness;
+  const endX = bounds.W / 2 - 0.008;
+  const closureHeight = Math.max(0.3, bounds.H - 0.045);
+  const closureDepth = Math.max(0.15, bounds.D - 0.025);
+  const closureGeo = new THREE.BoxGeometry(endT, closureHeight, closureDepth);
+  const closure = new THREE.Mesh(closureGeo, useSatin ? faceMetal : zincMetal);
+  closure.name = 'RightEndCapThinSheet';
+  closure.position.set(endX, bounds.H / 2, 0);
+  endCapGroup.add(closure);
+  ownedGeometries.push(closureGeo);
+  if (actualCfg.folds) {
+    // 右端前折回边：板厚不变，只增加12mm宽卷边以遮住原模型的裸露截面。
+    const returnGeo = new THREE.BoxGeometry(0.012, closureHeight, endT);
+    const returnEdge = new THREE.Mesh(returnGeo, edgeMetal);
+    returnEdge.name = 'RightEndReturnFold';
+    returnEdge.position.set(endX-0.006, bounds.H/2, closureDepth/2-endT/2);
+    endCapGroup.add(returnEdge);
+    ownedGeometries.push(returnGeo);
+    foldCount++;
+  }
+  group.add(endCapGroup);
   const stats = {
     ...sheetPreviewStats(),
     envelope: { ...bounds }, meshCount, guideCount,
     displayDetails: {
-      sheetSurfaces, foldCount, fastenerCount,
+      sheetSurfaces, foldCount, fastenerCount, rightEndClosure: true,
       thicknessMm: actualCfg.thicknessMm, finish: useSatin ? 'satin' : 'zinc',
     },
   };
   return {
-    group, groups: { model: group }, stats, bounds: { ...bounds },
+    group, groups: { model: group, rightEndClosure: endCapGroup }, stats, bounds: { ...bounds },
     dispose() {
       group.removeFromParent();
       ownedGeometries.forEach(g => g.dispose());
       faceMetal.dispose();
+      zincMetal.dispose();
       edgeMetal.dispose();
       rivetMetal.dispose();
     },

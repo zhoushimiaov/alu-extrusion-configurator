@@ -13,6 +13,7 @@ const ROOT_NAMES = {
   woodcart: 'WoodCart',
   hanger: 'ClothesHanger',
   books: 'RodBookshelf',
+  table: 'ReadingTable',
   sheet: 'GalvanizedCabinet',
 };
 
@@ -37,6 +38,9 @@ function fileNameParts(kind, meta = {}) {
     if (w) parts.push('W' + w);
     if (h) parts.push('H' + h);
     if (meta.shelves) parts.push(meta.shelves + 'S');
+  } else if (kind === 'table') {
+    if (meta.tBays) parts.push(meta.tBays + 'B');
+    const w = num(meta.tBayW); if (w) parts.push('W' + w);
   } else if (kind === 'books') {
     if (meta.style === 'table') {
       if (meta.tBays) parts.push(meta.tBays + 'B');

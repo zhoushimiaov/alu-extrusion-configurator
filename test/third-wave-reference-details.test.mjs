@@ -64,10 +64,19 @@ test('阅读长桌：玻璃副层板所有支座完整创建，2mm垫片严格�
         near(pad.p.y+0.002/2,bottom,'pad touches glass underside');
         assert.ok(Math.abs(stand.p.x)<=W/2,'stand lies inside glass envelope');
       }
-      const boardBottom=tableTop.position.y-0.035/2;
+      const boardBottom=tableTop.position.y-tableTop.geometry.parameters.height/2;
       for(let i=0;i<2;i++){
         const under=inst(tableUnderRails,i);
         near(under.p.y+0.006,boardBottom,'underrail bears on board underside');
+      }
+      // 两档横杆必须贯穿长桌全宽，每条立柱线都具有真实Z向连接及三标高抱箍。
+      assert.equal(p.groups.tableContinuousRails.count,4);
+      assert.equal(p.groups.tableDepthTies.count,(n+1)*2);
+      assert.equal(p.groups.tableJointCollars.count,(n+1)*2*3);
+      assert.equal(p.groups.tableLevelFeet.count,(n+1)*2);
+      for(let i=0;i<4;i++){
+        const rail=inst(p.groups.tableContinuousRails,i);
+        near(rail.sc.x,W+0.026,'full length rail crosses all intermediate table legs');
       }
       const plank=p.stats.cutList.find(x=>x.spec.includes('长桌台面'));
       assert.equal(plank.qty,1,'one continuous tabletop, not one full-length piece per bay');

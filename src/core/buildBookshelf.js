@@ -482,7 +482,25 @@ export function buildBookshelf(config) {
       }
       group.add(wires);
       groups.wires = wires;
-      stats.hardware.push({ name: '交叉拉索（含弹簧端）', qty: nWires });
+      // X钢索对应精确切料长度与两个独立端部张紧件；不再只按“件”粗略估价。
+      const cableLength = Math.hypot(zF - zB, pitch - 0.06);
+      stats.cutList.push({
+        spec: '侧面X拉索不锈钢丝绳 Ø2.4', section: '钢索Ø2.4',
+        len: +cableLength.toFixed(3), qty: nWires,
+      });
+      steelVol += nWires * cableLength * Math.PI * wireR * wireR;
+      // 两端小套筒与主体立柱重合于真实连接点；端件必须与采购件数一致。
+      const ends = instanced(new THREE.CylinderGeometry(0.006, 0.006, 0.022, 10), mat.blockAlu, nWires * 2);
+      let ei = 0;
+      for (let i = 0; i < cfg.levels; i++) {
+        const y0 = postBase + i * pitch + 0.06, y1 = postBase + (i + 1) * pitch;
+        for (const x of bndXs) for (const yy of [y0,y1]) for (const zz of [zF,zB])
+          setMT(ei++, ends, x, yy, zz);
+      }
+      group.add(ends);
+      groups.wireEnds = ends;
+      partCount += nWires * 2;
+      stats.hardware.push({ name: 'X拉索张紧端件 Ø2.4', qty: nWires * 2 });
     }
 
     // ---- 基座：木箱 + 脚轮 / 调平地脚 ----

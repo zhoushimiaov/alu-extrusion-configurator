@@ -33,6 +33,12 @@ test('WUDA 双联展板：三根独立落地光轴、两块同面长幅板、12�
     assert.equal(p.groups.panelCenterBraces.count,2);
     assert.equal(p.groups.panels.count,2);
     assert.equal(p.groups.clips.count,12);
+    assert.equal(p.groups.panelCenterAxleLinks.count,2);
+    assert.equal(p.groups.panelCenterTopCollars.count,2);
+    assert.equal(p.groups.panelOuterAxleSleeves.count,4);
+    for(let i=0;i<p.groups.forks.count;i++)
+      near(inst(p.groups.forks,i).sc.z,0.4,'outer fork rod must reach wheel-end blocks');
+    near(inst(p.groups.panelCenterFork,0).sc.z,0.4,'middle fork rod reaches both wheels');
     assert.equal(p.stats.supports.points.length,6);
     const a=inst(p.groups.panels,0),b=inst(p.groups.panels,1);
     near(a.p.y,b.p.y,'board centers level');

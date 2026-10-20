@@ -94,11 +94,11 @@ export function configLineFor(cfg, kind = 'profile', stats = null) {
     wText = (cfg.width + 0.12).toFixed(2);
     // 总高 = 立柱长 cfg.height + 柱顶超出 0.142 + 顶部余量 0.04（与 buildRodRack bounds.H 一致）
     hText = (cfg.height + 0.182).toFixed(2);
-  } else if (kind === 'books') {
-    // 光轴书架（展塔 / 长桌）：此前无分支会落到 profile 分支并因 cfg.decks 缺失而崩溃
-    const { PANEL_MATERIALS } = labelsFor('books');
+  } else if (kind === 'books' || kind === 'table') {
+    // 书架与独立阅读长桌共用材料标签但不共用产品身份。
+    const { PANEL_MATERIALS } = labelsFor(kind);
     const matLabel = PANEL_MATERIALS[cfg.panelMat]?.label || '';
-    title = cfg.style === 'table' ? '光轴长桌 · 算料单' : '光轴书架 · 算料单';
+    title = cfg.style === 'table' ? '阅读长桌 · 采购清单' : '展示杂志架 · 采购清单';
     if (cfg.style === 'table') {
       configLine = `${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · ${matLabel}`;
     } else {

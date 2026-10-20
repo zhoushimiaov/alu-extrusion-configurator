@@ -449,6 +449,47 @@ function buildClassic(cfg) {
     stats.weightKg += 4 * 0.05;
   }
 
+  // ---- 8a. 可选左右侧面 X 拉索：每侧两根真实 Ø2.4mm 钢索 ----
+  if (cfg.sideWires) {
+    const wireR = 0.0012;
+    const wireGeo = new THREE.CylinderGeometry(wireR, wireR, 1, 10);
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0xb0b9c1, metalness: 0.87, roughness: 0.32 });
+    const wireGroup = new THREE.Group();
+    wireGroup.name = 'hangerSideXWires';
+    const ends = new THREE.Group();
+    ends.name = 'hangerSideWireEnds';
+    const terminalGeo = new THREE.CylinderGeometry(0.006, 0.006, 0.022, 10);
+    const y0 = yPost0 + 0.34, y1 = yTopRail - 0.34;
+    const z0 = -pz, z1 = pz;
+    const length = Math.hypot(y1 - y0, z1 - z0);
+    for (const x of postXs) {
+      const outerX = x + Math.sign(x) * 0.024; // 置于左右侧框外表面
+      for (const [ay,az,by,bz] of [[y0,z0,y1,z1],[y0,z1,y1,z0]]) {
+        const start=new THREE.Vector3(outerX,ay,az), end=new THREE.Vector3(outerX,by,bz);
+        const mesh=new THREE.Mesh(wireGeo,wireMat);
+        mesh.name='sideXSteelCable';
+        mesh.position.copy(start).add(end).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),end.clone().sub(start).normalize());
+        mesh.scale.y=length;
+        wireGroup.add(mesh);
+        for (const point of [start,end]) {
+          const terminal=new THREE.Mesh(terminalGeo,matConnector);
+          terminal.name='sideXWireTerminal';
+          terminal.position.copy(point);
+          ends.add(terminal);
+        }
+      }
+    }
+    group.add(wireGroup, ends);
+    groups.sideWires = wireGroup;
+    groups.sideWireEnds = ends;
+    // 金属钢索体积与四根钢索总长；端部五金对应8处实物。
+    stats.profileLengthM += length * 4;
+    stats.weightKg += length * 4 * Math.PI * wireR * wireR * 7850;
+    stats.partCount += 12;
+    stats.cutList.push({ spec: '侧面X拉索不锈钢丝绳 Ø2.4', section: '钢索Ø2.4', len: +length.toFixed(3), qty: 4 });
+  }
+
   // ---- 9. 统计清单与算料 ----
   // 旧结构件数60；新增 T 型桥接组件4件、梁柱端金属抱箍8件。
   stats.partCount += 4 + 2 + 2 + 1 + 1 + 4 + 1 + (nDrawers > 0 ? nDrawers * 2 : 2) + 1 + 4 + 4 + 4
@@ -481,6 +522,7 @@ function buildClassic(cfg) {
     { name: '外挂斜撑水平连接穿销', qty: 8 },
     { name: '底框压铸角件', qty: 4 },
     ...(nDrawers > 0 ? [{ name: '铝合金极简横向拉手', qty: nDrawers }] : []),
+    ...(cfg.sideWires ? [{ name: 'X拉索张紧端件 Ø2.4', qty: 8 }] : []),
   ];
 
   stats.supports = {

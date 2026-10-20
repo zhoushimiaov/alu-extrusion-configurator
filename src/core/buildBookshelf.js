@@ -80,24 +80,24 @@ export function buildBookshelf(config) {
     const legR = 0.009;
 
     // 木台面
-    const topGeo = new THREE.BoxGeometry(W + 0.06, 0.035, D + 0.04);
+    const topGeo = new THREE.BoxGeometry(W + 0.06, 0.028, D + 0.04);
     const woodMat = new THREE.MeshStandardMaterial({ color: 0xd8cfc0, roughness: 0.65, metalness: 0.02 });
     const top = new THREE.Mesh(topGeo, woodMat);
-    top.position.y = tableH - 0.0175;
+    top.position.y = tableH - 0.014;
     group.add(top);
     groups.tableTop = top;
     // 面板的前后实木封边采用薄于台面厚度的细线条，非悬浮饰件。
     const edgeVeneerMat = new THREE.MeshStandardMaterial({color:0xb8a997,roughness:0.7});
     const edgeVeneerGeo = new THREE.BoxGeometry(W+0.06,0.005,0.003);
     const edgeVeneers=instanced(edgeVeneerGeo,edgeVeneerMat,2);
-    for(let i=0;i<2;i++)setMT(i,edgeVeneers,0,tableH-0.0175,
+    for(let i=0;i<2;i++)setMT(i,edgeVeneers,0,tableH-0.014,
       (i?-1:1)*((D+0.04)/2-0.0015));
     group.add(edgeVeneers);
     groups.tableEdgeBand=edgeVeneers;
-    woodVol += (W + 0.06) * (D + 0.04) * 0.035;
+    woodVol += (W + 0.06) * (D + 0.04) * 0.028;
     stats.cutList.push({ spec: '长桌台面（实木拼板）', section: '板',
       len: +(W + 0.06).toFixed(3), width:+(D+0.04).toFixed(3),
-      thickness:0.035,qty:1 });
+      thickness:0.028,qty:1 });
 
     // 玻璃副层板 + standoff
     if (cfg.glassTop !== false) {
@@ -169,7 +169,7 @@ export function buildBookshelf(config) {
     // 顶板底面增加两根通长连续承托光轴：杆顶实际接触木板底面，
     // 上端与每节竖直光轴柱交汇，不再靠一整块木台面独自悬在立柱上。
     const topUnderRails=instanced(railGeo,mat.rod,2);
-    for(let i=0;i<2;i++)setMT(i,topUnderRails,0,tableH-0.041,
+    for(let i=0;i<2;i++)setMT(i,topUnderRails,0,tableH-0.034,
       (i?-1:1)*(D/2-0.03),W,railR,railR);
     group.add(topUnderRails);
     groups.tableUnderRails=topUnderRails;
@@ -177,46 +177,72 @@ export function buildBookshelf(config) {
     rodLen+=2*W;
     steelVol+=Math.PI*railR*railR*2*W;
     stats.cutList.push({spec:'阅读长桌台面承托光轴 Ø12',section:'⌀12',len:+W.toFixed(3),qty:2});
-    // 底部前后横杆（通长）+ 每节中部横杆 + 端部 Z 向杆。
-    // 注意：InstancedMesh count 必须与 setMT 次数严格一致——多出的实例保持单位矩阵，
-    // 会以原始几何（半径 1 的圆柱）渲染在原点 = 巨型圆管 blob（本 bug 的根因）。
-    const nRails = 2 + cfg.tBays * 2;
-    const rails = instanced(railGeo, mat.rod, nRails);
-    let ri = 0;
-    setMT(ri++, rails, 0, 0.10, D / 2 - 0.03, W, railR, railR);
-    setMT(ri++, rails, 0, 0.10, -D / 2 + 0.03, W, railR, railR);
-    rodLen += W * 2; steelVol += Math.PI * railR * railR * W * 2;
-    for (let b = 0; b < cfg.tBays; b++) {
-      const cx = -W / 2 + (b + 0.5) * cfg.tBayW;
-      setMT(ri++, rails, cx, 0.42, D / 2 - 0.03, cfg.tBayW - 0.02, railR, railR);
-      setMT(ri++, rails, cx, 0.42, -D / 2 + 0.03, cfg.tBayW - 0.02, railR, railR);
-      rodLen += (cfg.tBayW - 0.02) * 2;
-      steelVol += Math.PI * railR * railR * (cfg.tBayW - 0.02) * 2;
-    }
-    const zEnds = instanced(railZGeo, mat.rod, 2);
-    setMT(0, zEnds, -W / 2, 0.10, 0, railR, railR, D - 0.06);
-    setMT(1, zEnds, W / 2, 0.10, 0, railR, railR, D - 0.06);
-    rodLen += (D - 0.06) * 2; steelVol += Math.PI * railR * railR * (D - 0.06) * 2;
+    // 真正连续的光轴框架：上下两档均是前后各一根 X 向通长杆，
+    // 所有跨中立柱穿过完整横杆，杜绝 10mm/20mm 分段断口悬空。
+    const jointZ=[D/2-0.03,-D/2+0.03];
+    const railLevels=[0.10,0.42];
+    const nRails=jointZ.length*railLevels.length;
+    const rails=instanced(railGeo,mat.rod,nRails);
+    let ri=0;
+    for(const y of railLevels)for(const z of jointZ)
+      setMT(ri++,rails,0,y,z,W+0.026,railR,railR);
     group.add(rails);
-    group.add(zEnds);
-    partCount += nRails + 2;
-    // 长度必须分开，原代码把2根全长杆和2根进深杆错记为“单跨横杆”。
-    stats.cutList.push(
-      {spec:'底部横向连续光轴 ⌀12',section:'⌀12',len:+W.toFixed(3),qty:2},
-      {spec:'中层分跨光轴 ⌀12',section:'⌀12',len:+(cfg.tBayW-0.02).toFixed(3),qty:cfg.tBays*2},
-      {spec:'底部端部进深光轴 ⌀12',section:'⌀12',len:+(D-0.06).toFixed(3),qty:2},
-    );
+    groups.tableContinuousRails=rails;
+    rodLen+=nRails*(W+0.026);
+    steelVol+=Math.PI*railR*railR*nRails*(W+0.026);
+    partCount+=nRails;
 
-    // 金属座实际装在板底/立柱交汇处，兼顾可见支撑关系与采购数量。
+    // 每条立柱线在底部、中部各一根 Z 向贯通拉杆，接成四边形框架，
+    // 两端原本只有各一根短Z杆，内侧桌腿没有进深连接，视觉与结构都松散。
+    const nTies=bndXs.length*railLevels.length;
+    const ties=instanced(railZGeo,mat.rod,nTies);
+    let ti=0;
+    for(const y of railLevels)for(const x of bndXs)
+      setMT(ti++,ties,x,y,0,railR,railR,D-0.06);
+    group.add(ties);
+    groups.tableDepthTies=ties;
+    rodLen+=nTies*(D-0.06);
+    steelVol+=Math.PI*railR*railR*nTies*(D-0.06);
+    partCount+=nTies;
+
+    // 三个标高的金属立柱穿轴抱箍：底部0.10m、中间0.42m、台面下0.846m。
+    // Ø30×26mm比18mm光轴外径大6mm，包络同时与X、Z横杆实际相交。
+    const nLegPoints=bndXs.length*2;
+    const collarGeo=new THREE.CylinderGeometry(0.015,0.015,0.026,18);
+    const collars=instanced(collarGeo,mat.blockAlu||mat.block,nLegPoints*3);
+    let ci=0;
+    for(const y of [...railLevels,tableH-0.034])for(const x of bndXs)
+      for(const z of jointZ)setMT(ci++,collars,x,y,z);
+    group.add(collars);
+    groups.tableJointCollars=collars;
+    partCount+=ci;
+    stats.hardware.push({name:'光轴穿杆三向金属连接抱箍 Ø30',qty:ci});
+
+    // 每个光轴腿根部有真实可见的可调地脚圆盘，最低点离地0.002m。
+    const feet=instanced(new THREE.CylinderGeometry(0.022,0.022,0.014,18),
+      mat.blockAlu||mat.block,nLegPoints);
+    let fti=0;
+    for(const x of bndXs)for(const z of jointZ)setMT(fti++,feet,x,0.009,z);
+    group.add(feet);
+    groups.tableLevelFeet=feet;
+    partCount+=fti;
+    stats.hardware.push({name:'阅读长桌调平脚垫 Ø44',qty:fti});
+
+    // 台面托片不能只停留在杆上：圆垫顶面严格接触28mm木台面底面。
     const footGeo=new THREE.CylinderGeometry(0.018,0.018,0.006,16);
-    const footClips=instanced(footGeo,mat.block,bndXs.length*2);
+    const footClips=instanced(footGeo,mat.block,nLegPoints);
     let fi=0;
-    for(const x of bndXs)for(const z of [D/2-0.03,-D/2+0.03])
-      setMT(fi++,footClips,x,tableH-0.038,z);
+    for(const x of bndXs)for(const z of jointZ)
+      setMT(fi++,footClips,x,tableH-0.031,z);
     group.add(footClips);
     groups.tableTopJoints=footClips;
     partCount+=fi;
-    stats.hardware.push({ name: '台面连接夹块', qty: fi });
+    stats.hardware.push({name:'台面承托连接座 Ø36',qty:fi});
+
+    stats.cutList.push(
+      {spec:'底层/中层横向连续光轴 ⌀12',section:'⌀12',len:+(W+0.026).toFixed(3),qty:nRails},
+      {spec:'底层/中层进深贯通拉杆 ⌀12',section:'⌀12',len:+(D-0.06).toFixed(3),qty:nTies},
+    );
   } else {
     // ================ 展示塔 ================
     const W = cfg.bays * cfg.bayW;

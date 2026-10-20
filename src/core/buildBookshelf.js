@@ -95,7 +95,9 @@ export function buildBookshelf(config) {
     group.add(edgeVeneers);
     groups.tableEdgeBand=edgeVeneers;
     woodVol += (W + 0.06) * (D + 0.04) * 0.035;
-    stats.cutList.push({ spec: '长桌台面（实木拼板）', section: '板', len: +(W + 0.06).toFixed(2), qty: cfg.tBays });
+    stats.cutList.push({ spec: '长桌台面（实木拼板）', section: '板',
+      len: +(W + 0.06).toFixed(3), width:+(D+0.04).toFixed(3),
+      thickness:0.035,qty:1 });
 
     // 玻璃副层板 + standoff
     if (cfg.glassTop !== false) {
@@ -111,7 +113,9 @@ export function buildBookshelf(config) {
       glass.position.y = tableH + 0.1;
       group.add(glass);
       groups.tableGlass=glass;
-      stats.cutList.push({ spec: '玻璃副层板 8mm', section: '板', len: +(W - 0.04).toFixed(2), qty: 1, pricedViaPane: true });
+      stats.cutList.push({ spec: '玻璃副层板 8mm', section: '板',
+        len:+(W-0.04).toFixed(3),width:+(D-0.02).toFixed(3),thickness:0.008,
+        qty:1,pricedViaPane:true });
       stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +((W - 0.04) * (D - 0.02)).toFixed(3), kind: 'glass' });
       // 每条节边界前后各一处支撑：原先分配8个实例、只放6个，另外2根出现在原点。
       // 支撑上沿0.094、减震垫0.094~0.096、玻璃底面0.096，严格连续接触。
@@ -130,7 +134,7 @@ export function buildBookshelf(config) {
         for(const z of [D/2-0.045,-D/2+0.045]){
           setMT(si,stands,x,tableH+0.047,z);
           setMT(si,standPads,x,tableH+0.095,z);
-          setMT(si,heads,x,tableH+0.005,z);
+          setMT(si,heads,x,tableH+0.002,z);
           si++;
         }
       }

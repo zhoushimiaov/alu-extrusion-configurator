@@ -133,7 +133,8 @@ export function createPanel(root, actions) {
     <div class="weight-note" data-weight>自重计算中 …</div>
     <div class="action-row">
       <button class="cta" data-cta>加入配置清单</button>
-      <button class="cta-ghost" data-export>导出算料单</button>
+      <button class="cta-ghost" data-export title="Excel/WPS 可直接打开的真实 .xlsx，含采购汇总和逐件明细">采购清单 .xlsx</button>
+      <button class="cta-ghost" data-export-csv title="通用 UTF-8 CSV 采购汇总">采购清单 .csv</button>
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
     </div>
     <div class="panel-disclaimer">单价为未核验示例，搜索链接不代表卖家报价；未含运费、税费、加工费，禁止据此直接下单。</div>`);
@@ -231,6 +232,7 @@ export function createPanel(root, actions) {
     if (btn.dataset.color) store.set({ color: btn.dataset.color });
     if (btn.dataset.pcolor) store.set({ panelColor: btn.dataset.pcolor });
     if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(store.get());
+    if (btn.dataset.exportCsv != null && actions.onExportCsv) actions.onExportCsv(store.get());
     if (btn.dataset.export != null && actions.onExport) actions.onExport(store.get());
     if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(store.get());
   });

@@ -7,12 +7,15 @@ function makeWoodTexture(baseHex, streakHex) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
   const g = c.getContext('2d');
+  // 贴图重新生成时保持相同木纹，不随每次切换配置随机闪变。
+  let seed=(baseHex ^ 0x6d2b79f5)>>>0;
+  const rand=()=>{ seed ^= seed<<13;seed ^= seed>>>17;seed ^= seed<<5;return (seed>>>0)/4294967296; };
   g.fillStyle = '#' + baseHex.toString(16).padStart(6, '0');
   g.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 120; i++) {
-    const y = Math.random() * 256;
-    const h = 1 + Math.random() * 2.5;
-    g.fillStyle = 'rgba(' + streakHex + ',' + (0.10 + Math.random() * 0.14).toFixed(2) + ')';
+    const y = rand() * 256;
+    const h = 1 + rand() * 2.0;
+    g.fillStyle = 'rgba(' + streakHex + ',' + (0.08 + rand() * 0.10).toFixed(2) + ')';
     g.fillRect(0, y, 256, h);
   }
   const tex = new THREE.CanvasTexture(c);
@@ -24,7 +27,7 @@ export function getWoodCartMaterials(woodTone) {
   const key = 'woodcart:' + woodTone;
   if (cache.has(key)) return cache.get(key);
   const tones = {
-    birch: { base: 0xcf9d63, streak: '140,90,40' },
+    birch: { base: 0xdac9ac, streak: '153,130,96' },
     oak: { base: 0xc49a6c, streak: '120,80,40' },
     walnut: { base: 0x6b4a32, streak: '35,20,10' },
   }[woodTone] || { base: 0xcf9d63, streak: '140,90,40' };
@@ -40,10 +43,11 @@ export function getWoodCartMaterials(woodTone) {
   pc.width = pc.height = 256;
   const pg = pc.getContext('2d');
   pg.drawImage(pegTex.image, 0, 0);
-  pg.fillStyle = 'rgba(60,45,25,0.55)';
+  pg.fillStyle = 'rgba(70,60,45,0.42)';
   for (let y = 12; y < 256; y += 22) {
     for (let x = 12; x < 256; x += 22) {
-      pg.beginPath(); pg.arc(x, y, 4.2, 0, Math.PI * 2); pg.fill();
+      // 约5mm孔径/25.4mm孔距：直径与孔距比约0.20（旧值0.38过大）。
+      pg.beginPath(); pg.arc(x, y, 2.15, 0, Math.PI * 2); pg.fill();
     }
   }
   const pegMat = new THREE.MeshStandardMaterial({

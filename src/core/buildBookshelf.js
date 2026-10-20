@@ -85,33 +85,65 @@ export function buildBookshelf(config) {
     const top = new THREE.Mesh(topGeo, woodMat);
     top.position.y = tableH - 0.0175;
     group.add(top);
+    groups.tableTop = top;
+    // 面板的前后实木封边采用薄于台面厚度的细线条，非悬浮饰件。
+    const edgeVeneerMat = new THREE.MeshStandardMaterial({color:0xb8a997,roughness:0.7});
+    const edgeVeneerGeo = new THREE.BoxGeometry(W+0.06,0.005,0.003);
+    const edgeVeneers=instanced(edgeVeneerGeo,edgeVeneerMat,2);
+    for(let i=0;i<2;i++)setMT(i,edgeVeneers,0,tableH-0.0175,
+      (i?-1:1)*((D+0.04)/2-0.0015));
+    group.add(edgeVeneers);
+    groups.tableEdgeBand=edgeVeneers;
     woodVol += (W + 0.06) * (D + 0.04) * 0.035;
     stats.cutList.push({ spec: '长桌台面（实木拼板）', section: '板', len: +(W + 0.06).toFixed(2), qty: cfg.tBays });
 
     // 玻璃副层板 + standoff
     if (cfg.glassTop !== false) {
       const glassGeo = new THREE.BoxGeometry(W - 0.04, 0.008, D - 0.02);
-      const glass = new THREE.Mesh(glassGeo, mat.acrylicClear);
+      const glassMat=mat.acrylicClear.clone();
+      glassMat.color.setHex(0xcad8de);
+      glassMat.transmission=0.24;
+      glassMat.roughness=0.30;
+      glassMat.transparent=true;
+      glassMat.opacity=0.85;
+      glassMat.depthWrite=true;
+      const glass = new THREE.Mesh(glassGeo, glassMat);
       glass.position.y = tableH + 0.1;
       group.add(glass);
+      groups.tableGlass=glass;
       stats.cutList.push({ spec: '玻璃副层板 8mm', section: '板', len: +(W - 0.04).toFixed(2), qty: 1, pricedViaPane: true });
       stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +((W - 0.04) * (D - 0.02)).toFixed(3), kind: 'glass' });
-      const nStand = Math.max(4, cfg.tBays * 2 + 2);
-      const standGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.1, 10);
-      const stands = instanced(standGeo, mat.block, nStand);
-      let si = 0;
-      for (let b = 0; b <= cfg.tBays; b++) {
-        const x = -W / 2 + b * cfg.tBayW;
-        if (b > 0 && b < cfg.tBays) {
-          setMT(si++, stands, x, tableH + 0.05, D / 2 - 0.05);
-          setMT(si++, stands, x, tableH + 0.05, -D / 2 + 0.05);
+      // 每条节边界前后各一处支撑：原先分配8个实例、只放6个，另外2根出现在原点。
+      // 支撑上沿0.094、减震垫0.094~0.096、玻璃底面0.096，严格连续接触。
+      const nStand=(cfg.tBays+1)*2;
+      const standGeo=new THREE.CylinderGeometry(0.005,0.005,0.094,12);
+      const stands=instanced(standGeo,mat.block,nStand);
+      const padGeo=new THREE.CylinderGeometry(0.011,0.011,0.002,16);
+      const padMat=new THREE.MeshStandardMaterial({color:0xb1bdc2,roughness:0.82,metalness:0.03,transparent:true,opacity:0.8});
+      const standPads=instanced(padGeo,padMat,nStand);
+      const headGeo=new THREE.CylinderGeometry(0.012,0.012,0.004,16);
+      const heads=instanced(headGeo,mat.block,nStand);
+      let si=0;
+      for(let b=0;b<=cfg.tBays;b++){
+        const rawX=-W/2+b*cfg.tBayW;
+        const x=b===0?-W/2+0.035:b===cfg.tBays?W/2-0.035:rawX;
+        for(const z of [D/2-0.045,-D/2+0.045]){
+          setMT(si,stands,x,tableH+0.047,z);
+          setMT(si,standPads,x,tableH+0.095,z);
+          setMT(si,heads,x,tableH+0.005,z);
+          si++;
         }
       }
-      setMT(si++, stands, -W / 2 + 0.05, tableH + 0.05, 0);
-      setMT(si++, stands, W / 2 - 0.05, tableH + 0.05, 0);
-      group.add(stands);
-      partCount += si;
-      stats.hardware.push({ name: '玻璃副层板 standoff 支撑', qty: si });
+      group.add(stands,standPads,heads);
+      groups.tableGlassStandoffs=stands;
+      groups.tableGlassPads=standPads;
+      groups.tableStandoffFeet=heads;
+      partCount+=3*nStand;
+      stats.hardware.push(
+        {name:'玻璃副层板支承立柱 Ø10 ×94mm',qty:nStand},
+        {name:'玻璃端座/金属帽',qty:nStand},
+        {name:'玻璃隔振垫 2mm',qty:nStand},
+      );
     }
 
     // 桌腿：每节边界前后各一
@@ -130,6 +162,17 @@ export function buildBookshelf(config) {
     partCount += li;
     group.add(legs);
 
+    // 顶板底面增加两根通长连续承托光轴：杆顶实际接触木板底面，
+    // 上端与每节竖直光轴柱交汇，不再靠一整块木台面独自悬在立柱上。
+    const topUnderRails=instanced(railGeo,mat.rod,2);
+    for(let i=0;i<2;i++)setMT(i,topUnderRails,0,tableH-0.041,
+      (i?-1:1)*(D/2-0.03),W,railR,railR);
+    group.add(topUnderRails);
+    groups.tableUnderRails=topUnderRails;
+    partCount+=2;
+    rodLen+=2*W;
+    steelVol+=Math.PI*railR*railR*2*W;
+    stats.cutList.push({spec:'阅读长桌台面承托光轴 Ø12',section:'⌀12',len:+W.toFixed(3),qty:2});
     // 底部前后横杆（通长）+ 每节中部横杆 + 端部 Z 向杆。
     // 注意：InstancedMesh count 必须与 setMT 次数严格一致——多出的实例保持单位矩阵，
     // 会以原始几何（半径 1 的圆柱）渲染在原点 = 巨型圆管 blob（本 bug 的根因）。
@@ -153,9 +196,23 @@ export function buildBookshelf(config) {
     group.add(rails);
     group.add(zEnds);
     partCount += nRails + 2;
-    stats.cutList.push({ spec: '光轴横杆 ⌀12', section: '12', len: +(cfg.tBayW - 0.02).toFixed(3), qty: cfg.tBays * 2 + 2 });
+    // 长度必须分开，原代码把2根全长杆和2根进深杆错记为“单跨横杆”。
+    stats.cutList.push(
+      {spec:'底部横向连续光轴 ⌀12',section:'⌀12',len:+W.toFixed(3),qty:2},
+      {spec:'中层分跨光轴 ⌀12',section:'⌀12',len:+(cfg.tBayW-0.02).toFixed(3),qty:cfg.tBays*2},
+      {spec:'底部端部进深光轴 ⌀12',section:'⌀12',len:+(D-0.06).toFixed(3),qty:2},
+    );
 
-    stats.hardware.push({ name: '台面连接夹块', qty: bndXs.length * 2 });
+    // 金属座实际装在板底/立柱交汇处，兼顾可见支撑关系与采购数量。
+    const footGeo=new THREE.CylinderGeometry(0.018,0.018,0.006,16);
+    const footClips=instanced(footGeo,mat.block,bndXs.length*2);
+    let fi=0;
+    for(const x of bndXs)for(const z of [D/2-0.03,-D/2+0.03])
+      setMT(fi++,footClips,x,tableH-0.038,z);
+    group.add(footClips);
+    groups.tableTopJoints=footClips;
+    partCount+=fi;
+    stats.hardware.push({ name: '台面连接夹块', qty: fi });
   } else {
     // ================ 展示塔 ================
     const W = cfg.bays * cfg.bayW;

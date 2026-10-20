@@ -112,6 +112,17 @@ export function createHangerPanel(root, actions) {
   });
   wheelRow.appendChild(wheelSw);
   mount.appendChild(wheelRow);
+  const wireRow = el('div', 'switch-row', '<span class="label">侧面 X 拉索（左右两侧，材料与端件计入报价）</span>');
+  const wireSw = el('div', 'switch');
+  wireSw.setAttribute('role','switch');
+  wireSw.tabIndex = 0;
+  wireSw.dataset.sw = 'sideWires';
+  wireSw.setAttribute('aria-label','侧面 X 拉索');
+  wireSw.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); wireSw.click(); }
+  });
+  wireRow.appendChild(wireSw);
+  mount.appendChild(wireRow);
 
   // 配色
   const colorField = el('div', null, `<div class="field-label"><span data-color-label>表面 FINISH</span></div>`);
@@ -186,7 +197,8 @@ export function createHangerPanel(root, actions) {
     if (btn.dataset.seg === 'style' && btn.dataset.val !== c.style) {
       hangerStore.set({ style: btn.dataset.val, ...(HANGER_STYLES[btn.dataset.val]?.preset || {}) });
     }
-    if (btn.dataset.sw) hangerStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
+    if (btn.dataset.sw && !(c.style === 'atelier' && btn.dataset.sw === 'sideWires'))
+      hangerStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
     if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(hangerStore.get());
     if (btn.dataset.exportCsv != null && actions.onExportCsv) actions.onExportCsv(hangerStore.get());
     if (btn.dataset.export != null && actions.onExport) actions.onExport(hangerStore.get());
@@ -228,6 +240,9 @@ export function createHangerPanel(root, actions) {
     });
     wheelSw.classList.toggle('on', c.wheels);
     wheelSw.setAttribute('aria-checked', String(c.wheels));
+    wireRow.style.display = atelier ? 'none' : '';
+    wireSw.classList.toggle('on', !!c.sideWires);
+    wireSw.setAttribute('aria-checked', String(!!c.sideWires));
     swatches.querySelectorAll('.swatch').forEach(s => {
       const on = s.dataset.color === c.color;
       s.classList.toggle('on', on);

@@ -41,7 +41,7 @@ export function createBookshelfPanel(root, actions) {
   mount.appendChild(el('div', 'panel-title',
     `光轴书架<span class="en">ROD BOOKSHELF</span>`));
   mount.appendChild(el('p', 'panel-lead',
-    '铬管框架阅读装置：展示塔以斜面展板逐层陈列，交叉拉索张紧；长桌以木台面配玻璃副层板。木箱脚轮基座可整体推行。'));
+    '铬管框架阅读装置：展示杂志架以斜面展板逐层陈列，交叉拉索张紧；长桌以木台面配玻璃副层板。木箱脚轮基座可整体推行。'));
 
   const spec = el('div', 'spec-grid', `
     <div class="spec-cell"><div class="k">宽 W</div><div class="v" data-spec="w">1.00<small>m</small></div></div>
@@ -62,8 +62,8 @@ export function createBookshelfPanel(root, actions) {
     f.dataset.limits = JSON.stringify([key, lo, hi, step, unit]);
     return f;
   };
-  const baysField = mkStepper('跨数 BAYS', 'bays', 1, 2, 1, ' 跨');
-  const levelsField = mkStepper('层数 LEVELS', 'levels', 2, 5, 1, ' 层');
+  const baysField = mkStepper('跨数 BAYS', 'bays', ...BOOK_LIMITS.bays, 1, ' 跨');
+  const levelsField = mkStepper('层数 LEVELS', 'levels', ...BOOK_LIMITS.levels, 1, ' 层');
   const bayWField = mkStepper('跨宽 BAY WIDTH', 'bayW', 0.8, 1.2, 0.05, ' m');
   const depthField = mkStepper('框架深度 DEPTH', 'depth', 0.28, 0.45, 0.01, ' m');
   const tiltField = mkStepper('展板倾角 TILT', 'tilt', 20, 40, 2, '°');

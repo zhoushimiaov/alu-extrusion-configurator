@@ -23,6 +23,7 @@ export const DEFAULT_HANGER_CONFIG = {
   height: 2.40,
   drawers: 2,
   wheels: true,
+  sideWires: false,    // 经典光轴挂衣架：左右侧框可选X型不锈钢拉索
   color: 'silver',
 };
 

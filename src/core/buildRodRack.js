@@ -180,57 +180,77 @@ export function buildRodRack(config) {
   groups.diagBlocks = diagBlocks;
 
   // ---- 面板体系（按样式分派）----
-  let boardCount = 0;
+  let boardCount = 0, panelSupportCount = 0, panelSupportLength = 0, panelSupportWeight = 0;
   if (style === 'panel') {
-    // 双联展板：两块对称白色展板，整齐挂装在顶档与中档横杆之间，中缝 16mm
-    // 物理结构：顶边齐平顶档横杆（yTop），底边落在中档横杆（yMid），杜绝横杆穿板与悬空伪影
-    const seam = 0.016;
-    const panelW = Math.max(0.18, (W - 0.08 - seam) / 2);
-    const panelH = yTop - yMid;
-    const panelY = yMid + panelH / 2;
-    const panelZ = -0.008;
-    const panelGeo = new THREE.BoxGeometry(1, 1, 0.012);
-    const panels = instanced(panelGeo, mat.posterPanel, 2);
-    const cX0 = -(seam / 2 + panelW / 2);
-    const cX1 = +(seam / 2 + panelW / 2);
-    setMT(0, panels, cX0, panelY, panelZ, panelW, panelH, 1);
-    setMT(1, panels, cX1, panelY, panelZ, panelW, panelH, 1);
-    group.add(panels);
-    groups.panels = panels;
-    boardCount += 2;
-
-    // 导轨夹扣：真实扣接在 ⌀12 顶档与中档横杆上，每板上下各一对夹扣（共 8 颗），受力点真实可信
-    const clipGeo = new THREE.BoxGeometry(0.028, 0.034, 0.026);
-    const clips = instanced(clipGeo, clampMat, 8);
-    let ci = 0;
-    const clampOff = panelW * 0.28;
-    for (const cX of [cX0, cX1]) {
-      for (const yy of [yMid, yTop]) {
-        setMT(ci++, clips, cX - clampOff, yy, -0.004);
-        setMT(ci++, clips, cX + clampOff, yy, -0.004);
-      }
+    // WUDA 双联展板参照：三条竖向支承线+2张长幅白板；中心竖柱真正落入第三组底叉与脚轮。
+    const midPost=instanced(postGeo,mat.rod,1);
+    setMT(0,midPost,0,yPost0+postLen/2,0,ROD_D/2,postLen,ROD_D/2);
+    const midSock=instanced(sockGeo,clampMat,1);
+    setMT(0,midSock,0,0.12,0);
+    const midFork=instanced(railZGeo,mat.rod,1);
+    setMT(0,midFork,0,yFork,0,ROD_D/2,ROD_D/2,forkHalf);
+    const midBraces=instanced(diagGeo,mat.rod,2);
+    const up=new THREE.Vector3(0,1,0);
+    for(let i=0;i<2;i++){
+      const z1=(i? -1:1)*zBraceLow;
+      _p.set(0,(yBraceTop+yBraceLow)/2,z1/2);
+      _q.setFromUnitVectors(up,new THREE.Vector3(0,yBraceLow-yBraceTop,z1).normalize());
+      _s.set(RAIL_D/2,diagLen,RAIL_D/2);
+      midBraces.setMatrixAt(i,_m4.compose(_p,_q,_s));
     }
-    group.add(clips);
-    groups.clips = clips;
-    boardCount += 8;
-
-    // 展板左右外侧包边条与正面海报图纸，赋予真实展板层次
-    const trims = instanced(trimGeo, mat.block, 2);
-    setMT(0, trims, cX0 - panelW / 2, panelY, panelZ, 1, panelH, 1);
-    setMT(1, trims, cX1 + panelW / 2, panelY, panelZ, 1, panelH, 1);
-    group.add(trims);
-    groups.panelTrims = trims;
-
-    const zP = panelZ + 0.007;
-    const papers = instanced(boardVGeo, mat.paper, 3);
-    setMT(0, papers, cX0, panelY, zP, panelW * 0.80, panelH * 0.78, 1);
-    setMT(1, papers, cX1, panelY + panelH * 0.22, zP, panelW * 0.80, panelH * 0.40, 1);
-    setMT(2, papers, cX1, panelY - panelH * 0.22, zP, panelW * 0.80, panelH * 0.36, 1);
-    group.add(papers);
-    groups.panelPapers = papers;
-    boardCount += 5;
-
-    stats.panes = [{ label: '双联展板（白）', areaM2: +(2 * panelW * panelH).toFixed(3), kind: 'panel' }];
+    const midBraceClips=instanced(blockGeo,clampMat,3);
+    const t=(yBraceTop-yFork)/(yBraceTop-yBraceLow);
+    setMT(0,midBraceClips,0,yFork,zBraceLow*t);
+    setMT(1,midBraceClips,0,yFork,-zBraceLow*t);
+    setMT(2,midBraceClips,0,yBraceTop,0);
+    const midEndBlocks=instanced(endBlockGeo,clampMat,2);
+    setMT(0,midEndBlocks,0,0.113,forkHalf);
+    setMT(1,midEndBlocks,0,0.113,-forkHalf);
+    const midPts=[-forkHalf,forkHalf].map(z=>({x:0,z,yaw:outwardYaw(0,z,'x')}));
+    const midWheels=casters ? buildCasters(midPts,{H:0.078,wheelD:0.05,wheelW:0.009,twin:true,twinGap:0.005,trail:0.023,mount:'stem',palette:color==='black'?'black':'chrome'})
+      : buildLevelFeet(midPts,{H:0.078,palette:color==='black'?'black':'chrome'});
+    group.add(midPost,midSock,midFork,midBraces,midBraceClips,midEndBlocks,midWheels);
+    groups.panelCenterPost=midPost;
+    groups.panelCenterFork=midFork;
+    groups.panelCenterBraces=midBraces;
+    groups.panelCenterWheels=midWheels;
+    panelSupportCount=12; // 中柱1 锥套1 底叉1 斜撑2 斜撑夹3 端夹2 轮/脚2
+    panelSupportLength=postLen+2*forkHalf+2*diagLen;
+    panelSupportWeight=(postLen+2*forkHalf)*Math.PI*(ROD_D/2)**2*ROD_DENSITY
+      +2*diagLen*Math.PI*(RAIL_D/2)**2*ROD_DENSITY
+      +2*(casters?.12:.03)+0.07;
+    const seam=0.022;
+    const panelW=Math.max(0.18,(W-0.08-seam)/2);
+    const panelBottom=yFrame+0.025;
+    const panelH=Math.max(0.30,yTop-0.024-panelBottom);
+    const panelY=panelBottom+panelH/2;
+    const panelZ=0.022; // 面板在立柱前，防止立柱穿过实体白板
+    const cX0=-(seam/2+panelW/2),cX1=-cX0;
+    const panels=instanced(new THREE.BoxGeometry(1,1,0.012),mat.posterPanel,2);
+    setMT(0,panels,cX0,panelY,panelZ,panelW,panelH,1);
+    setMT(1,panels,cX1,panelY,panelZ,panelW,panelH,1);
+    group.add(panels);groups.panels=panels;boardCount+=2;
+    // 每板左右侧与三个标高各一个边夹；不是悬在横向顶杆上的8个孤立夹块。
+    const clips=instanced(new THREE.BoxGeometry(0.028,0.020,0.018),clampMat,12);
+    let ci=0;
+    for(const cx of [cX0,cX1])for(const yy of [panelBottom+0.045,panelY,yTop-0.068]){
+      setMT(ci++,clips,cx-panelW/2,yy,panelZ+0.007);
+      setMT(ci++,clips,cx+panelW/2,yy,panelZ+0.007);
+    }
+    group.add(clips);groups.clips=clips;boardCount+=12;
+    const trims=instanced(trimGeo,clampMat,2);
+    setMT(0,trims,cX0-panelW/2,panelY,panelZ,1,panelH,1);
+    setMT(1,trims,cX1+panelW/2,panelY,panelZ,1,panelH,1);
+    group.add(trims);groups.panelTrims=trims;
+    const papers=instanced(boardVGeo,mat.paper,3);
+    const zP=panelZ+0.007;
+    setMT(0,papers,cX0,panelY,zP,panelW*.80,panelH*.78,1);
+    setMT(1,papers,cX1,panelY+panelH*.22,zP,panelW*.80,panelH*.40,1);
+    setMT(2,papers,cX1,panelY-panelH*.22,zP,panelW*.80,panelH*.36,1);
+    group.add(papers);groups.panelPapers=papers;boardCount+=5;
+    stats.panes=[{label:'双联展板（白）',areaM2:+(2*panelW*panelH).toFixed(3),kind:'panel'}];
+    stats.cutList.push({spec:'双联白色展板 12mm',section:'板',len:+panelW.toFixed(3),
+      width:+panelH.toFixed(3),thickness:0.012,qty:2,pricedViaPane:true});
   } else if (style === 'acrylic') {
     // 亚克力展示屏：整张透明板挂柱身正面，丝印文字条两行
     // 板高：同样受顶档横杆约束，顶边不得高于 yTop - 0.05
@@ -420,19 +440,21 @@ export function buildRodRack(config) {
     + nBlocks * 0.01 + (casters ? 4 * 0.12 : 4 * 0.03)
     + (style === 'panel' ? 2 * 1.4 : 0) + (style === 'acrylic' ? 0.2 : 0)
     + (style === 'poster' && backPanel === 'poster' ? 0.2 : 0);
-  stats.partCount = 2 + 2 + 4 + 2 + nDiag + nDiag + boardCount + nBlocks + wheelParts;
+  stats.partCount = 2 + 2 + 4 + 2 + nDiag + nDiag + boardCount + nBlocks + wheelParts + panelSupportCount;
+  stats.profileLengthM += panelSupportLength;
+  stats.weightKg += panelSupportWeight;
 
   // ---- 算料单 ----
   const addCut = (spec, dia, len, qty) => {
     const prev = stats.cutList.find(c => c.spec === spec && Math.abs(c.len - len) < 1e-6);
     if (prev) prev.qty += qty; else stats.cutList.push({ spec, section: '⌀' + dia, len, qty });
   };
-  addCut('光轴立柱', '20', +postLen.toFixed(3), 2);
-  addCut('底叉长杆', '20', +(forkHalf * 2).toFixed(3), 2);
+  addCut('光轴立柱', '20', +postLen.toFixed(3), style==='panel'?3:2);
+  addCut('底叉长杆', '20', +(forkHalf * 2).toFixed(3), style==='panel'?3:2);
   addCut('底盘横轴', '20', +(W + 0.02).toFixed(3), 2);
   addCut('置物框/档杆', '12', +railLen.toFixed(3), 4);
   addCut('框侧连接轴', '12', +(zFrame * 2).toFixed(3), 2);
-  addCut('底盘斜撑', '12', +diagLen.toFixed(3), 4);
+  addCut('底盘斜撑', '12', +diagLen.toFixed(3), style==='panel'?6:4);
   if (shelf === 'deck') addCut('层板托梁', '12', +(W - 0.06).toFixed(3), 2);
   if (shelf === 'tray') addCut('窄托板承托光轴', '12', +railLen.toFixed(3), 2);
   if (backPanel !== 'none') stats.cutList.push({ spec: backPanel === 'zinc' ? '镀锌背板' : '海报背板', section: '板', len: +Math.min(W - 0.10, yTop - yMid).toFixed(2), qty: 1, pricedViaPane: true });
@@ -457,12 +479,17 @@ export function buildRodRack(config) {
     ...(backPanel !== 'none' ? [{ name: '背板挂扣', qty: 4 }] : []),
     ...(shelf === 'deck' ? [{ name: '层板托夹', qty: 4 }] : []),
     ...(shelf === 'tray' ? [{ name: '窄托板承托端夹（示意）', qty: 4 }] : []),
+    ...(style==='panel' ? [
+      { name:'双联展板竖杆夹具', qty:12 },
+      { name:'中心立柱底叉/斜撑夹块', qty:5 },
+      { name:casters?'双联展板中心万向轮 2 寸':'双联展板中心调平地脚', qty:2 },
+    ] : []),
   ];
 
   // 支撑点（标记层数据源）：轮/脚在底叉端头 z=±forkHalf
   stats.supports = {
     kind: casters ? 'casters' : 'feet',
-    points: postXs.flatMap((x) => [forkHalf, -forkHalf].map((z) => [x, 0, z])),
+    points: (style==='panel'?[...postXs,0]:postXs).flatMap((x)=>[forkHalf,-forkHalf].map(z=>[x,0,z])),
   };
   stats.envelope = computeEnvelope(group);
   return {

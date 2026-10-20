@@ -162,7 +162,8 @@ function buildGlbProps(layout, config) {
     archSculptureGeo, blockSculptureGeo, stepSculptureGeo
   );
 
-  const kinds = ['elMagStack', 'elMagStanding', 'sculpture', 'tallVase', 'geometricVase'];
+  // 无书挡的开放层板禁止孤立竖书：只用平铺/叠放。雕塑与器皿保持原样。
+  const kinds = ['elMagStack', 'elMagStack', 'sculpture', 'tallVase', 'geometricVase'];
   // 摆件落点：型材层板条顶面 .03；磨砂亚克力整板顶面 .008（板厚 8mm 贴合座落在下层支承条顶面）
   const deckTopY = k => k * .46 + (decks[k] === 'acrylic' ? .008 : .03);
 

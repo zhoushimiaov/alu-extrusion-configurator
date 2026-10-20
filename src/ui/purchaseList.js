@@ -28,11 +28,16 @@ export function buildPurchaseRows(stats,kind='profile',cfg={}) {
     const qty=Math.max(0,Math.trunc(Number(h.qty)||0)); if(!qty)continue;
     details.push(['五金/配件',String(h.name||'未命名五金'),'','','','','件',qty,product,'型号及连接件需采购复核']);
   }
-  const namedBoards=new Set(details.filter(x=>x[0]==='板件').map(x=>x[1]));
+  const normalizePanelName = value => String(value)
+    .replace(/[（(]([^）)]*)[）)]/g,'$1')
+    .replace(/\s+/g,'')
+    .replace(/[^\p{L}\p{N}]/gu,'')
+    .toLowerCase();
+  const namedBoards=new Set(details.filter(x=>x[0]==='板件').map(x=>normalizePanelName(x[1])));
   for(const p of stats.panes||[]){
     const label=String(p.label||'板面材料');
-    // 已在 cutList 的板件不重复采购，采购数量取板件 BOM 一次。
-    if(namedBoards.has(label))continue;
+    // panes 是面积报价项，不得把“玻璃副层板 8mm”和“玻璃副层板（8mm）”当两份采购。
+    if(namedBoards.has(normalizePanelName(label)))continue;
     const area=round(Number(p.areaM2));
     if(!Number.isFinite(area))continue;
     details.push(['板材/面材',label,p.kind||'','','','','㎡',area,product,'按面积核价；切割尺寸及片数待工程图确定']);

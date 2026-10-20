@@ -2,6 +2,7 @@
 // 各产品的枚举标签文案由 main.js 通过 registerLabels() 显式注册（替代 window.__ALU_LABELS 全局注入）；
 // 未注册时会抛错并指明缺失的 kind，调用方需保证导出前已注册。
 import { summarizeBom } from './bomSummary.js';
+import { purchaseXlsx, purchaseCsv } from './purchaseList.js';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -179,16 +180,18 @@ ${row(['注：长度为未验证装配假设的演示结果，非加工指令；
   return xml;
 }
 
-/** 触发浏览器下载（kind: 'profile' | 'rod'）。SpreadsheetML 内容配 .xml 后缀，
- *  Excel / WPS 直接打开且无"格式与扩展名不匹配"警告。 */
-export function downloadCutlist(cfg, stats, kind = 'profile') {
-  const xml = buildCutlistWorkbook(cfg, stats, kind);
-  const blob = new Blob(['\ufeff' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+/** 采购清单导出：默认真正 .xlsx（两张工作表），也可选通用 CSV。原 buildCutlistWorkbook 仅保留旧 API 兼容。 */
+export function downloadCutlist(cfg, stats, kind = 'profile', format = 'xlsx') {
+  const csv = format === 'csv';
+  const data = csv ? purchaseCsv(stats, kind, cfg) : purchaseXlsx(stats, kind, cfg);
+  const blob = new Blob([data], { type: csv ? 'text/csv;charset=utf-8' :
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const name = kind === 'hanger' ? `挂衣架算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'woodcart' ? `光轴木展车算料单.xml` : kind === 'crates' ? `周转箱收纳架算料单_${cfg.tiers}层.xml` : kind === 'cart' ? `移动边几算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'rod' ? `光轴展架算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'books' ? `光轴书架算料单_${cfg.style === 'table' ? '长桌' : cfg.bays + '跨' + cfg.levels + '层'}.xml` : `铝型材置物架算料单_${cfg.bays}x${cfg.levels}.xml`;
-  a.download = name;
+  const suffix = kind === 'books' ? (cfg.style === 'table' ? '阅读长桌' : '展示杂志架')
+    : { hanger:'挂衣架', woodcart:'光轴木展车', crates:'周转箱架', cart:'移动边几', rod:'光轴展架',profile:'铝型材置物架' }[kind] || kind;
+  a.download = `MEKIT采购清单_${suffix}.${csv ? 'csv' : 'xlsx'}`;
   document.body.appendChild(a);
   a.click();
   a.remove();

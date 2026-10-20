@@ -137,6 +137,15 @@ export function generateSpanglePixels(S = 1024, G = 46, seed = 20261004) {
 
 export function getSpangleTexture() {
   if (shared) return shared;
+  if (typeof document === 'undefined') {
+    // Node 几何自检无需 Canvas/WebGL；返回有效可复制的1像素DataTexture。
+    // 浏览器仍使用下方真实1024px细晶粒纹理。
+    shared = new THREE.DataTexture(new Uint8Array([186,188,191,255]),1,1);
+    shared.needsUpdate = true;
+    shared.colorSpace = THREE.SRGBColorSpace;
+    shared.wrapS = shared.wrapT = THREE.RepeatWrapping;
+    return shared;
+  }
   const S = 1024;
   const c = document.createElement('canvas');
   c.width = c.height = S;

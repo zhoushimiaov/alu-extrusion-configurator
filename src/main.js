@@ -25,7 +25,7 @@ import { createRodPanel, rodStore, calcRodPrice } from './ui/rodPanel.js';
 import { createCartPanel, cartStore, calcCartPrice } from './ui/cartPanel.js';
 import { createWoodCartPanel, woodcartStore, calcWoodCartPrice } from './ui/woodCartPanel.js';
 import { createHangerPanel, hangerStore, calcHangerPrice } from './ui/hangerPanel.js';
-import { createBookshelfPanel, bookshelfStore, calcBookshelfPrice } from './ui/bookshelfPanel.js';
+import { createBookshelfPanel, bookshelfStore, tableStore, calcBookshelfPrice } from './ui/bookshelfPanel.js';
 import { createSheetPanel, sheetStore } from './ui/sheetPanel.js';
 import { createSheetPlaceholder, buildSheetCabinet, sheetPreviewStats, downloadOriginalSheetGlb } from './core/buildSheetCabinet.js';
 import { DEFAULT_SHEET_CONFIG, SHEET_ORIGINAL } from './config/sheet.js';
@@ -61,6 +61,7 @@ registerLabels('woodcart', { WOOD_TONES });
 registerLabels('crates', { CRATE_SCHEMES });
 registerLabels('hanger', { HANGER_COLORS, HANGER_STYLES, ATELIER_TONES, ATELIER_MODULES });
 registerLabels('books', { PANEL_MATERIALS, BOOK_STYLES });
+registerLabels('table', { PANEL_MATERIALS, BOOK_STYLES });
 
 const canvas = document.getElementById('gl');
 const dimSvg = document.getElementById('dim-layer');
@@ -104,7 +105,7 @@ if (supportMarkers) { scene.add(supportMarkers.group); supportMarkers.setVisible
 const GROUND_PREVIEW = /[?&]ground=1/.test(location.search);
 const groundContact = (webglFailed || !GROUND_PREVIEW) ? null : createGroundContact();
 if (groundContact) scene.add(groundContact.group);
-let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : /^#books/.test(location.hash) ? 'books' : /^#sheet(?:[/?#]|$)/.test(location.hash) ? 'sheet' : 'profile';
+let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : /^#books/.test(location.hash) ? 'books' : /^#table/.test(location.hash) ? 'table' : /^#sheet(?:[/?#]|$)/.test(location.hash) ? 'sheet' : 'profile';
 
 // ---- 配置恢复：分享链接（hash ?c=）优先，其次 localStorage ----
 // 白名单已由 persist.pickPersisted 按产品 schema 统一过滤，这里只做注入。
@@ -112,7 +113,7 @@ let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.h
 const PRODUCT_STORES = {
   profile: store, rod: rodStore, cart: cartStore,
   crates: cratesStore, woodcart: woodcartStore, hanger: hangerStore,
-  books: bookshelfStore,
+  books: bookshelfStore, table: tableStore,
   sheet: sheetStore,
 };
 for (const [kind, s] of Object.entries(PRODUCT_STORES)) {
@@ -143,7 +144,7 @@ let sheetCurrent = null;    // 镀锌板书架 GLB 原型
 let sheetLoadVersion = 0; // 控制异步 GLB 载入与产品切换之间的竞态
 let panel = null;
 const center = new THREE.Vector3(0, 0, 0);
-const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : productKind === 'books' ? booksCurrent : productKind === 'sheet' ? sheetCurrent : current);
+const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : (productKind === 'books' || productKind === 'table') ? booksCurrent : productKind === 'sheet' ? sheetCurrent : current);
 
 // 场景处理：阴影已全局关闭，此处仅按产品包围盒调整主光位置
 function stageProduct(p) {
@@ -251,9 +252,9 @@ function rebuildCrates({ isEntrance = false } = {}) {
 }
 
 function rebuildBooks({ isEntrance = false } = {}) {
-  if (webglFailed || productKind !== 'books') return;
+  if (webglFailed || !['books', 'table'].includes(productKind)) return;
   const t0 = performance.now();
-  const cfg = bookshelfStore.get();
+  const cfg = (productKind === 'table' ? tableStore : bookshelfStore).get();
   if (booksCurrent) { scene.remove(booksCurrent.group); booksCurrent.dispose(); }
   booksCurrent = buildBookshelf(cfg);
   scene.add(booksCurrent.group);
@@ -403,7 +404,7 @@ function syncSheetStatsOnly() {
 }
 
 function syncBooksStatsOnly() {
-  const cfg = bookshelfStore.get();
+  const cfg = (productKind === 'table' ? tableStore : bookshelfStore).get();
   const b = buildBookshelf(cfg);
   hud.syncReadout(cfg, b.stats);
   panel.updateStats(b.stats);
@@ -841,11 +842,40 @@ const bookActions = {
   },
 };
 
+// 同一几何构造函数但拥有独立产品身份：购物车、导出和分享链接均保持“阅读长桌”。
+const tableActions = {
+  onPrint: makePrintAction('table'),
+  onAdd: (cfg) => {
+    const quote = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = `阅读长桌 ${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m`;
+    const { totalCount } = addConfigItem({
+      kind:'table', title:'阅读长桌', summary, priceText:quote, cfg,
+    });
+    showToast(`已加入配置清单（${totalCount} 件） · ${summary}`);
+  },
+  onExport: (cfg) => {
+    const stats=panel?.lastStats;
+    if (!stats?.cutList) return showToast('采购数据生成中，请稍候重试');
+    downloadCutlist(cfg,stats,'table');
+    showToast('阅读长桌 XLSX 采购清单已导出');
+  },
+  onExportModel: async () => {
+    if (!booksCurrent?.group) return showToast('模型生成中，请稍候重试');
+    try {
+      const name=await downloadModel(booksCurrent.group,'table',tableStore.get());
+      showToast('3D 模型已导出 · '+name);
+    } catch (error) {
+      console.error('[MEKIT] reading table model export failed:',error);
+      showToast('模型导出失败，请重试');
+    }
+  },
+};
+
 // 同一份模型 BOM 给所有产品分别输出 XLSX / CSV；CSV 用于通用采购系统。
 for (const [kind, actions] of [
   ['profile', profileActions], ['rod', rodActions], ['cart', cartActions],
   ['crates', cratesActions], ['woodcart', woodcartActions],
-  ['books', bookActions],
+  ['books', bookActions], ['table', tableActions],
 ]) {
   actions.onExportCsv = (cfg) => {
     const stats = panel?.lastStats;
@@ -959,9 +989,11 @@ function mountActiveProduct() {
     panel = createSheetPanel(panelRoot, sheetActions);
     if (webglFailed) syncSheetStatsOnly(); else rebuildSheet({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
-  } else if (productKind === 'books') {
+  } else if (productKind === 'books' || productKind === 'table') {
     setInstallSteps(INSTALL_STEPS_BOOKSHELF);
-    panel = createBookshelfPanel(panelRoot, bookActions);
+    panel = createBookshelfPanel(panelRoot,
+      productKind === 'table' ? tableActions : bookActions,
+      { kind: productKind, store: productKind === 'table' ? tableStore : bookshelfStore });
     if (webglFailed) syncBooksStatsOnly(); else rebuildBooks({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'hanger') {
@@ -1024,6 +1056,7 @@ const SHARE_META = {
   profile: ['工业铝型材置物架', '逐层逐跨自由规划，实时算料报价，一键导出算料单与 3D 模型。'],
   rod: ['光轴展架', '双光轴立柱移动展示架：海报画面、镀锌背板与滚轮底盘，展陈更轻盈。'],
   books: ['光轴书架', '铬管框架阅读装置：斜面展板逐层陈列，交叉拉索张紧，木箱脚轮基座。'],
+  table: ['阅读长桌', '连续实木台面、光轴承托框架与可选玻璃展示副层板。'],
   sheet: ['镀锌板书架', 'MEKIT 设计系统第八类结构：真实 Rhino GLB 材料柜原型，板材构造与折边后续参数化。'],
   cart: ['移动边几', '光轴 + 玻璃/亚克力台面的极简移动边几，小空间随手移动。'],
   crates: ['周转箱架', '2040 铝架 + 抽拉式物流周转箱：层数可调、箱色自由搭配，满载可推行。'],
@@ -1110,6 +1143,7 @@ const PRODUCT_SUBS = [
   { kind: 'woodcart', store: woodcartStore, rebuild: (opts) => rebuildWoodCart(opts), statsOnly: () => syncWoodCartStatsOnly() },
   { kind: 'hanger', store: hangerStore, rebuild: (opts) => rebuildHanger(opts), statsOnly: () => syncHangerStatsOnly() },
   { kind: 'books', store: bookshelfStore, rebuild: (opts) => rebuildBooks(opts), statsOnly: () => syncBooksStatsOnly() },
+  { kind: 'table', store: tableStore, rebuild: (opts) => rebuildBooks(opts), statsOnly: () => syncBooksStatsOnly() },
   { kind: 'sheet', store: sheetStore, rebuild: (opts) => rebuildSheet(opts), statsOnly: () => syncSheetStatsOnly() },
 ];
 for (const { kind, store: s, rebuild, statsOnly, extra } of PRODUCT_SUBS) {
@@ -1374,7 +1408,7 @@ if (webglFailed) {
   // QA 直达:#rod/side 或 #rod/front 时用对应静止视角替代入场动画
   const viewMatch = location.hash.startsWith('#node')
     ? [null, 'node']
-    : location.hash.match(/^#(?:rod|books|sheet|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
+    : location.hash.match(/^#(?:rod|books|table|sheet|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
   if (viewMatch) {
     const vp = anims.viewPos(viewMatch[1], active().bounds);
     camera.position.copy(vp.pos);

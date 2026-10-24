@@ -11,7 +11,8 @@
 浏览器
   │
   ▼
-rack.means.group ──(CNAME, 纯 DNS)──▶ Vercel 边缘（反向代理，纯 rewrite）
+rack.means.group  ──(CNAME, 纯 DNS)──▶ Vercel 边缘（反向代理，纯 rewrite）
+mekit.means.group ──(CNAME, 纯 DNS)──▶ 同一个 Vercel 反代项目
                                         │
                                         ▼
                      <worker-name>.<account-subdomain>.workers.dev
@@ -164,7 +165,14 @@ checkout → setup-node(20, npm cache)
 ```powershell
 # 线上文件与本地构建产物一致（单文件构建，哈希可直接比）
 curl.exe -sS -o online.html https://rack.means.group/
+curl.exe -sS -o mekit-online.html https://mekit.means.group/
 ```
+
+`rack.means.group` 是既有主入口；`mekit.means.group` 是 MEKIT 品牌子域名，
+两者必须由同一个 Vercel `proxy-rack` 项目反代到 `modulo-alu-shelf` Worker。
+新域名接入时，先在 Vercel 项目登记 `mekit.means.group`，再在 Cloudflare DNS
+添加 `CNAME mekit → cname.vercel-dns.com`（DNS only）。不要为它另建 Worker，
+否则价格表、部署版本和 API 会分叉。部署工作流会同时校验两个域名。
 
 浏览器侧建议跑一遍仓库自带的 QA：
 

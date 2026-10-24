@@ -50,6 +50,12 @@ function resolveExactCase(absPath) {
   return { ok: true };
 }
 
+// Module specifiers may carry query strings/fragments for cache busting or
+// loader flags. Filesystem resolution applies only to the path portion.
+function withoutQueryOrFragment(spec) {
+  return spec.replace(/[?#].*$/, '');
+}
+
 const files = [...new Set(collectFiles(root))];
 const importRe = /(?:from\s+|import\s*\(\s*|^\s*import\s+)['"](\.[^'"]+)['"]/gm;
 const problems = [];
@@ -60,7 +66,7 @@ for (const file of files) {
   let m;
   while ((m = importRe.exec(text)) !== null) {
     const spec = m[1];
-    const base = path.resolve(path.dirname(file), spec);
+    const base = path.resolve(path.dirname(file), withoutQueryOrFragment(spec));
     checked++;
     const candidates = [base, base + '.js', base + '.mjs', base + '.cjs', base + '.css', path.join(base, 'index.js')];
     const hit = candidates.find((c) => fs.existsSync(c) || fs.existsSync(path.dirname(c)));

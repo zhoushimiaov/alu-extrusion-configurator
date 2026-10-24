@@ -8,11 +8,26 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 export function createAnims(camera, controls) {
   const tweens = [];
   let flight = null;
+  const assemblyTransforms = new WeakMap();
+  const connectorAppearance = new WeakMap();
+
+  function assemblyTransform(mesh) {
+    if (!assemblyTransforms.has(mesh)) {
+      assemblyTransforms.set(mesh, { position: mesh.position.clone(), scale: mesh.scale.clone() });
+    }
+    return assemblyTransforms.get(mesh);
+  }
+
+  function cancelObjectTweens(mesh) {
+    for (let i = tweens.length - 1; i >= 0; i--) {
+      if (tweens[i].owner === mesh) tweens.splice(i, 1);
+    }
+  }
 
   function now() { return performance.now(); }
 
-  function addTween({ dur, delay = 0, onUpdate, onDone }) {
-    tweens.push({ start: now() + delay, dur, onUpdate, onDone, fired: false });
+  function addTween({ dur, delay = 0, onUpdate, onDone, owner = null }) {
+    tweens.push({ start: now() + delay, dur, onUpdate, onDone, owner, fired: false });
   }
 
   function update() {
@@ -106,12 +121,14 @@ export function createAnims(camera, controls) {
     let idx = 0;
     for (const [name, mesh] of list) {
       if (!mesh || !mesh.isMesh || !mesh.material) continue;
-      const baseY = mesh.position.y;
-      const baseScaleY = mesh.scale.y;   // 原始 Y 缩放（可能 ≠1）
+      const base = assemblyTransform(mesh);
+      cancelObjectTweens(mesh);
+      const baseY = base.position.y;
+      const baseScaleY = base.scale.y;   // 原始 Y 缩放（可能 ≠1）
       mesh.position.y = baseY - 0.05;
       mesh.scale.y = baseScaleY * 0.001;
       addTween({
-        dur: 240, delay: idx * 60,
+        dur: 240, delay: idx * 60, owner: mesh,
         onUpdate: (e) => {
           mesh.position.y = baseY - 0.05 * (1 - e);
           mesh.scale.y = baseScaleY * (0.001 + 0.999 * e);
@@ -217,37 +234,82 @@ export function createAnims(camera, controls) {
       ['wheels', new THREE.Vector3(0, -0.15, 0)],
       ['feet', new THREE.Vector3(0, -0.12, 0)],
     ];
-    const conn = parts.conn;
-    if (REDUCED) {
-      for (const [name, off] of moves) {
-        const mesh = parts[name];
-        if (mesh) mesh.position.copy(on ? off : new THREE.Vector3(0, 0, 0));
+    // 同一对象的别名只移动一次；父装配已展开时子构件随父级移动，
+    // 避免挂衣杆同时收到 topRail 与 hangRail 两份局部位移。
+    const selected = new Map();
+    for (const [name, off] of moves) {
+      const mesh = parts[name];
+      if (mesh && !selected.has(mesh)) selected.set(mesh, off);
+    }
+    const topLevel = [...selected].filter(([mesh]) => {
+      for (let parent = mesh.parent; parent; parent = parent.parent) {
+        if (selected.has(parent)) return false;
       }
-      if (conn) conn.visible = !on;
+      return true;
+    });
+    const conn = parts.conn;
+    if (conn) {
+      // Connector fading also interrupts reveal. Restore its assembly scale
+      // and position before cancelling that tween, just as for moved parts.
+      const base = assemblyTransform(conn);
+      cancelObjectTweens(conn);
+      conn.position.copy(base.position);
+      conn.scale.copy(base.scale);
+    }
+    if (REDUCED) {
+      for (const [mesh, off] of topLevel) {
+        const base = assemblyTransform(mesh);
+        cancelObjectTweens(mesh);
+        mesh.position.copy(base.position);
+        if (on) mesh.position.add(off);
+        mesh.scale.copy(base.scale);
+      }
+      if (conn) {
+        if (!connectorAppearance.has(conn)) connectorAppearance.set(conn, { visible: conn.visible });
+        conn.visible = on ? false : connectorAppearance.get(conn).visible;
+      }
       return;
     }
     // 错峰绽放：爆炸时逐组 45ms 级联（上限 ~0.9s），收拢同步归位不等待——
     // 「整架同时炸开」改为「波浪绽放」，部件间因果关系可读
     let gi = 0;
-    for (const [name, off] of moves) {
-      const mesh = parts[name];
-      if (!mesh) continue;
+    for (const [mesh, off] of topLevel) {
+      const base = assemblyTransform(mesh);
+      cancelObjectTweens(mesh);
+      mesh.scale.copy(base.scale);
       const from = mesh.position.clone();
-      const to = on ? off : new THREE.Vector3(0, 0, 0);
-      addTween({ dur: 600, delay: on ? Math.min(gi * 45, 900) : 0, onUpdate: (e) => mesh.position.lerpVectors(from, to, e) });
+      const to = base.position.clone();
+      if (on) to.add(off);
+      addTween({ dur: 600, delay: on ? Math.min(gi * 45, 900) : 0, owner: mesh,
+        onUpdate: (e) => mesh.position.lerpVectors(from, to, e) });
       gi++;
     }
     if (conn) {
-      const mat = conn.material;
-      mat.transparent = true;
-      const fromO = mat.opacity ?? 1;
-      const toO = on ? 0 : 1;
-      addTween({
-        dur: 400, delay: on ? 0 : 250,
-        onUpdate: (e) => { mat.opacity = fromO + (toO - fromO) * e; },
-        onDone: () => { conn.visible = !on; },
+      const materials = Array.isArray(conn.material) ? conn.material : [conn.material];
+      if (!connectorAppearance.has(conn)) connectorAppearance.set(conn, {
+        visible: conn.visible,
+        materials: materials.map(mat => ({ opacity: mat.opacity, transparent: mat.transparent })),
       });
-      conn.visible = true;
+      const original = connectorAppearance.get(conn);
+      cancelObjectTweens(conn);
+      const fromO = materials.map(mat => mat.opacity ?? 1);
+      materials.forEach(mat => { mat.transparent = true; });
+      addTween({
+        dur: 400, delay: on ? 0 : 250, owner: conn,
+        onUpdate: (e) => materials.forEach((mat, i) => {
+          const target = on ? 0 : original.materials[i].opacity;
+          mat.opacity = fromO[i] + (target - fromO[i]) * e;
+        }),
+        onDone: () => {
+          conn.visible = on ? false : original.visible;
+          if (!on) materials.forEach((mat, i) => {
+            mat.opacity = original.materials[i].opacity;
+            mat.transparent = original.materials[i].transparent;
+            mat.needsUpdate = true;
+          });
+        },
+      });
+      conn.visible = original.visible;
     }
   }
 

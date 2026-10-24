@@ -34,7 +34,7 @@ test('WUDA 双联展板：三根独立落地光轴、两块同面长幅板、12�
     assert.equal(p.groups.panels.count,2);
     assert.equal(p.groups.clips.count,12);
     assert.equal(p.groups.panelCenterAxleLinks.count,2);
-    assert.equal(p.groups.panelCenterTopCollars.count,2);
+    assert.equal(p.groups.panelCenterTopCollars.count,3);
     assert.equal(p.groups.panelOuterAxleSleeves.count,4);
     for(let i=0;i<p.groups.forks.count;i++)
       near(inst(p.groups.forks,i).sc.z,0.4,'outer fork rod must reach wheel-end blocks');
@@ -59,8 +59,8 @@ test('阅读长桌：玻璃副层板所有支座完整创建，2mm垫片严格�
     try{
       const {tableGlass,tableGlassStandoffs,tableGlassPads,tableUnderRails,tableTop,tableTopJoints}=p.groups;
       const W=n*0.7;
-      assert.equal(tableGlassStandoffs.count,2*(n+1));
-      assert.equal(tableGlassPads.count,2*(n+1));
+      assert.equal(tableGlassStandoffs.count,8);
+      assert.equal(tableGlassPads.count,8);
       assert.equal(tableUnderRails.count,2);
       assert.equal(tableTopJoints.count,2*(n+1));
       const bottom=tableGlass.position.y-tableGlass.geometry.parameters.height/2;
@@ -103,7 +103,7 @@ test('镀锌板书架：原模型不改网格，右侧真实薄金属收口；�
       assert.ok(cap);
       assert.equal(cap.children[0].name,'RightEndCapThinSheet');
       near(cap.children[0].geometry.parameters.width,p.stats.displayDetails.thicknessMm/1000,'actual thin edge cap');
-      near(cap.children[0].position.x,p.bounds.W/2-0.008,'right-edge termination');
+      near(cap.children[0].position.x, p.bounds.W / 2 + p.stats.displayDetails.thicknessMm / 2000, 'right-edge termination on visible exterior');
       assert.equal(p.stats.meshCount,44,'same Rhino original meshes');
       assert.equal(p.stats.prototypeOnly,true);
       assert.equal(p.stats.cutList.length,0,'do not pretend display shell is verified cut list');

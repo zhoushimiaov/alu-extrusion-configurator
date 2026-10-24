@@ -4,16 +4,18 @@ import './fonts.css';
 import './styles.css';
 import { createScene } from './core/scene.js';
 import { createPostFX } from './core/postfx.js';
-import { buildShelf } from './core/buildShelf.js';
+import { buildReviewedShelf as buildShelf } from './core/buildReviewedShelf.js';
 import { buildGlbFrame, computeGlbStats } from './core/buildGlbFrame.js';
 import { retreatShelfBackPanels } from './core/shelfBackPanel.js';
 import './core/backPanelFinishes.js';
 import { declutterProps } from './core/propsDeclutter.js';
 import { decoratePanel } from './ui/panelDecor.js';
+import { withAssemblyDimensions } from './ui/reviewedPanel.js';
 import { initConfigList, addConfigItem } from './ui/configList.js';
 import { buildRodRack } from './core/buildRodRack.js';
 import { createAnims } from './core/anims.js';
-import { createDimensions } from './core/dimensions.js';
+import { createReviewedDimensions as createDimensions } from './core/reviewedDimensions.js';
+import { measureAssembly } from './core/assemblyEnvelope.js';
 import { createHotspots } from './core/hotspots.js';
 import { createRodHandles } from './core/rodHandles.js';
 import { createSupportMarkers } from './core/supportMarkers.js';
@@ -41,9 +43,9 @@ import { maybeStartTour } from './ui/tour.js';
 import { downloadCutlist } from './ui/cutlist.js';
 import { registerLabels } from './ui/cutlist.js';
 import { printCurrentReport } from './ui/printReport.js';
-import { downloadModel } from './ui/modelExport.js';
+import { captureAssemblyPose, downloadModel } from './ui/modelExport.js';
 import { onMarketRefresh } from './ui/marketPrice.js';
-import { loadSaved, persist } from './ui/persist.js';
+import { loadSaved, persist, migrateLegacyTableStorage, resolveStartupProduct, resolveProductConfig } from './ui/persist.js';
 import { INSTALL_STEPS } from './config/product.js';
 import { INSTALL_STEPS_ROD, BACK_TYPES, SHELF_TYPES, ROD_COLORS } from './config/rodrack.js';
 import { INSTALL_STEPS_CART, ACRYLIC_TYPES, WOOD_FINISHES } from './config/cart.js';
@@ -105,7 +107,10 @@ if (supportMarkers) { scene.add(supportMarkers.group); supportMarkers.setVisible
 const GROUND_PREVIEW = /[?&]ground=1/.test(location.search);
 const groundContact = (webglFailed || !GROUND_PREVIEW) ? null : createGroundContact();
 if (groundContact) scene.add(groundContact.group);
-let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : /^#books/.test(location.hash) ? 'books' : /^#table/.test(location.hash) ? 'table' : /^#sheet(?:[/?#]|$)/.test(location.hash) ? 'sheet' : 'profile';
+migrateLegacyTableStorage();
+const initialProduct = resolveStartupProduct();
+let productKind = initialProduct.kind;
+if (initialProduct.migrated) history.replaceState(null, '', initialProduct.hash);
 
 // ---- 配置恢复：分享链接（hash ?c=）优先，其次 localStorage ----
 // 白名单已由 persist.pickPersisted 按产品 schema 统一过滤，这里只做注入。
@@ -116,15 +121,27 @@ const PRODUCT_STORES = {
   books: bookshelfStore, table: tableStore,
   sheet: sheetStore,
 };
+const assemblyPoses = new WeakMap();
+function poseFor(product) {
+  if (!product?.group) return null;
+  let pose = assemblyPoses.get(product);
+  if (!pose) {
+    pose = captureAssemblyPose(product.group);
+    assemblyPoses.set(product, pose);
+  }
+  return pose;
+}
+function exportModel(product, kind, meta) {
+  if (!product?.group) throw new Error(`No active ${kind} model`);
+  return downloadModel(product.group, kind, meta, { assemblyPose: poseFor(product) });
+}
 for (const [kind, s] of Object.entries(PRODUCT_STORES)) {
   const saved = loadSaved(kind);
   if (saved && Object.keys(saved).length) {
-    if (kind === 'profile' && saved.frameMode === 'standard') {
-      saved.frameMode = 'glb';
-    }
     s.set(saved);
   }
 }
+if (initialProduct.migrated) persist(productKind, PRODUCT_STORES[productKind].get());
 
 let current = null;      // 型材架
 function syncPriceNote() {
@@ -149,6 +166,12 @@ const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart
 // 场景处理：阴影已全局关闭，此处仅按产品包围盒调整主光位置
 function stageProduct(p) {
   if (!p || !p.group) return;
+  // Capture the finished assembly after visibility/back-panel processing and
+  // before entrance/explosion animation. Dimensions must stay on that assembly.
+  p.assemblyExtent = measureAssembly(p.group);
+  if (p.stats) p.stats.envelope = p.assemblyExtent.envelope;
+  p.dimensionBounds = { ...p.assemblyExtent.envelope, minY: p.assemblyExtent.min[1] };
+  poseFor(p);
   if (p.bounds) fitShadow(p.bounds);
   if (groundContact) groundContact.sync(p.stats?.envelope || p.bounds);
   if (supportMarkers) {
@@ -167,7 +190,10 @@ function stageProduct(p) {
     }
     supportMarkers.setPoints(points);
   }
-  if (xrayOn) applyXrayTo(p.group, true);
+  // XRay is a session-level view state. stageProduct runs after every product
+  // mount/rebuild, including async sheet completion, so all products follow
+  // the same HUD state instead of only the product that was active at toggle.
+  applyXrayTo(p.group, xrayOn);
 }
 
 
@@ -534,7 +560,7 @@ const hud = createHud(hudLeft, hudRight, {
     if (name === 'node') {
       controls.autoRotate = false;
       if (act.groups) anims.explode(act.groups, false);
-      hudRight.querySelector('[aria-label="爆炸"]')?.classList.remove('on');
+      hudRight.querySelector('[aria-label="爆炸分解"]')?.classList.remove('on');
       applyExplodeAux(false);
       const target = currentJointTarget(act);
       const dir = camera.position.clone().sub(controls.target).normalize();
@@ -629,8 +655,16 @@ if (btnMobileFs && layoutEl) {
 // 打印 / 导出 PDF（各产品共用）：抓当前渲染帧快照 → A4 设计与报价单 iframe 打印
 function makePrintAction(kind) {
   return async () => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+    const product = active();
+    const stats = panel?.lastStats;
+    const store = PRODUCT_STORES[kind];
+    if (productKind !== kind || !product?.group || !stats?.cutList || !store) {
+      showToast('采购数据生成中,请稍候重试');
+      return;
+    }
+    const cfg = store.get();
+    const model = product.group;
+    const modelPose = poseFor(product);
     showToast('正在生成打印稿 …');
     let snapshot = null;
     if (!webglFailed && window.__ALU_CAPTURE) {
@@ -639,8 +673,12 @@ function makePrintAction(kind) {
         window.__ALU_CAPTURE((d) => { clearTimeout(timer); res(d); });
       });
     }
+    if (productKind !== kind || active()?.group !== model || poseFor(active()) !== modelPose) {
+      showToast('产品已切换，请重新生成打印稿');
+      return;
+    }
     try {
-      await printCurrentReport({ kind, cfg: PRODUCT_STORES[kind].get(), stats: s, snapshot });
+      await printCurrentReport({ kind, cfg, stats, snapshot });
     } catch (err) {
       console.error('[ALU] print report failed:', err);
       showToast('打印稿生成失败,请重试');
@@ -671,7 +709,7 @@ const profileActions = {
   onExportModel: async () => {
     if (!current || !current.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(current.group, 'profile', store.get());
+      const name = await exportModel(current, 'profile', store.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] model export failed:', err);
@@ -703,7 +741,7 @@ const rodActions = {
   onExportModel: async () => {
     if (!rodCurrent || !rodCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(rodCurrent.group, 'rod', rodStore.get());
+      const name = await exportModel(rodCurrent, 'rod', rodStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] rod model export failed:', err);
@@ -735,7 +773,7 @@ const cartActions = {
   onExportModel: async () => {
     if (!cartCurrent || !cartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(cartCurrent.group, 'cart', cartStore.get());
+      const name = await exportModel(cartCurrent, 'cart', cartStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] cart model export failed:', err);
@@ -767,7 +805,7 @@ const cratesActions = {
   onExportModel: async () => {
     if (!cratesCurrent || !cratesCurrent.group) { showToast(`模型生成中,请稍候重试`); return; }
     try {
-      const name = await downloadModel(cratesCurrent.group, 'crates', cratesStore.get());
+      const name = await exportModel(cratesCurrent, 'crates', cratesStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] crates model export failed:', err);
@@ -799,7 +837,7 @@ const woodcartActions = {
   onExportModel: async () => {
     if (!woodCartCurrent || !woodCartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(woodCartCurrent.group, 'woodcart', woodcartStore.get());
+      const name = await exportModel(woodCartCurrent, 'woodcart', woodcartStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] woodcart model export failed:', err);
@@ -833,7 +871,7 @@ const bookActions = {
   onExportModel: async () => {
     if (!booksCurrent || !booksCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(booksCurrent.group, 'books', bookshelfStore.get());
+      const name = await exportModel(booksCurrent, 'books', bookshelfStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] books model export failed:', err);
@@ -862,7 +900,7 @@ const tableActions = {
   onExportModel: async () => {
     if (!booksCurrent?.group) return showToast('模型生成中，请稍候重试');
     try {
-      const name=await downloadModel(booksCurrent.group,'table',tableStore.get());
+      const name=await exportModel(booksCurrent,'table',tableStore.get());
       showToast('3D 模型已导出 · '+name);
     } catch (error) {
       console.error('[MEKIT] reading table model export failed:',error);
@@ -899,7 +937,7 @@ const sheetActions = {
       showToast('深化模型正在生成，请稍候'); return;
     }
     try {
-      const name = await downloadModel(sheetCurrent.group, 'sheet', sheetStore.get());
+      const name = await exportModel(sheetCurrent, 'sheet', sheetStore.get());
       showToast(`深化 3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[MEKIT] detailed sheet GLB export failed:', err);
@@ -942,7 +980,7 @@ const hangerActions = {
   onExportModel: async () => {
     if (!hangerCurrent || !hangerCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(hangerCurrent.group, 'hanger', hangerStore.get());
+      const name = await exportModel(hangerCurrent, 'hanger', hangerStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] hanger model export failed:', err);
@@ -1003,9 +1041,9 @@ function mountActiveProduct() {
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else {
     setInstallSteps(INSTALL_STEPS);
-    const inner = createPanel(panelRoot, profileActions);
+    const inner = withAssemblyDimensions(createPanel(panelRoot, profileActions), panelRoot);
     decoratePanel(panelRoot, { onPrint: () => profileActions.onPrint() }); // 分区标题/行布局/打印按钮（panel.js 原封，装饰在接线层注入）
-    panel = { ...inner, dispose() { /* 原封 panel.js 无显式资源；容器已由上方 innerHTML 清空 */ } };
+    panel = inner;
     syncPriceNote();
     if (webglFailed) syncStatsOnly(); else rebuild({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
@@ -1121,9 +1159,10 @@ syncSwitchLabel();
 
 // 初始化配置清单系统
 initConfigList((kind, cfg) => {
-  switchTo(kind);
-  const targetStore = PRODUCT_STORES[kind];
-  if (targetStore && cfg) targetStore.set(cfg);
+  const resolved = resolveProductConfig(kind, cfg);
+  switchTo(resolved.kind);
+  const targetStore = PRODUCT_STORES[resolved.kind];
+  if (targetStore && resolved.cfg) targetStore.set(resolved.cfg);
 });
 
 // 防抖（每个 store 独立定时器，参数微调只重构终态，不触发入场动画）
@@ -1330,7 +1369,9 @@ if (webglFailed) {
       try { cb(canvas.toDataURL('image/jpeg', 0.88)); } catch { cb(null); }
     }
     if (a && !backView) {
-      dims.update(a.stats?.envelope || a.bounds, center);
+      if (a.assemblyExtent) center.fromArray(a.assemblyExtent.center);
+      else center.set(0, 0, 0);
+      dims.update(a.dimensionBounds || a.stats?.envelope || a.bounds, center);
       nudgeDimLabels();
       if (productKind === 'profile') hotspots.sync();
       else rodHandles.sync();

@@ -268,7 +268,7 @@ export function createPanel(root, actions) {
   }
 
   syncSpecs(cfg);
-  store.subscribe(syncSpecs);
+  const unsubscribe = store.subscribe(syncSpecs);
 
   const weightEl = priceBlock.querySelector('[data-weight]');
   function updateStats(stats) {
@@ -277,5 +277,5 @@ export function createPanel(root, actions) {
     weightEl.textContent = `自重 ${stats.weightKg.toFixed(1)} kg`;
     updatePriceBlock(priceBlock, stats); // 报价随算料实时联动（市场价 × 材料量）
   }
-  return { weightEl, updateStats };
+  return { weightEl, updateStats, dispose: unsubscribe };
 }

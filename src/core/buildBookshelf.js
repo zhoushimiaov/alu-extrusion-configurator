@@ -51,6 +51,8 @@ function instanced(geo, mat, count) {
 const STEEL_DENSITY = 7850;  // 铬管钢 kg/m3
 const MDF_DENSITY = 9.5;     // 展板密度 kg/m3（约 12mm 板）
 const WOOD_DENSITY = 8.2;    // 木箱基座 kg/m3
+const GLASS_DENSITY = 2500;   // 钢化玻璃密度 kg/m3
+const ALU_DENSITY = 2700;    // 铝合金五金件密度 kg/m3
 
 export function buildBookshelf(config) {
   const cfg = { ...DEFAULT_BOOKSHELF_CONFIG, ...config };
@@ -63,6 +65,9 @@ export function buildBookshelf(config) {
   let steelVol = 0;      // 钢材体积 m3
   let boardArea = 0;     // 展板面积 m2
   let woodVol = 0;       // 木材体积 m3
+  let glassWeight = 0;   // 玻璃总重 kg
+  let bracketWeight = 0; // 斜层板托臂总重 kg
+  let standoffWeight = 0; // 亚克力standoff总重 kg
   let partCount = 0;
 
   const railGeo = new THREE.CylinderGeometry(1, 1, 1, 14);
@@ -113,13 +118,17 @@ export function buildBookshelf(config) {
       glass.position.y = tableH + 0.1;
       group.add(glass);
       groups.tableGlass=glass;
+      const glassArea = (W - 0.04) * (D - 0.02);
+      glassWeight = glassArea * 0.008 * GLASS_DENSITY;
       stats.cutList.push({ spec: '玻璃副层板 8mm', section: '板',
         len:+(W-0.04).toFixed(3),width:+(D-0.02).toFixed(3),thickness:0.008,
         qty:1,pricedViaPane:true });
-      stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +((W - 0.04) * (D - 0.02)).toFixed(3), kind: 'glass' });
+      stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +glassArea.toFixed(3), kind: 'glass' });
       // 每条节边界前后各一处支撑：原先分配8个实例、只放6个，另外2根出现在原点。
+      // 保留默认三跨桌的八个支点，只按台面尺寸定位，与下部跨数/腿位解耦。
       // 支撑上沿0.094、减震垫0.094~0.096、玻璃底面0.096，严格连续接触。
-      const nStand=(cfg.tBays+1)*2;
+      const glassSupportXs=[-W/2+0.035,-W/6,W/6,W/2-0.035];
+      const nStand=glassSupportXs.length*2;
       const standGeo=new THREE.CylinderGeometry(0.005,0.005,0.094,12);
       const stands=instanced(standGeo,mat.block,nStand);
       const padGeo=new THREE.CylinderGeometry(0.011,0.011,0.002,16);
@@ -128,9 +137,7 @@ export function buildBookshelf(config) {
       const headGeo=new THREE.CylinderGeometry(0.012,0.012,0.004,16);
       const heads=instanced(headGeo,mat.block,nStand);
       let si=0;
-      for(let b=0;b<=cfg.tBays;b++){
-        const rawX=-W/2+b*cfg.tBayW;
-        const x=b===0?-W/2+0.035:b===cfg.tBays?W/2-0.035:rawX;
+      for(const x of glassSupportXs){
         for(const z of [D/2-0.045,-D/2+0.045]){
           setMT(si,stands,x,tableH+0.047,z);
           setMT(si,standPads,x,tableH+0.095,z);
@@ -143,6 +150,9 @@ export function buildBookshelf(config) {
       groups.tableGlassPads=standPads;
       groups.tableStandoffFeet=heads;
       partCount+=3*nStand;
+      const standVol = nStand * Math.PI * 0.005 * 0.005 * 0.094;
+      const headVol = nStand * Math.PI * 0.012 * 0.012 * 0.004;
+      steelVol += standVol + headVol;
       stats.hardware.push(
         {name:'玻璃副层板支承立柱 Ø10 ×94mm',qty:nStand},
         {name:'玻璃端座/金属帽',qty:nStand},
@@ -243,6 +253,12 @@ export function buildBookshelf(config) {
       {spec:'底层/中层横向连续光轴 ⌀12',section:'⌀12',len:+(W+0.026).toFixed(3),qty:nRails},
       {spec:'底层/中层进深贯通拉杆 ⌀12',section:'⌀12',len:+(D-0.06).toFixed(3),qty:nTies},
     );
+
+    // 支撑点标记数据（TABLE-01）：与真实脚垫点位完全一致
+    stats.supports = {
+      kind: 'feet',
+      points: bndXs.flatMap(x => jointZ.map(z => [x, 0, z])),
+    };
   } else {
     // ================ 展示塔 ================
     const W = cfg.bays * cfg.bayW;
@@ -254,6 +270,9 @@ export function buildBookshelf(config) {
     const frameH = cfg.levels * pitch;
     const postTop = postBase + frameH + 0.07; // 立柱顶部出头
     const tiltRad = (cfg.tilt * Math.PI) / 180;
+    const dz = D - 0.055;
+    const dy = dz * Math.tan(tiltRad);
+    const len = Math.hypot(dy, dz);
 
     // ---- 立柱：每跨边界前后各一，顶部出头 ----
     const bndXs = [];
@@ -275,8 +294,8 @@ export function buildBookshelf(config) {
     // ---- 每层横杆：前低杆 / 后高杆（每跨分段）+ 顶层后杆 ----
     const railSegs = [];
     for (let i = 0; i < cfg.levels; i++) {
-      const yLow = postBase + i * pitch + 0.05;
-      const yHigh = postBase + (i + 1) * pitch;
+      const yLow = postBase + i * pitch + 0.04;
+      const yHigh = yLow + dy + 0.024;
       for (let b = 0; b < cfg.bays; b++) {
         const x0 = bndXs[b], x1 = bndXs[b + 1];
         railSegs.push([x0, yLow, D / 2, x1, yLow, D / 2]);
@@ -305,6 +324,7 @@ export function buildBookshelf(config) {
     groups.rails = rails;
 
     // ---- P2：真实节点语义：银色立柱抱箍，而不是覆盖整根柱子的 30mm 黑方块 ----
+    // 开口金属抱箍，内部原有的 ⌀18 竖杆可以透过端面看到。
     // 同一坐标可能被相邻两跨/顶层前后杆重复引用，需去重避免夹块叠面。
     const clampNodes = new Map();
     const addClampNode = (x, y, z) => {
@@ -318,7 +338,6 @@ export function buildBookshelf(config) {
     const jointMaterial = new THREE.MeshStandardMaterial({
       color: 0x939da4, metalness: 0.86, roughness: 0.29,
     });
-    // 开口金属抱箍，内部原有的 ⌀18 竖杆可以透过端面看到。
     const collarGeometry = () => new THREE.CylinderGeometry(0.013, 0.013, 0.024, 16, 1, true);
     const clamps = instanced(collarGeometry(), jointMaterial, clampPositions.length);
     clampPositions.forEach(([x, y, z], i) => setMT(i, clamps, x, y, z));
@@ -353,22 +372,21 @@ export function buildBookshelf(config) {
     const nPanels = cfg.levels * cfg.bays;
     const panelGeo = new THREE.BoxGeometry(1, 1, 0.014);
     const panels = instanced(panelGeo, panelMat, nPanels);
-    const lipGeo = new THREE.BoxGeometry(1, 0.03, 0.012);
+    const lipTangentThickness = 0.012;
+    const lipNormalHeight = 0.028;
+    const lipGeo = new THREE.BoxGeometry(1, lipTangentThickness, lipNormalHeight);
     const lips = instanced(lipGeo, panelMat, nPanels);
     const panelPlacements = []; // 与层板同源的书本摆放姿态，避免各自计算造成角度偏差
     let bi = 0;
     for (let i = 0; i < cfg.levels; i++) {
-      const yLow = postBase + i * pitch + 0.05;
-      const yHigh = postBase + (i + 1) * pitch;
+      const yLow = postBase + i * pitch + 0.04;
+      const yHigh = yLow + dy + 0.024;
       for (let b = 0; b < cfg.bays; b++) {
         const cx = (bndXs[b] + bndXs[b + 1]) / 2;
         const w = cfg.bayW - 0.05;
         // 板：下沿在前横杆上方，上沿靠后横杆下方
         const yb = yLow + 0.012, zb = D / 2 - 0.025;
         const yt = yHigh - 0.012, zt = -D / 2 + 0.03;
-        const dy = yt - yb, dz = zb - zt;
-        const len = Math.hypot(dy, dz);
-        setMT(bi, panels, cx, (yb + yt) / 2, (zb + zt) / 2, w, len, 1);
         // 旋转：BoxGeometry 的长度轴为 Y，绕 X 轴旋转 θ 后 Y 轴指向 (0, cosθ, -sinθ)
         // 需要 Y 轴对齐 (0, dy, -dz)/len → θ = atan2(dz, dy)
         _q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.atan2(-dz, dy));
@@ -376,18 +394,27 @@ export function buildBookshelf(config) {
         _s.set(w, len, 1);
         _m4.compose(_p, _q, _s);
         panels.setMatrixAt(bi, _m4);
+        // 层板局部 XY 平面旋转后的坡向与正面法线（单位向量）。
         panelPlacements.push({
           cx, level: i, bay: b,
           center: _p.clone(),
           rotation: _q.clone(),
           width: w,
           length: len,
-          // 层板局部 XY 平面旋转后的坡向与正面法线（单位向量）。
           tangent: new THREE.Vector3(0, dy / len, -dz / len),
           normal: new THREE.Vector3(0, dz / len, dy / len),
         });
         // 前挡唇：竖向小条贴在板下沿前方
-        setMT(bi, lips, cx, yb + 0.012, zb + 0.012, w - 0.004, 1, 1);
+        // 直接从真实层板的坡向/法线推导，绝不使用独立的“层高 + 经验角度”。
+        // 切向中心在 -len/2 - lipTangentThickness/2，法向中心对齐层板半厚 0.014/2，
+        // 形成完全贴合前端面的无穿透面接触（法向覆盖层板厚并凸出14mm作为挡书边唇）
+        const lipTangentOffset = -len / 2 - lipTangentThickness / 2;
+        const lipNormalOffset = 0.014 / 2;
+        const lipPos = _p.clone()
+          .addScaledVector(new THREE.Vector3(0, dy / len, -dz / len), lipTangentOffset)
+          .addScaledVector(new THREE.Vector3(0, dz / len, dy / len), lipNormalOffset);
+        _m4.compose(lipPos, _q, _s.set(w, 1, 1));
+        lips.setMatrixAt(bi, _m4);
         boardArea += w * len;
         partCount += 2;
         bi++;
@@ -399,12 +426,16 @@ export function buildBookshelf(config) {
     groups.lips = lips;
 
     // ---- P1：斜层板侧向光轴支承 ----
-    // 直接从真实层板的坡向/法线推导，绝不使用独立的“层高 + 经验角度”。
     // 每跨左右斜撑外挂于立柱外侧30mm，轴心位于板下表面下7mm（杆半径5mm + 2mm净距）。
     // 其两端与前后整根 X 向贯穿横杆在同一个 Y/Z 平面交汇。
+    // 斜撑外挂在每跨边界立柱外侧，而非藏在跨内。
+    // 每层前、后各一整根杆，跨数变化时仍是连续的一根而非节点拼接件。
+    // 斜杆端的转接抱箍沿杆轴线套入；贯穿横杆则由立柱金属抱箍固定。
+    // 从斜板中心出发，沿坡向延长到前后节点 Z 截面，保证斜撑始终与斜板平行。
+    // 杆中心在整架的 X=0 位置：左右各外伸100mm，穿过所有立柱与外挂斜撑接头。
+    // 与原横杆抱箍位置近乎重合的节点不再重复套筒；贯穿横杆在各柱心处抱紧。
     const diagRadius = 0.005;
     const stubRadius = 0.0055;
-    // 斜撑外挂在每跨边界立柱外侧，而非藏在跨内。
     const outerOffset = 0.03; // 立柱轴线到外挂斜撑轴线：30mm
     const rodOverhang = 0.10; // 每层贯穿横杆在最外侧立柱外各伸出100mm
     const throughRodLength = W + rodOverhang * 2;
@@ -412,11 +443,8 @@ export function buildBookshelf(config) {
     const zFrontJoint = D / 2 - 0.004;
     const zBackJoint = -D / 2 + 0.004;
     const sideDiagSupports = instanced(strutGeo, mat.rod, nPanels * 2);
-    // 每层前、后各一整根杆，跨数变化时仍是连续的一根而非节点拼接件。
     const sideStubSupports = instanced(railGeo, mat.rod, cfg.levels * 2);
-    // 斜杆端的转接抱箍沿杆轴线套入；贯穿横杆则由立柱金属抱箍固定。
     const sideDiagCouplers = instanced(strutGeo, jointMaterial, nPanels * 4);
-    // 从斜板中心出发，沿坡向延长到前后节点 Z 截面，保证斜撑始终与斜板平行。
     const endpointsOf = (panel) => {
       const axisCenter = panel.center.clone().addScaledVector(panel.normal, -normalClearance);
       const atZ = z => axisCenter.clone().addScaledVector(
@@ -443,13 +471,12 @@ export function buildBookshelf(config) {
     }
     let si = 0;
     for (let i = 0; i < cfg.levels; i++) {
-      // 杆中心在整架的 X=0 位置：左右各外伸100mm，穿过所有立柱与外挂斜撑接头。
       const [front, back] = endpointsOf(panelPlacements[i * cfg.bays]);
       for (const p of [front, back]) {
         setMT(si++, sideStubSupports, 0, p.y, p.z, throughRodLength, stubRadius, stubRadius);
       }
     }
-    // 与原横杆抱箍位置近乎重合的节点不再重复套筒；贯穿横杆在各柱心处抱紧。
+
     const sideCollarPoints = [];
     const isNearbyCollar = (a, b) =>
       Math.abs(a[0] - b[0]) < 0.001 &&
@@ -469,6 +496,43 @@ export function buildBookshelf(config) {
     const sidePostCollars = sideCollarPoints.length
       ? instanced(collarGeometry(), jointMaterial, sideCollarPoints.length) : null;
     sideCollarPoints.forEach(([x, y, z], i) => setMT(i, sidePostCollars, x, y, z));
+
+    // 层板承托托臂（BOOK-01）：将有限层板下表面桥接到外挂斜撑
+    // 80mm 宽铝合金承托托臂（厚14mm、沿坡向深30mm），从外挂斜撑中心延伸至板底边缘内侧
+    const bracketWidth = 0.080;
+    const bracketTangentLen = 0.030;
+    const bracketNormalThick = 0.014;
+    const bracketGeo = new THREE.BoxGeometry(bracketWidth, bracketTangentLen, bracketNormalThick);
+    const shelfBrackets = instanced(bracketGeo, mat.blockAlu || mat.block, nPanels * 4);
+    let bki = 0;
+    for (const panel of panelPlacements) {
+      const leftBraceX = bndXs[panel.bay] - outerOffset;
+      const rightBraceX = bndXs[panel.bay + 1] + outerOffset;
+      const leftPanelEdgeX = bndXs[panel.bay] + 0.025;
+      const rightPanelEdgeX = bndXs[panel.bay + 1] - 0.025;
+      const leftBracketX = (leftBraceX + leftPanelEdgeX) / 2;
+      const rightBracketX = (rightBraceX + rightPanelEdgeX) / 2;
+
+      for (const bx of [leftBracketX, rightBracketX]) {
+        for (const tFrac of [-0.28, 0.28]) {
+          // 法向中心设在 -bracketNormalThick (-0.014)，上表面对齐板底 -0.007，底面及中心完全包裹斜撑圆杆（轴心位于 -0.014）
+          const bPos = panel.center.clone()
+            .addScaledVector(panel.tangent, tFrac * panel.length)
+            .addScaledVector(panel.normal, -bracketNormalThick);
+          bPos.x = bx;
+          _s.set(1, 1, 1);
+          _m4.compose(bPos, panel.rotation, _s);
+          shelfBrackets.setMatrixAt(bki++, _m4);
+        }
+      }
+    }
+    group.add(shelfBrackets);
+    groups.shelfBrackets = shelfBrackets;
+    partCount += nPanels * 4;
+    stats.hardware.push({ name: '斜层板承托托臂', qty: nPanels * 4 });
+    const bracketVol = (nPanels * 4) * bracketWidth * bracketTangentLen * bracketNormalThick;
+    bracketWeight = bracketVol * ALU_DENSITY;
+
     group.add(sideDiagSupports, sideStubSupports, sideDiagCouplers);
     if (sidePostCollars) group.add(sidePostCollars);
     groups.sideDiagSupports = sideDiagSupports;
@@ -495,18 +559,18 @@ export function buildBookshelf(config) {
       const bookThickness = 0.018; // 18mm 的平铺样书；比层板薄
       const panelThickness = 0.014;
       const surfaceGap = 0.002; // 避免与斜面展板发生 z-fighting
+      // 复用层板本身的倾斜旋转，不能将 XZ 面的书套用 XY 面的旋转。
+      // 书中心在板长从前下沿起的28%处（原38%），靠近下部挡唇，仍不越出板边。
+      // 书的下表面位于层板上表面之上 2mm；法线与层板始终一致。
       const booksGroup = new THREE.Group();
       booksGroup.name = 'displayBooks';
       const bookGeo = new THREE.BoxGeometry(1, 1, 1);
-      // 复用层板本身的倾斜旋转，不能将 XZ 面的书套用 XY 面的旋转。
       panelPlacements.forEach((panel, index) => {
         const bm = new THREE.MeshStandardMaterial({
           color: bookColors[index % bookColors.length], roughness: 0.8, metalness: 0.02,
         });
         const book = new THREE.Mesh(bookGeo, bm);
         book.name = `displayBook_${index}`;
-        // 书中心在板长从前下沿起的28%处（原38%），靠近下部挡唇，仍不越出板边。
-        // 书的下表面位于层板上表面之上 2mm；法线与层板始终一致。
         book.position.copy(panel.center)
           .addScaledVector(panel.tangent, -panel.length * 0.22)
           .addScaledVector(panel.normal, panelThickness / 2 + bookThickness / 2 + surfaceGap);
@@ -522,31 +586,48 @@ export function buildBookshelf(config) {
     stats.panes = [{ label: `斜面展板 ${panelCfg.label}`, areaM2: +boardArea.toFixed(3), kind: 'board' }];
 
     // ---- 亚克力前挡 ----
+    // （BOOK-02：具有足够净容纳厚度不穿书，且含两侧独立 standoff）
     if (cfg.acrylic) {
-      const acrGeo = new THREE.BoxGeometry(1, 1, 0.005);
+      const acrThickness = 0.005;
+      const acrGeo = new THREE.BoxGeometry(1, 1, acrThickness);
       const acr = instanced(acrGeo, mat.acrylicClear, nPanels);
-      let ai = 0;
-      for (let i = 0; i < cfg.levels; i++) {
-        const yLow = postBase + i * pitch + 0.05;
-        const yHigh = postBase + (i + 1) * pitch;
-        for (let b = 0; b < cfg.bays; b++) {
-          const cx = (bndXs[b] + bndXs[b + 1]) / 2;
-          const w = cfg.bayW - 0.05;
-          const yb = yLow + 0.012, zb = D / 2 - 0.025;
-          const yt = yHigh - 0.012, zt = -D / 2 + 0.03;
-          const dy = yt - yb, dz = zb - zt;
-          const len = Math.hypot(dy, dz) - 0.06;
-          _q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.atan2(-dz, dy));
-          _p.set(cx, (yb + yt) / 2, (zb + zt) / 2 + 0.028);
-          _s.set(w - 0.02, len, 1);
-          _m4.compose(_p, _q, _s);
-          acr.setMatrixAt(ai++, _m4);
-          partCount++;
+      // standoff 从层板前表面 (0.014/2 = 0.007) 延伸至亚克力后表面
+      // 间隙包含 0.002 表面间隙 + 0.018 样书厚度 + 0.008 书前余量 = 0.028m
+      const standoffLen = 0.028;
+      const standoffRadius = 0.006;
+      const standoffGeo = new THREE.CylinderGeometry(standoffRadius, standoffRadius, 1, 12);
+      standoffGeo.rotateX(Math.PI / 2);
+      const standoffs = instanced(standoffGeo, mat.blockAlu || mat.block, nPanels * 2);
+      let ai = 0, soi = 0;
+      const acrNormalOffset = 0.014 / 2 + standoffLen + acrThickness / 2; // = 0.0375
+      const standoffNormalPos = 0.014 / 2 + standoffLen / 2; // = 0.021
+      for (const panel of panelPlacements) {
+        const acrCenter = panel.center.clone()
+          .addScaledVector(panel.tangent, -panel.length * 0.20)
+          .addScaledVector(panel.normal, acrNormalOffset);
+        const acrLen = panel.length * 0.45;
+        _s.set(panel.width - 0.02, acrLen, 1);
+        _m4.compose(acrCenter, panel.rotation, _s);
+        acr.setMatrixAt(ai++, _m4);
+
+        // 真实支座 standoff：位于样书两侧（X 间距远避开样书，绝不穿书），两端分别严格贴合板前表面与亚克力后表面
+        for (const sx of [-1, 1]) {
+          const soPos = panel.center.clone()
+            .addScaledVector(new THREE.Vector3(1, 0, 0), sx * (panel.width / 2 - 0.025))
+            .addScaledVector(panel.tangent, -panel.length * 0.20)
+            .addScaledVector(panel.normal, standoffNormalPos);
+          _s.set(1, 1, standoffLen);
+          _m4.compose(soPos, panel.rotation, _s);
+          standoffs.setMatrixAt(soi++, _m4);
         }
       }
-      group.add(acr);
+      group.add(acr, standoffs);
       groups.acrylic = acr;
+      groups.acrylicStandoffs = standoffs;
+      partCount += nPanels + nPanels * 2;
       stats.hardware.push({ name: '亚克力前挡（含 standoff）', qty: nPanels });
+      const standoffVol = (nPanels * 2) * Math.PI * (standoffRadius ** 2) * standoffLen;
+      standoffWeight = standoffVol * ALU_DENSITY;
     }
 
     // ---- 交叉拉索：布在每跨边界的侧面（前后立柱之间的窄面），防前后晃、不挡取书 ----
@@ -606,12 +687,17 @@ export function buildBookshelf(config) {
         const x = sx * (W / 2 - 0.06), z = sz * (D / 2 - 0.04);
         return { x, z, yaw: outwardYaw(x, z, 'x') };
       }));
-      const wheels = buildCasters(pts, { H: baseY0, wheelD: 0.034, wheelW: 0.015, trail: 0.01, mount: 'plate', plate: 0.036, brake: false, palette: 'black' });
+      const wheels = buildCasters(pts, { H: baseY0, wheelD: 0.034, wheelW: 0.015, trail: 0.01, mount: 'plate', plate: 0.036, brake: true, palette: 'black' });
       group.add(wheels);
       groups.wheels = wheels;
+      const towerTrail = 0.01;
       stats.supports = {
         kind: 'casters',
-        points: [-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx * (W / 2 - 0.06), 0, sz * (D / 2 - 0.04)])),
+        points: pts.map(p => [
+          p.x - towerTrail * Math.cos(p.yaw || 0),
+          0,
+          p.z + towerTrail * Math.sin(p.yaw || 0)
+        ]),
       };
       partCount += 4;
     } else {
@@ -631,7 +717,13 @@ export function buildBookshelf(config) {
   // ---- 统计 ----
   stats.profileLengthM = +rodLen.toFixed(1);
   stats.partCount = partCount;
-  stats.weightKg = +(steelVol * STEEL_DENSITY + boardArea * MDF_DENSITY + woodVol * WOOD_DENSITY).toFixed(1);
+  stats.weightKg = +(
+    steelVol * STEEL_DENSITY
+    + boardArea * MDF_DENSITY
+    + woodVol * WOOD_DENSITY
+    + bracketWeight + standoffWeight
+    + (cfg.style === 'table' && cfg.glassTop !== false ? glassWeight : 0)
+  ).toFixed(1);
   stats.envelope = computeEnvelope(group);
   return {
     group,

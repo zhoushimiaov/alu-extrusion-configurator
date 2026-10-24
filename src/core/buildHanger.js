@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import { computeEnvelope } from './envelope.js';
 import { POST_D, DENSITY_ALU, DENSITY_PLY, DEFAULT_HANGER_CONFIG, HANGER_COLORS, ATELIER_TONES } from '../config/hanger.js';
-import { buildCasters, buildLevelFeet, outwardYaw } from './casters.js';
+import { buildCasters, buildLevelFeet, outwardYaw, resolveActualWheelD } from './casters.js';
 
 const _m4 = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -233,17 +233,21 @@ function buildClassic(cfg) {
   groups.shelf = shelf;
   stats.weightKg += shelfW * shelfD * shelfT * DENSITY_PLY;
 
-  // 顶板落在四只金属托片上，托片用同一表面材质，板边和框架装配有明确承托。
+  // 顶板落在四只金属托片上：托片顶面紧贴搁板底面，外侧紧贴纵梁圆管外壁，形成实体支承。
   const shelfTabs = new THREE.Group();
   shelfTabs.name = 'topShelfSupportTabs';
   const tabGeo = new THREE.BoxGeometry(0.070, 0.006, 0.052);
-  for (const x of [-px + 0.055, px - 0.055])
-    for (const z of [-pz + 0.038, pz - 0.038]) {
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      // 纵梁在 x = sx * px，在 y = shelfTop - shelfT = yTopRail - 0.012 时其圆柱表面在 x = sx * (px - 0.009)
+      const tabX = sx * (px - 0.009 - 0.035);
+      const tabZ = sz * (pz - 0.045);
       const tab = new THREE.Mesh(tabGeo, matConnector);
       tab.name = 'topShelfTab';
-      tab.position.set(x, shelfTop - shelfT - 0.003, z);
+      tab.position.set(tabX, shelfTop - shelfT - 0.003, tabZ);
       shelfTabs.add(tab);
     }
+  }
   group.add(shelfTabs);
   groups.shelfTabs = shelfTabs;
   stats.weightKg += 4 * 0.070 * 0.006 * 0.052 * DENSITY_ALU;
@@ -310,6 +314,7 @@ function buildClassic(cfg) {
   groups.braceJoints = braceJoints;
   groups.bracePins = bracePins;
   groups.braceFrameCollars = braceFrameCollars;
+  stats.profileLengthM += 4 * braceLen;
   stats.weightKg += 4 * braceLen * Math.PI * braceRadius ** 2 * DENSITY_ALU
     + 8 * Math.PI * (0.012 ** 2 - braceRadius ** 2) * 0.038 * DENSITY_ALU
     + 8 * Math.PI * pinRadius ** 2 * pinLength * DENSITY_ALU
@@ -434,6 +439,40 @@ function buildClassic(cfg) {
   stats.profileLengthM += 2 * (frameLenX + frameLenZ);
   stats.weightKg += 2 * (frameLenX + frameLenZ) * 0.02 * 0.02 * DENSITY_ALU;
 
+  // 底部下柜承托梁：两根 2020 铝型材横跨左右底框纵梁，柜底平置其上，荷载直接传递到底框与地脚/轮组
+  const bearingLenX = W - POST_D - beamH;
+  const bearingBeamGeo = new THREE.BoxGeometry(bearingLenX, beamH, beamH);
+  const cabBearings = new THREE.Group();
+  cabBearings.name = 'cabinetBearingBeams';
+  const cabSupportZs = [-cabD * 0.28, cabD * 0.28];
+  for (let bi = 0; bi < cabSupportZs.length; bi++) {
+    const cb = new THREE.Mesh(bearingBeamGeo, matAlu);
+    cb.name = `cabinetBearingBeam_${bi}`;
+    cb.position.set(0, yBottom, cabSupportZs[bi]);
+    cabBearings.add(cb);
+  }
+  const cabBrackets = new THREE.Group();
+  cabBrackets.name = 'cabinetBearingBrackets';
+  const bracketGeo = new THREE.BoxGeometry(0.02, 0.02, 0.02);
+  for (let bi = 0; bi < cabSupportZs.length; bi++) {
+    const zBeam = cabSupportZs[bi];
+    const sz = bi === 0 ? 1 : -1;
+    for (const sx of [-1, 1]) {
+      const br = new THREE.Mesh(bracketGeo, matConnector);
+      br.name = `cabinetBearingBracket_${bi}_${sx > 0 ? 'R' : 'L'}`;
+      br.position.set(sx * (bearingLenX / 2 - 0.01), yBottom, zBeam + sz * 0.02);
+      cabBrackets.add(br);
+    }
+  }
+  cabBearings.add(cabBrackets);
+  group.add(cabBearings);
+  groups.cabinetBearings = cabBearings;
+  groups.cabinetBrackets = cabBrackets;
+  stats.profileLengthM += 2 * bearingLenX;
+  stats.weightKg += 2 * bearingLenX * 0.02 * 0.02 * DENSITY_ALU
+    + 4 * 0.02 ** 3 * DENSITY_ALU; // 四只连接块按当前简化实体体积核重
+  stats.partCount += 2 + 4;
+
   // ---- 8. 万向轮 / 调平地脚（平板贴底框四角，轮沿对角外偏）----
   const legPts = postXs.flatMap((x) => postZs.map((z) => ({ x, z, yaw: outwardYaw(x, z, 'diag') })));
   const palette = color === 'black' ? 'black' : 'chrome';
@@ -476,6 +515,13 @@ function buildClassic(cfg) {
           const terminal=new THREE.Mesh(terminalGeo,matConnector);
           terminal.name='sideXWireTerminal';
           terminal.position.copy(point);
+          // 柱侧端耳连接销：将钢索张紧端件直接锚固至立柱外壁，消除悬空断口
+          const lugGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.024, 10);
+          lugGeo.rotateZ(Math.PI / 2);
+          const lug = new THREE.Mesh(lugGeo, matConnector);
+          lug.name = 'sideXWirePostLug';
+          lug.position.set(-Math.sign(x) * 0.012, 0, 0);
+          terminal.add(lug);
           ends.add(terminal);
         }
       }
@@ -483,9 +529,11 @@ function buildClassic(cfg) {
     group.add(wireGroup, ends);
     groups.sideWires = wireGroup;
     groups.sideWireEnds = ends;
-    // 金属钢索体积与四根钢索总长；端部五金对应8处实物。
+    // 金属钢索体积与四根钢索总长；端部五金对应8处实物（含随附回接立柱销耳）。
+    const lugVol = Math.PI * 0.004 * 0.004 * 0.024;
+    const lugMass = 8 * lugVol * 7850;
     stats.profileLengthM += length * 4;
-    stats.weightKg += length * 4 * Math.PI * wireR * wireR * 7850;
+    stats.weightKg += length * 4 * Math.PI * wireR * wireR * 7850 + lugMass;
     stats.partCount += 12;
     stats.cutList.push({ spec: '侧面X拉索不锈钢丝绳 Ø2.4', section: '钢索Ø2.4', len: +length.toFixed(3), qty: 4 });
   }
@@ -507,6 +555,28 @@ function buildClassic(cfg) {
   addCut('后框贯穿横撑 ⌀14 光轴', '⌀14', rearLength, 1);
   addCut('底框横梁 2020', '20×20', frameLenX, 2);
   addCut('底框纵梁 2020', '20×20', frameLenZ, 2);
+  addCut('底框下柜承托梁 2020', '20×20', bearingLenX, 2);
+
+  // 经典款柜体与搁板木质构件下料清单
+  stats.cutList.push({ spec: '顶部置物搁板（26mm 胶合板）', section: '板', len: +shelfW.toFixed(3), width: +shelfD.toFixed(3), thickness: shelfT, qty: 1 });
+  stats.cutList.push({ spec: '下柜底板（15mm 胶合板）', section: '板', len: +cabW.toFixed(3), width: +cabD.toFixed(3), thickness: CAB_T, qty: 1 });
+  stats.cutList.push({ spec: '下柜侧板（15mm 胶合板）', section: '板', len: +cabH.toFixed(3), width: +cabD.toFixed(3), thickness: CAB_T, qty: 2 });
+  stats.cutList.push({ spec: '下柜背板（15mm 胶合板）', section: '板', len: +(cabW - 2 * CAB_T).toFixed(3), width: +(cabH - CAB_T).toFixed(3), thickness: CAB_T, qty: 1 });
+  stats.cutList.push({ spec: '下柜顶台板（20mm 饰面板）', section: '板', len: +(cabW + 0.016).toFixed(3), width: +(cabD + 0.016).toFixed(3), thickness: 0.02, qty: 1 });
+  if (nDrawers === 0) {
+    const inW = cabW - 2 * CAB_T - 0.004;
+    const inH = cabH - CAB_T;
+    const inD = cabD - CAB_T;
+    stats.cutList.push({ spec: '开放下柜横隔板（12mm 胶合板）', section: '板', len: +inW.toFixed(3), width: +inD.toFixed(3), thickness: 0.012, qty: 1 });
+    stats.cutList.push({ spec: '开放下柜立隔板（12mm 胶合板）', section: '板', len: +inH.toFixed(3), width: +inD.toFixed(3), thickness: 0.012, qty: 1 });
+  } else {
+    const drawerW = cabW - 0.018;
+    const marginY = 0.018;
+    const gapY = 0.008;
+    const totalDrawerH = cabH - marginY * 2;
+    const drawerH = (totalDrawerH - (nDrawers - 1) * gapY) / nDrawers;
+    stats.cutList.push({ spec: '抽屉面板（16mm 抽面）', section: '板', len: +drawerW.toFixed(3), width: +drawerH.toFixed(3), thickness: 0.016, qty: nDrawers });
+  }
 
   stats.panes = [];
   stats.hardware = [
@@ -521,8 +591,9 @@ function buildClassic(cfg) {
     { name: '外挂斜撑梁柱金属抱箍', qty: 8 },
     { name: '外挂斜撑水平连接穿销', qty: 8 },
     { name: '底框压铸角件', qty: 4 },
+    { name: '下柜承托梁压铸角码', qty: 4 },
     ...(nDrawers > 0 ? [{ name: '铝合金极简横向拉手', qty: nDrawers }] : []),
-    ...(cfg.sideWires ? [{ name: 'X拉索张紧端件 Ø2.4', qty: 8 }] : []),
+    ...(cfg.sideWires ? [{ name: 'X拉索张紧端件 Ø2.4（含回接立柱销耳总成）', qty: 8 }] : []),
   ];
 
   stats.supports = {
@@ -927,11 +998,15 @@ function buildAtelier(cfg) {
     { name: 'V 形挂杆托架', qty: 2 },
     { name: '环形管夹', qty: 6 },
     ...(drawerCount ? [{ name: '抽屉滑轨（三节 · 按压回弹）', qty: drawerCount }] : []),
-    wheels ? { name: '隐藏式万向轮 1.5 寸（底座下）', qty: 4 } : { name: '底座防滑脚垫', qty: 4 },
+    wheels ? { name: `隐藏式万向轮 ⌀${Math.round(resolveActualWheelD({ H: CASTER_H, wheelD: 0.036 }) * 1000)}mm（安装高 ${Math.round(CASTER_H * 1000)}mm · 底座下）`, qty: 4 } : { name: '底座防滑脚垫', qty: 4 },
   ];
   stats.supports = {
     kind: wheels ? 'casters' : 'feet',
-    points: footPts.map(({ x, z }) => [x, 0, z]),
+    points: footPts.map(({ x, z }) => {
+      if (!wheels) return [x, 0, z];
+      const l = Math.hypot(x, z) || 1;
+      return [+(x + (x / l) * 0.012).toFixed(4), 0, +(z + (z / l) * 0.012).toFixed(4)];
+    }),
   };
   stats.envelope = computeEnvelope(group);
   return {

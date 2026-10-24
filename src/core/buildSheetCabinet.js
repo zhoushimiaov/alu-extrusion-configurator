@@ -64,9 +64,52 @@ export function createSheetPlaceholder() {
   };
 }
 
+// Exported so resource-ownership tests can cover the template clone path even
+// when the embedded production GLB happens to contain no textures.
+export function cloneSheetGroup(source) {
+  const clone = source.clone(true);
+  const geometries = new Set();
+  const materials = new Set();
+  const textures = new Set();
+  const textureClones = new Map();
+  const ownMaterial = (material) => {
+    if (!material) return material;
+    const owned = material.clone();
+    materials.add(owned);
+    for (const [slot, value] of Object.entries(owned)) {
+      if (!value?.isTexture) continue;
+      let texture = textureClones.get(value);
+      if (!texture) {
+        texture = value.clone();
+        textureClones.set(value, texture);
+        textures.add(texture);
+      }
+      owned[slot] = texture;
+    }
+    return owned;
+  };
+  clone.traverse((object) => {
+    if (!object.isMesh && !object.isLine && !object.isLineSegments) return;
+    if (object.geometry) {
+      object.geometry = object.geometry.clone();
+      geometries.add(object.geometry);
+    }
+    object.material = Array.isArray(object.material)
+      ? object.material.map(ownMaterial)
+      : ownMaterial(object.material);
+  });
+  return {
+    group: clone,
+    geometries: [...geometries],
+    materials: [...materials],
+    textures: [...textures],
+  };
+}
+
 export async function buildSheetCabinet(cfg = {}) {
   const { pivot, bounds, meshCount, guideCount } = await loadTemplate();
-  const group = pivot.clone(true);
+  const cloned = cloneSheetGroup(pivot);
+  const { group, geometries: templateGeometries, materials: templateMaterials, textures: templateTextures } = cloned;
   group.name = 'GalvanizedCabinet';
 
   // 永远保留用户的原始 GLB 模板；下方仅对当前场景副本追加展示层。
@@ -145,9 +188,9 @@ export async function buildSheetCabinet(cfg = {}) {
   const endCapGroup = new THREE.Group();
   endCapGroup.name = 'RightEndClosure';
   const endT = thickness;
-  const endX = bounds.W / 2 - 0.008;
-  const closureHeight = Math.max(0.3, bounds.H - 0.045);
-  const closureDepth = Math.max(0.15, bounds.D - 0.025);
+  const endX = bounds.W / 2 + endT / 2;
+  const closureHeight = bounds.H;
+  const closureDepth = bounds.D;
   const closureGeo = new THREE.BoxGeometry(endT, closureHeight, closureDepth);
   const closure = new THREE.Mesh(closureGeo, useSatin ? faceMetal : zincMetal);
   closure.name = 'RightEndCapThinSheet';
@@ -159,7 +202,7 @@ export async function buildSheetCabinet(cfg = {}) {
     const returnGeo = new THREE.BoxGeometry(0.012, closureHeight, endT);
     const returnEdge = new THREE.Mesh(returnGeo, edgeMetal);
     returnEdge.name = 'RightEndReturnFold';
-    returnEdge.position.set(endX-0.006, bounds.H/2, closureDepth/2-endT/2);
+    returnEdge.position.set(bounds.W / 2 + endT - 0.006, bounds.H / 2, closureDepth / 2 - endT / 2);
     endCapGroup.add(returnEdge);
     ownedGeometries.push(returnGeo);
     foldCount++;
@@ -167,7 +210,7 @@ export async function buildSheetCabinet(cfg = {}) {
   group.add(endCapGroup);
   const stats = {
     ...sheetPreviewStats(),
-    envelope: { ...bounds }, meshCount, guideCount,
+    envelope: computeEnvelope(group), meshCount, guideCount,
     displayDetails: {
       sheetSurfaces, foldCount, fastenerCount, rightEndClosure: true,
       thicknessMm: actualCfg.thicknessMm, finish: useSatin ? 'satin' : 'zinc',
@@ -178,6 +221,9 @@ export async function buildSheetCabinet(cfg = {}) {
     dispose() {
       group.removeFromParent();
       ownedGeometries.forEach(g => g.dispose());
+      templateTextures.forEach(t => t.dispose());
+      templateMaterials.forEach(m => m.dispose());
+      templateGeometries.forEach(g => g.dispose());
       faceMetal.dispose();
       zincMetal.dispose();
       edgeMetal.dispose();

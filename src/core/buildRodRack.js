@@ -97,22 +97,34 @@ export function buildRodRack(config) {
   group.add(socks);
   groups.socks = socks;
 
-  // ---- 置物框双杆 + 中档 + 顶档（⌀12 × W±0.08）----
-  const railLen = W + 0.08;
-  const rails = instanced(railXGeo, mat.rod, 4);
-  setMT(0, rails, 0, yFrame, zFrame, railLen, RAIL_D / 2, RAIL_D / 2);
-  setMT(1, rails, 0, yFrame, -zFrame, railLen, RAIL_D / 2, RAIL_D / 2);
-  setMT(2, rails, 0, yMid, 0, railLen, RAIL_D / 2, RAIL_D / 2);
-  setMT(3, rails, 0, yTop, 0, railLen, RAIL_D / 2, RAIL_D / 2);
+  // ---- 置物框双杆 + 中档 + 顶档（普通架）；双联展板改为三道单主杆 ----
+  // 双联展板下沿只用一根穿柱主杆；托板开启时才补进深承托。
+  const isPanel = style === 'panel';
+  const railLen = W + (isPanel ? 0.026 : 0.08);
+  const nRails = isPanel ? 3 : 4;
+  const nFrameEnds = isPanel && shelf === 'none' ? 0 : 2;
+  const frameHalf = isPanel ? (shelf === 'deck' ? zFrame-0.02 : 0.055) : zFrame;
+  const rails = instanced(railXGeo, mat.rod, nRails);
+  if (isPanel) {
+    for (const [i,y] of [yFrame,yMid,yTop].entries())
+      setMT(i,rails,0,y,0,railLen,RAIL_D/2,RAIL_D/2);
+  } else {
+    setMT(0, rails, 0, yFrame, zFrame, railLen, RAIL_D / 2, RAIL_D / 2);
+    setMT(1, rails, 0, yFrame, -zFrame, railLen, RAIL_D / 2, RAIL_D / 2);
+    setMT(2, rails, 0, yMid, 0, railLen, RAIL_D / 2, RAIL_D / 2);
+    setMT(3, rails, 0, yTop, 0, railLen, RAIL_D / 2, RAIL_D / 2);
+  }
   group.add(rails);
   groups.rails = rails;
 
   // ---- 框侧连接短轴（⌀12 × 框深，左右各一）----
-  const frameEnds = instanced(railZGeo, mat.rod, 2);
-  setMT(0, frameEnds, postXs[0], yFrame, 0, RAIL_D / 2, RAIL_D / 2, zFrame * 2);
-  setMT(1, frameEnds, postXs[1], yFrame, 0, RAIL_D / 2, RAIL_D / 2, zFrame * 2);
-  group.add(frameEnds);
-  groups.frameEnds = frameEnds;
+  if (nFrameEnds) {
+    const frameEnds = instanced(railZGeo, mat.rod, nFrameEnds);
+    for (const [i,x] of postXs.entries())
+      setMT(i,frameEnds,x,yFrame,0,RAIL_D/2,RAIL_D/2,frameHalf*2);
+    group.add(frameEnds);
+    groups.frameEnds = frameEnds;
+  }
 
   // ---- 底盘：每柱一根 ⌀20×0.4 Z 向底叉长杆 + 双 X 横轴 ----
   const forks = instanced(railZGeo, mat.rod, 2);
@@ -125,12 +137,13 @@ export function buildRodRack(config) {
   setMT(1, axles, 0, yAxle, -axleOff, W + 0.02, ROD_D / 2, ROD_D / 2);
   group.add(axles);
   groups.axles = axles;
-  // 立柱与底叉交接的锥套座（柱底两侧短轴）
+  // 立柱与底叉交接的锥套座（保留参考装配外观：20x12 截面短座示意，BOM归为过渡座总成）
   const forkZs = instanced(railZGeo, mat.rod, 4);
-  setMT(0, forkZs, postXs[0], yPost0 - 0.02, axleOff / 2, ROD_D / 2, RAIL_D / 2, axleOff + 0.05);
-  setMT(1, forkZs, postXs[0], yPost0 - 0.02, -axleOff / 2, ROD_D / 2, RAIL_D / 2, axleOff + 0.05);
-  setMT(2, forkZs, postXs[1], yPost0 - 0.02, axleOff / 2, ROD_D / 2, RAIL_D / 2, axleOff + 0.05);
-  setMT(3, forkZs, postXs[1], yPost0 - 0.02, -axleOff / 2, ROD_D / 2, RAIL_D / 2, axleOff + 0.05);
+  const forkZLen = axleOff + 0.05;
+  setMT(0, forkZs, postXs[0], yPost0 - 0.02, axleOff / 2, ROD_D / 2, RAIL_D / 2, forkZLen);
+  setMT(1, forkZs, postXs[0], yPost0 - 0.02, -axleOff / 2, ROD_D / 2, RAIL_D / 2, forkZLen);
+  setMT(2, forkZs, postXs[1], yPost0 - 0.02, axleOff / 2, ROD_D / 2, RAIL_D / 2, forkZLen);
+  setMT(3, forkZs, postXs[1], yPost0 - 0.02, -axleOff / 2, ROD_D / 2, RAIL_D / 2, forkZLen);
   group.add(forkZs);
   groups.forkZs = forkZs;
 
@@ -214,10 +227,9 @@ export function buildRodRack(config) {
     const midAxleLinks=instanced(new THREE.BoxGeometry(0.034,0.046,0.033),clampMat,2);
     setMT(0,midAxleLinks,0,(yAxle+yFork)/2,axleOff);
     setMT(1,midAxleLinks,0,(yAxle+yFork)/2,-axleOff);
-    // 上/中两道横杆从中心立柱穿过，补两只穿轴T节点，防止中柱与横杆独立漂浮。
-    const midTopCollars=instanced(new THREE.BoxGeometry(0.034,0.032,0.030),clampMat,2);
-    setMT(0,midTopCollars,0,yMid,0);
-    setMT(1,midTopCollars,0,yTop,0);
+    // 下/中/上三道主杆穿过中心立柱，各补一只穿轴T节点。
+    const midTopCollars=instanced(new THREE.BoxGeometry(0.034,0.032,0.030),clampMat,3);
+    for(const [i,y] of [yFrame,yMid,yTop].entries())setMT(i,midTopCollars,0,y,0);
     group.add(midAxleLinks,midTopCollars);
     groups.panelCenterAxleLinks=midAxleLinks;
     groups.panelCenterTopCollars=midTopCollars;
@@ -226,11 +238,11 @@ export function buildRodRack(config) {
     groups.panelCenterFork=midFork;
     groups.panelCenterBraces=midBraces;
     groups.panelCenterWheels=midWheels;
-    panelSupportCount=16; // 中柱/底叉/斜撑/轮组12，加跨层转接抱箍2、上中节点2
+    panelSupportCount=17; // 中柱/底叉/斜撑/轮组12，加跨层转接抱箍2、下中上节点3
     panelSupportLength=postLen+2*forkHalf+2*diagLen;
     panelSupportWeight=(postLen+2*forkHalf)*Math.PI*(ROD_D/2)**2*ROD_DENSITY
       +2*diagLen*Math.PI*(RAIL_D/2)**2*ROD_DENSITY
-      +2*(casters?.12:.03)+0.07;
+      +2*(casters?.12:.03)+0.08;
     const seam=0.022;
     const panelW=Math.max(0.18,(W-0.04-seam)/2);
     const panelBottom=yFrame+0.025;
@@ -265,9 +277,9 @@ export function buildRodRack(config) {
       width:+panelH.toFixed(3),thickness:0.012,qty:2,pricedViaPane:true});
   } else if (style === 'acrylic') {
     // 亚克力展示屏：整张透明板挂柱身正面，丝印文字条两行
-    // 板高：同样受顶档横杆约束，顶边不得高于 yTop - 0.05
+    // 板高：受顶档横杆约束，底沿随托板避让，避免穿透托板/层板
     const acrW = Math.min(W - 0.10, 0.70);
-    const acrBottomY = yMid - 0.30;
+    const acrBottomY = shelf !== 'none' ? yFrame + 0.025 : (yMid - 0.30);
     const acrH = Math.max(0.30, Math.min(yTop - 0.05 - acrBottomY, 1.55));
     const acrY = acrBottomY + acrH / 2;
     const acrGeo = new THREE.BoxGeometry(1, 1, 0.008);
@@ -305,18 +317,27 @@ export function buildRodRack(config) {
     group.add(strips);
     groups.printStrips = strips;
     boardCount += 2;
-    // 板夹（左右各两组）
+    // 板夹及回接立柱过渡件（左右各两组，通过真实转接臂连接夹具与立柱）
     const clipGeo = new THREE.BoxGeometry(0.05, 0.035, 0.032);
     const clips = instanced(clipGeo, clampMat, 4);
+    const armGeo = new THREE.BoxGeometry(1, 0.024, 0.028);
+    const acrPostArms = instanced(armGeo, clampMat, 4);
     let ci = 0;
     for (const sx of [-1, 1]) {
+      const postX = sx * W / 2;
+      const clipCenterX = sx * (acrW / 2 + 0.012);
+      const armLen = Math.abs(postX - clipCenterX);
+      const armCenterX = (clipCenterX + postX) / 2;
       for (const yy of [acrY - acrH / 2 + 0.08, acrY + acrH / 2 - 0.08]) {
-        setMT(ci++, clips, sx * (acrW / 2 + 0.012), yy, -0.014);
+        setMT(ci, clips, clipCenterX, yy, -0.014);
+        setMT(ci, acrPostArms, armCenterX, yy, -0.007, armLen, 1, 1);
+        ci++;
       }
     }
-    group.add(clips);
+    group.add(clips, acrPostArms);
     groups.clips = clips;
-    boardCount += 4;
+    groups.acrPostArms = acrPostArms;
+    boardCount += 8;
     stats.panes = [{ label: '亚克力展示屏（透明 8mm）', areaM2: +(acrW * acrH).toFixed(3), kind: 'acrylic' }];
   } else if (backPanel !== 'none') {
     const boardH = (yTop - yMid) * 1.0;     // 中档 → 顶档
@@ -355,7 +376,6 @@ export function buildRodRack(config) {
     setMT(0, tray, 0, yFrame + 0.008, 0, W - 0.13, 1, 0.15);
     group.add(tray);
     groups.tray = tray;
-    // 原托板 Z±75mm，置物框杆却在 Z±87mm：板底与杆件完全不接触。
     // 两根Ø12跨宽承托光轴放在板下 Z±55mm，板底高于 yFrame 7mm；
     // 光轴顶面位于 yFrame+7mm，实际接触板底，末端与左右侧框横杆交汇。
     const trayJoists = instanced(railXGeo, mat.rod, 2);
@@ -371,27 +391,33 @@ export function buildRodRack(config) {
     group.add(trayClips);
     groups.trayClips = trayClips;
     boardCount += 7;
-    stats.profileLengthM += 2 * railLen;
   } else if (shelf === 'deck') {
     // 全深层板：铺满双杆框（W-0.06 × 0.17），略超出框沿便于搭放
     const deck = instanced(boardHGeo, mat.zinc, 1);
     setMT(0, deck, 0, yFrame + 0.010, 0, W - 0.06, 1, zFrame * 2 + 0.03);
     group.add(deck);
     groups.rodDeck = deck;
-    // 层板托梁 ×2（⌀12，X 向，位于层板下方前后）
+    // 层板托梁 ×2（⌀12，X 向，位于层板下方前后，顶面严格接触板底）
+    const joistLen = isPanel ? railLen : W + 0.08;
     const joists = instanced(railXGeo, mat.rod, 2);
-    setMT(0, joists, 0, yFrame - 0.012, zFrame - 0.02, W - 0.06, RAIL_D / 2, RAIL_D / 2);
-    setMT(1, joists, 0, yFrame - 0.012, -zFrame + 0.02, W - 0.06, RAIL_D / 2, RAIL_D / 2);
+    setMT(0, joists, 0, yFrame + 0.003, zFrame - 0.02, joistLen, RAIL_D / 2, RAIL_D / 2);
+    setMT(1, joists, 0, yFrame + 0.003, -zFrame + 0.02, joistLen, RAIL_D / 2, RAIL_D / 2);
     group.add(joists);
     groups.rodJoists = joists;
     groups.joists = joists;
-    boardCount += 1;
-    stats.profileLengthM += 2 * (W - 0.06);
+    const deckClips = instanced(blockGeo, clampMat, 4);
+    let dci = 0;
+    for (const x of postXs) for (const z of [zFrame - 0.02, -zFrame + 0.02])
+      setMT(dci++, deckClips, x, yFrame + 0.003, z, 0.75, 0.65, 0.75);
+    group.add(deckClips);
+    groups.deckClips = deckClips;
+    boardCount += 5;
   }
 
-  // ---- T 型夹块（横杆与立柱交汇处 6 + 置物框侧连接 4 + 底盘横轴 4 = 14）----
-  // 此前写 12：右柱两只横轴夹块越界写入被丢弃（GLB 两柱横轴处各有两只夹块），模型与清单均少 2 件
-  const nBlocks = 14;
+  // ---- T 型夹块：立柱交汇6 + 可选置物框侧连接4 + 底盘横轴4 ----
+  // panel+tray 避免在同一坐标重复写入 T 块与 trayClips
+  const isPanelTray = isPanel && shelf === 'tray';
+  const nBlocks = 10 + (isPanelTray ? 0 : nFrameEnds * 2);
   const blocks = instanced(blockGeo, clampMat, nBlocks);
   let bi = 0;
   for (const y of [yFrame, yMid, yTop]) {
@@ -399,9 +425,9 @@ export function buildRodRack(config) {
       setMT(bi++, blocks, px, y, 0);
     }
   }
-  for (const px of postXs) {
-    setMT(bi++, blocks, px, yFrame, zFrame);
-    setMT(bi++, blocks, px, yFrame, -zFrame);
+  if (nFrameEnds && !isPanelTray) for (const px of postXs) {
+    setMT(bi++, blocks, px, yFrame, frameHalf);
+    setMT(bi++, blocks, px, yFrame, -frameHalf);
   }
   for (const px of postXs) {
     setMT(bi++, blocks, px, yAxle, axleOff);
@@ -409,16 +435,19 @@ export function buildRodRack(config) {
   }
   group.add(blocks);
   groups.blocks = blocks;
-  // 双联展板外侧两根立柱同样需要跨越 yFork↔yAxle 的25mm标高差：
-  // 现有 T 夹块下缘比底叉杆外缘高3mm，这正是侧面截图“没搭接”的视觉断口。
+
+  // 跨层过渡袖套：连接 yAxle 处横轴与 yFork 处底叉（所有样式均需有效跨层连接）
+  const sleeves = instanced(new THREE.CylinderGeometry(0.011, 0.011, 0.030, 14), clampMat, 4);
+  let si = 0;
+  for (const x of postXs) for (const z of [-axleOff, axleOff])
+    setMT(si++, sleeves, x, (yFork + yAxle) / 2, z);
+  group.add(sleeves);
   if (style === 'panel') {
-    const sleeves=instanced(new THREE.CylinderGeometry(0.011,0.011,0.030,14),clampMat,4);
-    let si=0;
-    for(const x of postXs)for(const z of [-axleOff,axleOff])
-      setMT(si++,sleeves,x,(yFork+yAxle)/2,z);
-    group.add(sleeves);
-    groups.panelOuterAxleSleeves=sleeves;
-    panelSupportCount+=4;
+    groups.panelOuterAxleSleeves = sleeves;
+    panelSupportCount += 4;
+  } else {
+    groups.axleSleeves = sleeves;
+    groups.panelOuterAxleSleeves = sleeves;
   }
 
   // ---- 底叉端头夹块 ×4（底叉 ⌀20 穿过夹块；脚轮螺杆 / 地脚螺杆从底面插入）----
@@ -432,9 +461,15 @@ export function buildRodRack(config) {
 
   // ---- 滚轮 / 地脚（端头夹块正下方 z=±forkHalf；轮子沿 X 向拖尾朝外，与 GLB 一致）----
   let wheelParts = 0;
-  const footPts = postXs.flatMap((px) => [1, -1].map((sz) => ({ x: px, z: sz * forkHalf, yaw: outwardYaw(px, 0, 'x') })));
+  const footPts = postXs.flatMap((px) => [1, -1].map((sz) => ({ x: px, z: sz * forkHalf, yaw: outwardYaw(px, 0, 'x'), sz })));
   if (casters) {
-    const wheels = buildCasters(footPts, { H: 0.078, wheelD: 0.05, wheelW: 0.009, twin: true, twinGap: 0.005, trail: 0.023, mount: 'stem', palette: color === 'black' ? 'black' : 'chrome' });
+    const wheels = new THREE.Group();
+    wheels.name = 'casters';
+    const frontPts = footPts.filter(p => p.sz > 0);
+    const rearPts = footPts.filter(p => p.sz < 0);
+    const frontWheels = buildCasters(frontPts, { H: 0.078, wheelD: 0.05, wheelW: 0.009, twin: true, twinGap: 0.005, trail: 0.023, mount: 'stem', brake: true, palette: color === 'black' ? 'black' : 'chrome' });
+    const rearWheels = buildCasters(rearPts, { H: 0.078, wheelD: 0.05, wheelW: 0.009, twin: true, twinGap: 0.005, trail: 0.023, mount: 'stem', brake: false, palette: color === 'black' ? 'black' : 'chrome' });
+    wheels.add(frontWheels, rearWheels);
     group.add(wheels);
     groups.wheels = wheels;
     wheelParts = 8;
@@ -446,26 +481,49 @@ export function buildRodRack(config) {
   }
 
   // ---- 统计 ----
-  const railTotal = 4 * railLen + 2 * zFrame * 2;
-  stats.profileLengthM += 2 * postLen + 2 * (forkHalf * 2) + 2 * (W + 0.02) + railTotal + nDiag * diagLen;
+  const deckJoistLen = isPanel ? railLen : (W + 0.08);
+  const shelfRailLen = shelf === 'tray' ? 2 * railLen : shelf === 'deck' ? 2 * deckJoistLen : 0;
+  const railTotal = nRails * railLen + nFrameEnds * frameHalf * 2;
+  // profileLengthM 统计标准下料杆总长：过渡座总成为独立装配五金件，不计入标准圆杆下料长度
+  stats.profileLengthM += 2 * postLen + 2 * (forkHalf * 2) + 2 * (W + 0.02) + railTotal + nDiag * diagLen + shelfRailLen;
 
   const volRod = (2 * postLen * Math.PI * (ROD_D / 2) ** 2)
-    + (shelf === 'tray' ? 2 * railLen * Math.PI * (RAIL_D / 2) ** 2 : 0)
-    + ((2 * (W + 0.02) + railTotal) * Math.PI * (RAIL_D / 2) ** 2)
+    + (shelfRailLen * Math.PI * (RAIL_D / 2) ** 2)
+    + (2 * (W + 0.02) * Math.PI * (ROD_D / 2) ** 2)
+    + (railTotal * Math.PI * (RAIL_D / 2) ** 2)
     + (2 * forkHalf * 2 * Math.PI * (ROD_D / 2) ** 2)
     + (nDiag * diagLen * Math.PI * (RAIL_D / 2) ** 2);
+
+  // 过渡座总成质量估算：每柱两段短座扣除同轴套叠50mm后的净体积估算
+  const volForkTransition = 2 * (2 * forkZLen - 0.05) * Math.PI * (ROD_D / 2) * (RAIL_D / 2);
+  const forkTransitionWeight = volForkTransition * ROD_DENSITY;
+
+  // 新增铝件/夹具质量（ALU_DENSITY = 2700）：袖套、亚克力转接臂、层板托夹
+  const ALU_DENSITY = 2700;
+  const sleeveVol = 4 * Math.PI * (0.011 ** 2) * 0.030;
+  const sleeveWeight = sleeveVol * ALU_DENSITY;
+  const acrArmVol = style === 'acrylic' ? 4 * Math.abs(W / 2 - (Math.min(W - 0.10, 0.70) / 2 + 0.012)) * 0.024 * 0.028 : 0;
+  const acrArmWeight = acrArmVol * ALU_DENSITY;
+  const deckClipVol = shelf === 'deck' ? 4 * (0.03 * 0.75) * (0.024 * 0.65) * (0.034 * 0.75) : 0;
+  const deckClipWeight = deckClipVol * ALU_DENSITY;
+
+  const hasBackPanel = (style !== 'panel' && style !== 'acrylic') && backPanel !== 'none';
   const boardArea = style === 'panel' || style === 'acrylic'
     ? (stats.panes && stats.panes[0] ? stats.panes[0].areaM2 : 0)
-    : (backPanel !== 'none' ? Math.min(W - 0.10, (yTop - yMid)) * (yTop - yMid) : 0);
+    : (hasBackPanel ? Math.min(W - 0.10, (yTop - yMid)) * (yTop - yMid) : 0);
   const shelfArea = shelf === 'tray' ? (W - 0.13) * 0.15 : shelf === 'deck' ? (W - 0.06) * (zFrame * 2 + 0.03) : 0;
-  stats.weightKg = volRod * ROD_DENSITY
+  stats.weightKg = +(
+    volRod * ROD_DENSITY
+    + forkTransitionWeight
+    + sleeveWeight + acrArmWeight + deckClipWeight
     + (boardArea + shelfArea) * 0.0012 * ZINC_DENSITY
     + nBlocks * 0.01 + (casters ? 4 * 0.12 : 4 * 0.03)
     + (style === 'panel' ? 2 * 1.4 : 0) + (style === 'acrylic' ? 0.2 : 0)
-    + (style === 'poster' && backPanel === 'poster' ? 0.2 : 0);
-  stats.partCount = 2 + 2 + 4 + 2 + nDiag + nDiag + boardCount + nBlocks + wheelParts + panelSupportCount;
-  stats.profileLengthM += panelSupportLength;
-  stats.weightKg += panelSupportWeight;
+    + (style === 'poster' && hasBackPanel && backPanel === 'poster' ? 0.2 : 0)
+  ).toFixed(1);
+  stats.partCount = 2 + 2 + 4 + nRails + nFrameEnds + nDiag + nDiag + boardCount + nBlocks + wheelParts + (style === 'panel' ? panelSupportCount : 4);
+  stats.profileLengthM = +(stats.profileLengthM + panelSupportLength).toFixed(2);
+  stats.weightKg = +(stats.weightKg + panelSupportWeight).toFixed(1);
 
   // ---- 算料单 ----
   const addCut = (spec, dia, len, qty) => {
@@ -475,46 +533,62 @@ export function buildRodRack(config) {
   addCut('光轴立柱', '20', +postLen.toFixed(3), style==='panel'?3:2);
   addCut('底叉长杆', '20', +(forkHalf * 2).toFixed(3), style==='panel'?3:2);
   addCut('底盘横轴', '20', +(W + 0.02).toFixed(3), 2);
-  addCut('置物框/档杆', '12', +railLen.toFixed(3), 4);
-  addCut('框侧连接轴', '12', +(zFrame * 2).toFixed(3), 2);
+  addCut('置物框/档杆', '12', +railLen.toFixed(3), nRails);
+  if(nFrameEnds)addCut('框侧连接轴', '12', +(frameHalf * 2).toFixed(3), nFrameEnds);
   addCut('底盘斜撑', '12', +diagLen.toFixed(3), style==='panel'?6:4);
-  if (shelf === 'deck') addCut('层板托梁', '12', +(W - 0.06).toFixed(3), 2);
+  if (shelf === 'deck') addCut('层板托梁', '12', +deckJoistLen.toFixed(3), 2);
   if (shelf === 'tray') addCut('窄托板承托光轴', '12', +railLen.toFixed(3), 2);
-  if (backPanel !== 'none') stats.cutList.push({ spec: backPanel === 'zinc' ? '镀锌背板' : '海报背板', section: '板', len: +Math.min(W - 0.10, yTop - yMid).toFixed(2), qty: 1, pricedViaPane: true });
+  if (hasBackPanel) stats.cutList.push({ spec: backPanel === 'zinc' ? '镀锌背板' : '海报背板', section: '板', len: +Math.min(W - 0.10, yTop - yMid).toFixed(2), qty: 1, pricedViaPane: true });
   if (shelf === 'tray') stats.cutList.push({ spec: '置物托板', section: '板', len: +(W - 0.13).toFixed(2), qty: 1, pricedViaPane: true });
   if (shelf === 'deck') stats.cutList.push({ spec: '镀锌层板', section: '板', len: +(W - 0.06).toFixed(2), qty: 1, pricedViaPane: true });
   // 板件清单（比价引擎用：zinc 按面积、poster 按件一口价）
   if (style !== 'panel' && style !== 'acrylic') {
     stats.panes = [];
-    if (backPanel === 'zinc') stats.panes.push({ label: '镀锌背板', areaM2: +boardArea.toFixed(3), kind: 'zinc' });
-  if (backPanel === 'poster') stats.panes.push({ label: '海报画面', areaM2: +boardArea.toFixed(3), kind: 'poster' });
-  if (shelf === 'tray') stats.panes.push({ label: '置物托板', areaM2: +shelfArea.toFixed(3), kind: 'zinc' });
-  if (shelf === 'deck') stats.panes.push({ label: '镀锌层板', areaM2: +shelfArea.toFixed(3), kind: 'zinc' });
+    if (hasBackPanel && backPanel === 'zinc') stats.panes.push({ label: '镀锌背板', areaM2: +boardArea.toFixed(3), kind: 'zinc' });
+    if (hasBackPanel && backPanel === 'poster') stats.panes.push({ label: '海报画面', areaM2: +boardArea.toFixed(3), kind: 'poster' });
+    if (shelf === 'tray') stats.panes.push({ label: '置物托板', areaM2: +shelfArea.toFixed(3), kind: 'zinc' });
+    if (shelf === 'deck') stats.panes.push({ label: '镀锌层板', areaM2: +shelfArea.toFixed(3), kind: 'zinc' });
   } else {
     if (shelf === 'tray') stats.panes.push({ label: '置物托板', areaM2: +shelfArea.toFixed(3), kind: 'zinc' });
     if (shelf === 'deck') stats.panes.push({ label: '镀锌层板', areaM2: +shelfArea.toFixed(3), kind: 'zinc' });
   }
   stats.hardware = [
     casters ? { name: '万向轮 2 寸（含刹车×2）', qty: 4 } : { name: '调平地脚 M12', qty: 4 },
+    { name: '立柱底叉过渡座总成（含套件）', qty: 2 },
     { name: 'T 型夹块', qty: nBlocks },
     { name: '斜撑端卡', qty: nDiag },
-    { name: '横杆卡夹', qty: 8 },
-    ...(backPanel !== 'none' ? [{ name: '背板挂扣', qty: 4 }] : []),
+    { name: '横杆卡夹', qty: isPanel ? nRails*2 : 8 },
+    { name: '外侧立柱底叉跨层过渡袖套', qty: 4 },
+    ...(hasBackPanel ? [{ name: '背板挂扣', qty: 4 }] : []),
     ...(shelf === 'deck' ? [{ name: '层板托夹', qty: 4 }] : []),
     ...(shelf === 'tray' ? [{ name: '窄托板承托端夹（示意）', qty: 4 }] : []),
+    ...(style === 'acrylic' ? [{ name: '亚克力立柱转接臂（含立柱抱箍）', qty: 4 }] : []),
     ...(style==='panel' ? [
       { name:'双联展板竖杆夹具', qty:12 },
       { name:'中心立柱底叉/斜撑夹块', qty:5 },
-      { name:'中心立柱跨层与横杆连接抱箍', qty:4 },
-      { name:'外侧立柱底叉跨层过渡袖套', qty:4 },
+      { name:'中心立柱跨层与横杆连接抱箍', qty:5 },
       { name:casters?'双联展板中心万向轮 2 寸':'双联展板中心调平地脚', qty:2 },
     ] : []),
   ];
 
-  // 支撑点（标记层数据源）：轮/脚在底叉端头 z=±forkHalf
+  // 支撑点（标记层数据源）：轮/脚在底叉端头，万向轮按23mm拖尾偏移到真实轮中心
+  const rodTrail = 0.023;
+  const outerSupportPts = footPts.map(p =>
+    casters
+      ? [p.x - rodTrail * Math.cos(p.yaw || 0), 0, p.z + rodTrail * Math.sin(p.yaw || 0)]
+      : [p.x, 0, p.z]
+  );
+  const midSupportPts = style === 'panel'
+    ? [-forkHalf, forkHalf].map(z => {
+        const yaw = outwardYaw(0, z, 'x');
+        return casters
+          ? [0 - rodTrail * Math.cos(yaw), 0, z + rodTrail * Math.sin(yaw)]
+          : [0, 0, z];
+      })
+    : [];
   stats.supports = {
     kind: casters ? 'casters' : 'feet',
-    points: (style==='panel'?[...postXs,0]:postXs).flatMap((x)=>[forkHalf,-forkHalf].map(z=>[x,0,z])),
+    points: [...outerSupportPts, ...midSupportPts],
   };
   stats.envelope = computeEnvelope(group);
   return {

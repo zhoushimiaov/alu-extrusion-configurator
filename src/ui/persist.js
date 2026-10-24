@@ -78,10 +78,48 @@ function cfgFromStorage(kind) {
   try { return decodeCfg(localStorage.getItem(LS_KEY[kind]) || ''); } catch { return null; }
 }
 
+const isLegacyTable = (cfg) => cfg && typeof cfg === 'object' && cfg.style === 'table';
+
+/** 旧长桌使用 books 身份保存；路由身份必须先迁移，再交给各产品锁定样式的 store。 */
+export function resolveProductConfig(kind, cfg) {
+  if (kind === 'books' && isLegacyTable(cfg)) {
+    return { kind: 'table', cfg: { ...cfg, kind: 'table', style: 'table' } };
+  }
+  return { kind, cfg: kind === 'profile' ? migrateProfileConfig(cfg) : cfg };
+}
+
+/** 复制旧保存值，保留原键作为兼容备份；已有独立长桌保存值优先。 */
+export function migrateLegacyTableStorage() {
+  const legacy = cfgFromStorage('books');
+  if (!isLegacyTable(legacy) || cfgFromStorage('table')) return false;
+  const migrated = resolveProductConfig('books', legacy).cfg;
+  try {
+    localStorage.setItem(LS_KEY.table, encodeCfg(pickPersisted('table', migrated)));
+    return true;
+  } catch { return false; }
+}
+
+/** 保留旧链接的视图段，将其中的 table 配置转到独立 #table 页面。 */
+export function resolveStartupProduct(hash = location.hash) {
+  const kind = kindFromHash(hash);
+  const encoded = hash.match(/[?&]c=([A-Za-z0-9_-]+)/);
+  const raw = (encoded ? decodeCfg(encoded[1]) : null) || cfgFromStorage(kind);
+  const resolved = resolveProductConfig(kind, raw);
+  if (resolved.kind === kind) return { kind, hash, migrated: false };
+  const view = hash.match(/^#books(\/[a-z]+)?(?:[?&]|$)/)?.[1] || '';
+  const b64 = encodeCfg(pickPersisted(resolved.kind, resolved.cfg));
+  return { kind: resolved.kind, hash: `#${resolved.kind}${view}?c=${b64}`, migrated: true };
+}
+
 /** 启动时恢复：hash 中的配置优先（分享链接），否则回退 localStorage。未知字段按白名单过滤 + 迁移 */
 export function loadSaved(kind) {
   const activeKind = kindFromHash(location.hash);
   let saved = (kind === activeKind ? cfgFromHash() : null) || cfgFromStorage(kind);
+  if (kind === 'books' && isLegacyTable(saved)) return null;
+  if (kind === 'table' && !saved) {
+    const legacy = cfgFromStorage('books');
+    if (isLegacyTable(legacy)) saved = resolveProductConfig('books', legacy).cfg;
+  }
   if (kind === 'profile') saved = migrateProfileConfig(saved);
   return pickPersisted(kind, saved);
 }

@@ -90,17 +90,29 @@ function extrudeZ(shape, t) {
  * @param o.brake   刹车踏板
  * @param o.hood    防缠绕护罩（白色尼龙脚轮）
  */
+/** 计算考虑轮叉横桥避让后的实际物理轮径（供几何与 BOM 同源复用） */
+export function resolveActualWheelD(opts) {
+  const { H, wheelD, mount = 'plate' } = opts;
+  const swivelH = 0.011;
+  const topH = mount === 'plate' ? 0.003 : 0.006;
+  const yTop = H - topH - swivelH;
+  const maxWheelD = Math.max(0.01, yTop - 0.003 - 0.001);
+  return Math.min(wheelD, maxWheelD);
+}
+
 function casterParts(o) {
   const { H, wheelD, wheelW: w, twin = false, twinGap = 0.012, trail = 0.02, mount = 'plate', plate = 0.05, brake = false, hood = false } = o;
-  const R = wheelD / 2;
+  const swivelH = 0.011;
+  const topH = mount === 'plate' ? 0.003 : 0.006;       // 平板厚 / 螺母高
+  const yTop = H - topH - swivelH;                      // 轮叉顶面
+  // 保证轮胎顶部与轮叉横桥底面留有安全间隙（至少 1mm），避免低矮脚轮体积干涉
+  const actualWheelD = resolveActualWheelD(o);
+  const R = actualWheelD / 2;
   const rIn = R * 0.72;
   const k = bucketSet();
   const gap = 0.004;
   const wt = twin ? 2 * w + twinGap : w;                // 轮组总宽
   const swR = Math.max(0.016, Math.min(0.026, R * 0.82)); // 转向滚道半径
-  const swivelH = 0.011;
-  const topH = mount === 'plate' ? 0.003 : 0.006;       // 平板厚 / 螺母高
-  const yTop = H - topH - swivelH;                      // 轮叉顶面
   const ax = -trail, ay = R;
   const r2 = Math.max(0.008, R * 0.36);
   const xf = swR * 0.85;
@@ -228,7 +240,10 @@ function emit(parts, points, palette, name) {
  * @returns THREE.Group（每材质一个 InstancedMesh）
  */
 export function buildCasters(points, opts) {
-  return emit(casterParts(opts), points, opts.palette || 'chrome', 'casters');
+  const grp = emit(casterParts(opts), points, opts.palette || 'chrome', 'casters');
+  grp.userData.wheelD = resolveActualWheelD(opts);
+  grp.userData.H = opts.H;
+  return grp;
 }
 
 /** 批量调平地脚（顶端到 H） */

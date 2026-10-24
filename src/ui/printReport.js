@@ -4,6 +4,7 @@
 // 拿不到快照时报告自动降级为纯表格版式。
 import { calcMarketPrice } from './marketPrice.js';
 import { configLineFor } from './cutlist.js';
+import { summarizeBom } from './bomSummary.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -15,6 +16,8 @@ const PRODUCT_TITLES = {
   woodcart: '光轴木展车',
   hanger: '光轴挂衣架',
   books: '光轴书架',
+  table: '阅读长桌',
+  sheet: '镀锌板书架（原型）',
 };
 
 function money(n) { return '¥ ' + Math.round(n || 0).toLocaleString('zh-CN'); }
@@ -30,7 +33,7 @@ export function buildReportHtml({ kind, cfg, stats, snapshot, price }) {
   try { line = configLineFor(cfg, kind).configLine; } catch { /* 标签未注册等：报告不因摘要失败而中断 */ }
 
   const cuts = stats.cutList || [];
-  const totalCutM = cuts.reduce((a, c) => a + (c.section === '板' ? 0 : c.len * c.qty), 0);
+  const { cutLengthM: totalCutM } = summarizeBom(stats);
   const cutRows = cuts.map((c, i) =>
     `<tr><td class="num">${i + 1}</td><td>${esc(c.spec)}</td><td>${esc(c.section)}</td><td class="num">${c.span ?? c.len ?? ''}</td><td class="num">${c.len ?? ''}</td><td class="num">${c.qty}</td><td>${c.section === '板' ? '块' : '根'}</td></tr>`
   ).join('');

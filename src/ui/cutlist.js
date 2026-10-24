@@ -1,6 +1,9 @@
 // 算料单导出：支持型材架（product.js）与光轴展架（rodrack.js）两种配置
 // 各产品的枚举标签文案由 main.js 通过 registerLabels() 显式注册（替代 window.__ALU_LABELS 全局注入）；
 // 未注册时会抛错并指明缺失的 kind，调用方需保证导出前已注册。
+import { summarizeBom } from './bomSummary.js';
+import { purchaseXlsx, purchaseCsv } from './purchaseList.js';
+
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const LABELS = {};
@@ -91,11 +94,11 @@ export function configLineFor(cfg, kind = 'profile', stats = null) {
     wText = (cfg.width + 0.12).toFixed(2);
     // 总高 = 立柱长 cfg.height + 柱顶超出 0.142 + 顶部余量 0.04（与 buildRodRack bounds.H 一致）
     hText = (cfg.height + 0.182).toFixed(2);
-  } else if (kind === 'books') {
-    // 光轴书架（展塔 / 长桌）：此前无分支会落到 profile 分支并因 cfg.decks 缺失而崩溃
-    const { PANEL_MATERIALS } = labelsFor('books');
+  } else if (kind === 'books' || kind === 'table') {
+    // 书架与独立阅读长桌共用材料标签但不共用产品身份。
+    const { PANEL_MATERIALS } = labelsFor(kind);
     const matLabel = PANEL_MATERIALS[cfg.panelMat]?.label || '';
-    title = cfg.style === 'table' ? '光轴长桌 · 算料单' : '光轴书架 · 算料单';
+    title = cfg.style === 'table' ? '阅读长桌 · 采购清单' : '展示杂志架 · 采购清单';
     if (cfg.style === 'table') {
       configLine = `${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m · 深 ${cfg.depth.toFixed(2)} m · ${matLabel}`;
     } else {
@@ -127,7 +130,7 @@ export function configLineFor(cfg, kind = 'profile', stats = null) {
 export function buildCutlistWorkbook(cfg, stats, kind = 'profile') {
   const now = new Date();
   const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const totalCutLen = stats.cutList.reduce((a, c) => a + c.len * c.qty, 0);
+  const { cutLengthM: totalCutLen } = summarizeBom(stats);
   const { title, configLine, extraStats, wText, hText } = configLineFor(cfg, kind, stats);
   const hwRows = [
     ['序号', '五金名称', '数量', '单位'],
@@ -177,16 +180,18 @@ ${row(['注：长度为未验证装配假设的演示结果，非加工指令；
   return xml;
 }
 
-/** 触发浏览器下载（kind: 'profile' | 'rod'）。SpreadsheetML 内容配 .xml 后缀，
- *  Excel / WPS 直接打开且无"格式与扩展名不匹配"警告。 */
-export function downloadCutlist(cfg, stats, kind = 'profile') {
-  const xml = buildCutlistWorkbook(cfg, stats, kind);
-  const blob = new Blob(['\ufeff' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+/** 采购清单导出：默认真正 .xlsx（两张工作表），也可选通用 CSV。原 buildCutlistWorkbook 仅保留旧 API 兼容。 */
+export function downloadCutlist(cfg, stats, kind = 'profile', format = 'xlsx') {
+  const csv = format === 'csv';
+  const data = csv ? purchaseCsv(stats, kind, cfg) : purchaseXlsx(stats, kind, cfg);
+  const blob = new Blob([data], { type: csv ? 'text/csv;charset=utf-8' :
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  const name = kind === 'hanger' ? `挂衣架算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'woodcart' ? `光轴木展车算料单.xml` : kind === 'crates' ? `周转箱收纳架算料单_${cfg.tiers}层.xml` : kind === 'cart' ? `移动边几算料单_${cfg.width.toFixed(2)}m.xml` : kind === 'rod' ? `光轴展架算料单_${cfg.width.toFixed(2)}m.xml` : `铝型材置物架算料单_${cfg.bays}x${cfg.levels}.xml`;
-  a.download = name;
+  const suffix = kind === 'table' ? '阅读长桌' : kind === 'books' ? (cfg.style === 'table' ? '阅读长桌' : '展示杂志架')
+    : { hanger:'挂衣架', woodcart:'光轴木展车', crates:'周转箱架', cart:'移动边几', rod:'光轴展架',profile:'铝型材置物架' }[kind] || kind;
+  a.download = `MEKIT采购清单_${suffix}.${csv ? 'csv' : 'xlsx'}`;
   document.body.appendChild(a);
   a.click();
   a.remove();

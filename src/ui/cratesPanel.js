@@ -12,7 +12,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(CRATES_LIMITS, DEFAULT_CRATES_CONFIG);
+const clampCfg = makeClamp(CRATES_LIMITS, DEFAULT_CRATES_CONFIG, { enums: { scheme: CRATE_SCHEMES }, integerKeys: ['tiers'] });
 let state = { ...DEFAULT_CRATES_CONFIG };
 const subs = new Set();
 export const cratesStore = {
@@ -118,7 +118,8 @@ export function createCratesPanel(root, actions) {
     <div class="weight-note" data-weight>自重计算中 …</div>
     <div class="action-row">
       <button class="cta" data-cta>加入配置清单</button>
-      <button class="cta-ghost" data-export title="SpreadsheetML 算料单，支持 Excel / WPS 打开">导出算料单</button>
+      <button class="cta-ghost" data-export title="Excel/WPS 可直接打开的真实 .xlsx，含采购汇总和逐件明细">采购清单 .xlsx</button>
+      <button class="cta-ghost" data-export-csv title="通用 UTF-8 CSV 采购汇总">采购清单 .csv</button>
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
       <button class="cta-ghost" data-print title="生成 A4 设计与报价单（浏览器打印 / 另存 PDF）">打印 / 导出 PDF</button>
     </div>
@@ -161,6 +162,7 @@ export function createCratesPanel(root, actions) {
     if (btn.dataset.seg === 'scheme') cratesStore.set({ scheme: btn.dataset.val });
     if (btn.dataset.sw) cratesStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
     if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(cratesStore.get());
+    if (btn.dataset.exportCsv != null && actions.onExportCsv) actions.onExportCsv(cratesStore.get());
     if (btn.dataset.export != null && actions.onExport) actions.onExport(cratesStore.get());
     if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(cratesStore.get());
     if (btn.dataset.print != null && actions.onPrint) actions.onPrint(cratesStore.get());

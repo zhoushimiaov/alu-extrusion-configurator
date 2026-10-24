@@ -11,7 +11,11 @@ export function createSupportMarkers() {
   const ringGeo = new THREE.RingGeometry(0.018, 0.027, 28);
   ringGeo.rotateX(-Math.PI / 2);
   const dotGeo = new THREE.OctahedronGeometry(0.012);
-  const mat = new THREE.MeshBasicMaterial({ color: MARKER_COLOR, transparent: true, opacity: 0.95, depthWrite: false });
+  // 标记层是测量/操作辅助信息，必须画在场景几何前面，而不是藏在脚轮/底架里。
+  const mat = new THREE.MeshBasicMaterial({
+    color: MARKER_COLOR, transparent: true, opacity: 0.98,
+    depthTest: false, depthWrite: false, toneMapped: false,
+  });
 
   let rings = null;
   let dots = null;
@@ -23,21 +27,22 @@ export function createSupportMarkers() {
     key = k;
     if (rings) { group.remove(rings); rings.dispose(); rings = null; }
     if (dots) { group.remove(dots); dots.dispose(); dots = null; }
-    const pts = points || [];
+    const pts = (points || []).filter(p =>
+      Array.isArray(p) && p.length === 3 && p.every(Number.isFinite));
     if (!pts.length) return;
     rings = new THREE.InstancedMesh(ringGeo, mat, pts.length);
     dots = new THREE.InstancedMesh(dotGeo, mat, pts.length);
     const m = new THREE.Matrix4();
     pts.forEach((p, i) => {
-      m.makeTranslation(p[0], (p[1] || 0) + 0.004, p[2]);
+      m.makeTranslation(p[0], p[1] + 0.020, p[2]);
       rings.setMatrixAt(i, m);
-      m.makeTranslation(p[0], (p[1] || 0) + 0.055, p[2]);
+      m.makeTranslation(p[0], p[1] + 0.080, p[2]);
       dots.setMatrixAt(i, m);
     });
     rings.instanceMatrix.needsUpdate = true;
     dots.instanceMatrix.needsUpdate = true;
     rings.renderOrder = 998;
-    dots.renderOrder = 998;
+    dots.renderOrder = 999;
     group.add(rings);
     group.add(dots);
   }
@@ -48,6 +53,7 @@ export function createSupportMarkers() {
     group,
     setPoints,
     setVisible,
+    get pointCount() { return rings?.count || 0; },
     dispose() {
       if (rings) rings.dispose();
       if (dots) dots.dispose();

@@ -43,7 +43,7 @@ function labelTexture(dark) {
     g.fillStyle = ink;
     g.textBaseline = 'alphabetic';
     g.font = '600 50px Georgia, "Times New Roman", serif';
-    g.fillText?.('MODULO CRATE', 18, 86);
+    g.fillText?.('MEKIT CRATE', 18, 86);
     g.fillRect(18, 116, 476, 3);
     g.font = 'italic 30px Georgia, serif';
     g.fillText?.('Industrial style', 18, 166);
@@ -91,23 +91,40 @@ export function buildCratesRack(config) {
   // ---- 周转箱尺寸约束 ----
   // X 向：箱长 = 两侧滑轨内轨之间；Z 向：箱宽留在立柱内表面以内（推入状态）
   const innerX = px - POST_W / 2;
-  const innerZ = pz - POST_W / 2;
+  // 立柱为 2040：X 向40mm，Z 向20mm。进深净距必须扣 Z 向10mm，不能错扣20mm。
+  const innerZ = pz - POST_T / 2;
   const LIP_OUT = 0.012;
   const DRAFT_MAX = 0.012;
   const GAP = 0.005;
   const railX = innerX - BEAM / 2;                // 侧梁中心（贴立柱内侧面）
   const slideFace = railX - BEAM / 2;             // 侧梁内侧面 = 滑轨外轨安装面
-  const railYOf = (t) => yPost0 + BEAM + tierH * t + tierH / 2;
-  const railTopOffset = -0.007;
+
+  // 联解箱高、滑轨高与唇边高：层高在底框与顶框之间均分，
+  // 当矮架多层（如 H=0.55/6层）空间受限时自适应缩减滑轨与唇边，保证唇边底面严格高于固定外轨顶面
+  const yCeiling = yTop - BEAM / 2;
+  const yBase0 = yPost0 + BEAM + 0.022;
+  const availTotal = yCeiling - yBase0;
+  const pitch = availTotal / tiers;
+
+  const yBaseOf = (t) => yBase0 + t * pitch;
   const crateHOf = (t) => {
-    const yBase = railYOf(t) + railTopOffset;
-    const aboveBottom = t < tiers - 1
-      ? railYOf(t + 1) - BEAM / 2 - 0.007 - BEAM / 2
-      : yTop - BEAM / 2;
+    const yBase = yBaseOf(t);
+    const aboveBottom = t < tiers - 1 ? yBase + pitch - 0.014 : yCeiling;
     const avail = aboveBottom - yBase;
-    const want = Math.min(avail - 0.01, 0.30);
-    return Math.min(Math.max(0.02, want), Math.max(0, avail));
+    const want = Math.min(avail - 0.008, 0.30);
+    return Math.min(Math.max(0.035, want), Math.max(0, avail));
   };
+  const slideHOf = (t) => {
+    const crateH = crateHOf(t);
+    const availForSlideLip = crateH - 0.003;
+    return Math.max(0.016, Math.min(0.035, +(availForSlideLip * (35 / 57)).toFixed(4)));
+  };
+  const lipHOf = (t) => {
+    const crateH = crateHOf(t);
+    const slideH = slideHOf(t);
+    return Math.max(0.010, Math.min(0.022, +(crateH - slideH - 0.003).toFixed(4)));
+  };
+  const railYOf = (t) => yBaseOf(t) + slideHOf(t) / 2;
   const TILT_PAD = DRAFT_MAX / 2;
   const crateTopW = Math.max(0.20, Math.min(D + 0.02, 2 * (innerZ - TILT_PAD - LIP_OUT - GAP)));
   // 箱口唇边在 X 向也外翻 LIP_OUT：箱壁到滑轨内轨面留 2mm，唇边悬在滑轨上方
@@ -202,14 +219,11 @@ export function buildCratesRack(config) {
   }
 
   // ---- 每层：左右侧梁 + 前后托底横梁 + 三节钢珠滑轨 ----
-  const railYs = [];
-  for (let t = 0; t < tiers; t++) railYs.push(railYOf(t));
-  const yBaseOf = (t) => railYs[t] + railTopOffset;   // 箱底
-  const SLIDE_H = 0.035;
   const rails = profileInstanced(railGeo, matAlu, tiers * 2);
   let ri = 0;
   for (let t = 0; t < tiers; t++) {
-    const ySide = yBaseOf(t) + SLIDE_H / 2;            // 侧梁与滑轨同高（滑轨锁在侧梁内侧槽）
+    const sH = slideHOf(t);
+    const ySide = yBaseOf(t) + sH / 2;            // 侧梁与滑轨同高（滑轨锁在侧梁内侧槽）
     for (const sx of [-1, 1]) {
       _m4.identity().setPosition(sx * railX, ySide, 0);
       rails.setMatrixAt(ri++, _m4);
@@ -259,17 +273,18 @@ export function buildCratesRack(config) {
     const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _q = new THREE.Quaternion();
     let si = 0;
     for (let t = 0; t < tiers; t++) {
-      const yS = yBaseOf(t) + SLIDE_H / 2;
+      const sH = slideHOf(t);
+      const yS = yBaseOf(t) + sH / 2;
       const pull = pullOf(t);
       for (const sx of [-1, 1]) {
-        _m4.compose(_p.set(sx * (slideFace - 0.0025), yS, 0), _q, _s.set(0.005, SLIDE_H, slideLen));
+        _m4.compose(_p.set(sx * (slideFace - 0.0025), yS, 0), _q, _s.set(0.005, sH, slideLen));
         slideOuter.setMatrixAt(si, _m4);
-        _m4.compose(_p.set(sx * (slideFace - 0.007), yS, pull / 2), _q, _s.set(0.004, SLIDE_H - 0.006, slideLen - 0.01));
+        _m4.compose(_p.set(sx * (slideFace - 0.007), yS, pull / 2), _q, _s.set(0.004, Math.max(0.01, sH - 0.006), slideLen - 0.01));
         slideMid.setMatrixAt(si, _m4);
-        _m4.compose(_p.set(sx * (slideFace - 0.011), yS, pull), _q, _s.set(0.004, SLIDE_H - 0.012, slideLen - 0.02));
+        _m4.compose(_p.set(sx * (slideFace - 0.011), yS, pull), _q, _s.set(0.004, Math.max(0.008, sH - 0.012), slideLen - 0.02));
         slideInner.setMatrixAt(si, _m4);
         // 内轨前端拨片锁扣（参考图银色小扣件）
-        _m4.compose(_p.set(sx * (slideFace - 0.0135), yS, pull + slideLen / 2 - 0.03), _q, _s.set(0.003, 0.014, 0.022));
+        _m4.compose(_p.set(sx * (slideFace - 0.0135), yS, pull + slideLen / 2 - 0.03), _q, _s.set(0.003, Math.min(0.014, sH * 0.4), 0.022));
         slideLock.setMatrixAt(si, _m4);
         si++;
       }
@@ -331,8 +346,8 @@ export function buildCratesRack(config) {
     const L = crateLen, Wd = crateTopW;                 // 上口
     const Lb = L - draft, Wb = Wd - draft;               // 箱底
     const ang = Math.atan2(draft / 2, crateH);
-    const lipH = 0.022, lipOut = LIP_OUT;
-    const bandH = 0.012;                                 // 横向加强带高
+    const lipH = lipHOf(t), lipOut = LIP_OUT;
+    const bandH = Math.min(0.012, crateH * 0.2);          // 横向加强带高
 
     // 四面侧壁（微拔模）
     for (const sz of [1, -1]) pushBox(body, 0, yBase + crateH / 2, zOff + sz * (Wb / 2 - wallT / 2), Lb, crateH, wallT, -sz * ang, 0);
@@ -367,8 +382,8 @@ export function buildCratesRack(config) {
       }
       for (const sx of [1, -1]) pushBox(rim, sx * (Lb / 2 + ribP / 2 + dz), yy, zOff, ribP, bandH, Wb - 0.016);
     }
-    const ribTop = crateH - lipH - 0.004;
-    const ribH = ribTop - 0.012;
+    const ribTop = Math.max(0.015, crateH - lipH - 0.004);
+    const ribH = Math.max(0.005, ribTop - 0.012);
     const ribY = yBase + 0.012 + ribH / 2;
     const nRibX = Math.max(5, Math.round(L / 0.045));
     for (let r = 0; r <= nRibX; r++) {

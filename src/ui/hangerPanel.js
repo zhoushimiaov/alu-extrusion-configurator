@@ -13,7 +13,7 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(HANGER_LIMITS, DEFAULT_HANGER_CONFIG);
+const clampCfg = makeClamp(HANGER_LIMITS, DEFAULT_HANGER_CONFIG, { enums: { style: HANGER_STYLES, color: HANGER_COLORS }, integerKeys: ['drawers'] });
 let state = { ...DEFAULT_HANGER_CONFIG };
 const subs = new Set();
 export const hangerStore = {
@@ -112,6 +112,17 @@ export function createHangerPanel(root, actions) {
   });
   wheelRow.appendChild(wheelSw);
   mount.appendChild(wheelRow);
+  const wireRow = el('div', 'switch-row', '<span class="label">侧面 X 拉索（左右两侧，材料与端件计入报价）</span>');
+  const wireSw = el('div', 'switch');
+  wireSw.setAttribute('role','switch');
+  wireSw.tabIndex = 0;
+  wireSw.dataset.sw = 'sideWires';
+  wireSw.setAttribute('aria-label','侧面 X 拉索');
+  wireSw.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); wireSw.click(); }
+  });
+  wireRow.appendChild(wireSw);
+  mount.appendChild(wireRow);
 
   // 配色
   const colorField = el('div', null, `<div class="field-label"><span data-color-label>表面 FINISH</span></div>`);
@@ -141,7 +152,8 @@ export function createHangerPanel(root, actions) {
     <div class="weight-note" data-weight>自重计算中 …</div>
     <div class="action-row">
       <button class="cta" data-cta>加入配置清单</button>
-      <button class="cta-ghost" data-export title="SpreadsheetML 算料单，支持 Excel / WPS 打开">导出算料单</button>
+      <button class="cta-ghost" data-export title="Excel/WPS 可直接打开的真实 .xlsx，含采购汇总和逐件明细">采购清单 .xlsx</button>
+      <button class="cta-ghost" data-export-csv title="通用 UTF-8 CSV 采购汇总">采购清单 .csv</button>
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
       <button class="cta-ghost" data-print title="生成 A4 设计与报价单（浏览器打印 / 另存 PDF）">打印 / 导出 PDF</button>
     </div>
@@ -185,8 +197,10 @@ export function createHangerPanel(root, actions) {
     if (btn.dataset.seg === 'style' && btn.dataset.val !== c.style) {
       hangerStore.set({ style: btn.dataset.val, ...(HANGER_STYLES[btn.dataset.val]?.preset || {}) });
     }
-    if (btn.dataset.sw) hangerStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
+    if (btn.dataset.sw && !(c.style === 'atelier' && btn.dataset.sw === 'sideWires'))
+      hangerStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
     if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(hangerStore.get());
+    if (btn.dataset.exportCsv != null && actions.onExportCsv) actions.onExportCsv(hangerStore.get());
     if (btn.dataset.export != null && actions.onExport) actions.onExport(hangerStore.get());
     if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(hangerStore.get());
     if (btn.dataset.print != null && actions.onPrint) actions.onPrint(hangerStore.get());
@@ -226,6 +240,9 @@ export function createHangerPanel(root, actions) {
     });
     wheelSw.classList.toggle('on', c.wheels);
     wheelSw.setAttribute('aria-checked', String(c.wheels));
+    wireRow.style.display = atelier ? 'none' : '';
+    wireSw.classList.toggle('on', !!c.sideWires);
+    wireSw.setAttribute('aria-checked', String(!!c.sideWires));
     swatches.querySelectorAll('.swatch').forEach(s => {
       const on = s.dataset.color === c.color;
       s.classList.toggle('on', on);

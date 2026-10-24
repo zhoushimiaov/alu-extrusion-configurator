@@ -10,6 +10,8 @@ const LS_KEY = {
   woodcart: 'alu.cfg.woodcart',
   hanger: 'alu.cfg.hanger',
   books: 'alu.cfg.books',
+  table: 'alu.cfg.table',
+  sheet: 'alu.cfg.sheet',
 };
 
 // 持久化字段白名单：与各产品 DEFAULT_CONFIG 保持同步（test/persist-schema.test.mjs
@@ -20,11 +22,13 @@ const SCHEMA = {
   cart: ['schemaVersion', 'width', 'depth', 'height', 'glassTop', 'midAcrylic', 'rodRails', 'hangPanels', 'casters', 'woodFinish'],
   crates: ['schemaVersion', 'width', 'depth', 'height', 'tiers', 'scheme', 'pullOut', 'casters'],
   woodcart: ['schemaVersion', 'width', 'depth', 'height', 'shelves', 'cabinetH', 'pegboard', 'topRail', 'sideRail', 'casters', 'woodTone', 'ohF', 'ohB', 'ohL', 'ohR', 'ohLink'],
-  hanger: ['schemaVersion', 'style', 'width', 'depth', 'height', 'drawers', 'wheels', 'color'],
+  hanger: ['schemaVersion', 'style', 'width', 'depth', 'height', 'drawers', 'wheels', 'sideWires', 'color'],
   books: ['schemaVersion', 'kind', 'style', 'bays', 'levels', 'bayW', 'depth', 'tilt', 'base', 'wires', 'acrylic', 'panelMat', 'books', 'glassTop', 'color', 'tBays', 'tBayW'],
+  table: ['schemaVersion', 'kind', 'style', 'bays', 'levels', 'bayW', 'depth', 'tilt', 'base', 'wires', 'acrylic', 'panelMat', 'books', 'glassTop', 'color', 'tBays', 'tBayW'],
+  sheet: ['schemaVersion', 'kind', 'showGuides', 'thicknessMm', 'folds', 'fasteners', 'finish'],
 };
 
-const KINDS = ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books'];
+const KINDS = ['rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'table', 'sheet'];
 
 /** 从 hash 解析当前产品 kind（profile 无独立 hash 段，作为兜底）。
  *  匹配需带边界（`#rod` 命中但 `#rods` / `#rodX` 不命中），防止未来新增前缀冲突。 */
@@ -51,7 +55,9 @@ export function encodeCfg(obj) {
 
 export function decodeCfg(str) {
   try {
-    const s = String(str).replace(/-/g, '+').replace(/_/g, '/');
+    // 防止 URL/存储中的超大配置触发大量解码与 JSON 解析；正常 8×8 配置远小于此值。
+    if (typeof str !== 'string' || str.length > 16384) return null;
+    const s = str.replace(/-/g, '+').replace(/_/g, '/');
     const o = JSON.parse(decodeURIComponent(escape(atob(s))));
     return o && typeof o === 'object' && !Array.isArray(o) ? o : null;
   } catch { return null; }
@@ -72,10 +78,48 @@ function cfgFromStorage(kind) {
   try { return decodeCfg(localStorage.getItem(LS_KEY[kind]) || ''); } catch { return null; }
 }
 
+const isLegacyTable = (cfg) => cfg && typeof cfg === 'object' && cfg.style === 'table';
+
+/** 旧长桌使用 books 身份保存；路由身份必须先迁移，再交给各产品锁定样式的 store。 */
+export function resolveProductConfig(kind, cfg) {
+  if (kind === 'books' && isLegacyTable(cfg)) {
+    return { kind: 'table', cfg: { ...cfg, kind: 'table', style: 'table' } };
+  }
+  return { kind, cfg: kind === 'profile' ? migrateProfileConfig(cfg) : cfg };
+}
+
+/** 复制旧保存值，保留原键作为兼容备份；已有独立长桌保存值优先。 */
+export function migrateLegacyTableStorage() {
+  const legacy = cfgFromStorage('books');
+  if (!isLegacyTable(legacy) || cfgFromStorage('table')) return false;
+  const migrated = resolveProductConfig('books', legacy).cfg;
+  try {
+    localStorage.setItem(LS_KEY.table, encodeCfg(pickPersisted('table', migrated)));
+    return true;
+  } catch { return false; }
+}
+
+/** 保留旧链接的视图段，将其中的 table 配置转到独立 #table 页面。 */
+export function resolveStartupProduct(hash = location.hash) {
+  const kind = kindFromHash(hash);
+  const encoded = hash.match(/[?&]c=([A-Za-z0-9_-]+)/);
+  const raw = (encoded ? decodeCfg(encoded[1]) : null) || cfgFromStorage(kind);
+  const resolved = resolveProductConfig(kind, raw);
+  if (resolved.kind === kind) return { kind, hash, migrated: false };
+  const view = hash.match(/^#books(\/[a-z]+)?(?:[?&]|$)/)?.[1] || '';
+  const b64 = encodeCfg(pickPersisted(resolved.kind, resolved.cfg));
+  return { kind: resolved.kind, hash: `#${resolved.kind}${view}?c=${b64}`, migrated: true };
+}
+
 /** 启动时恢复：hash 中的配置优先（分享链接），否则回退 localStorage。未知字段按白名单过滤 + 迁移 */
 export function loadSaved(kind) {
   const activeKind = kindFromHash(location.hash);
   let saved = (kind === activeKind ? cfgFromHash() : null) || cfgFromStorage(kind);
+  if (kind === 'books' && isLegacyTable(saved)) return null;
+  if (kind === 'table' && !saved) {
+    const legacy = cfgFromStorage('books');
+    if (isLegacyTable(legacy)) saved = resolveProductConfig('books', legacy).cfg;
+  }
   if (kind === 'profile') saved = migrateProfileConfig(saved);
   return pickPersisted(kind, saved);
 }

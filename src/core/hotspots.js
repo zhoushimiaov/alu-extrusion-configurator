@@ -13,10 +13,14 @@ export function createHotspots(layer, camera, renderer, store, getBounds) {
 
   function addHotspot(id, anchorFn, glyph, tipText, onClick) {
     const btn = document.createElement('button');
-    btn.className = 'hotspot';
+    const isLevel = id.startsWith('level');
+    btn.className = isLevel ? 'hotspot hotspot-level' : 'hotspot';
     btn.dataset.id = id;
     btn.setAttribute('aria-label', tipText);
-    btn.innerHTML = `<span>${glyph}</span><span class="tip">${tipText}</span>`;
+    btn.title = tipText + '（点击，不需拖动）';
+    // 高度控制是“加减层数”的点击按钮，不是双向拖拽手柄。
+    // 独立标记“层”并改成长方胶囊，避免误认为视图缩放/拖动手势。
+    btn.innerHTML = `<span>${glyph}</span>${isLevel ? '<span class="hotspot-unit">层</span>' : ''}<span class="tip">${tipText}</span>`;
     btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     layer.appendChild(btn);
     items.push({ btn, anchorFn, id });
@@ -27,7 +31,7 @@ export function createHotspots(layer, camera, renderer, store, getBounds) {
   //   跨数（宽度 W）→ 底部前缘宽度标注线上，减号在左、加号在右
   //   层数（高度 H）→ 左侧高度标注线上，加号在上、减号在下
   // 放在中点而非轴端，是为了避开"左下角"——轴端点在 3D 里会重合，按钮会互相压住。
-  const PAIR = 0.19;   // 高度轴一对按钮沿轴的间距（米）
+  // 让两颗层数控件分别位于标注轴 28% / 72% 处，中段完整留给高度数字。
   // 跨（宽度 W）：放在底部宽度尺寸线的【两端外侧】——减号在左端、加号在右端，
   // 正好落在端部斜短划之外；中点留给尺寸数字压线，二者不重叠（建筑标注惯例）。
   // z 再往前缘外推，避免右端 + 按钮与右缘的深度标注（0.40 m）在投影上重叠。
@@ -38,7 +42,7 @@ export function createHotspots(layer, camera, renderer, store, getBounds) {
   // 层（高度 H）：贴左侧高度标注线中段，上下成对；x 外推远离数字，y 居中不碰角部
   const heightAxis = (top) => {
     const b = getBounds();
-    return new THREE.Vector3(-b.W / 2 - 0.44, b.H / 2 + (top ? PAIR : -PAIR), b.D / 2 + 0.12);
+    return new THREE.Vector3(-b.W / 2 - 0.44, b.H * (top ? 0.72 : 0.28), b.D / 2 + 0.12);
   };
 
   // 跨：宽度轴两端（减左加右）
@@ -60,11 +64,17 @@ export function createHotspots(layer, camera, renderer, store, getBounds) {
       v.copy(p).project(camera);
       const x = (v.x * 0.5 + 0.5) * rect.width;
       const y = (-v.y * 0.5 + 0.5) * rect.height;
-      const visible = v.z < 1 && !narrow;
+      const onscreen = v.z >= -1 && v.z <= 1 &&
+        x >= 20 && x <= rect.width - 20 &&
+        y >= 20 && y <= rect.height - 20;
+      const visible = !narrow && onscreen;
       it.btn.style.left = x + 'px';
       it.btn.style.top = y + 'px';
       it.btn.style.opacity = visible ? '' : '0';
       it.btn.style.pointerEvents = visible ? 'auto' : 'none';
+      // 仅透明不等于隐藏：原来窗口缩小时仍能 Tab 到不可见热点。
+      it.btn.tabIndex = visible ? 0 : -1;
+      it.btn.setAttribute('aria-hidden', String(!visible));
       const disabled =
         (it.id === 'level+' && cfg.levels >= lim.levels[1]) ||
         (it.id === 'level-' && cfg.levels <= lim.levels[0]) ||
@@ -78,9 +88,13 @@ export function createHotspots(layer, camera, renderer, store, getBounds) {
   function setHidden(h) {
     for (const it of items) {
       it.btn.style.display = h ? 'none' : '';
-      if (h) it.btn.style.pointerEvents = 'none';
+      if (h) {
+        it.btn.style.pointerEvents = 'none';
+        it.btn.tabIndex = -1;
+        it.btn.setAttribute('aria-hidden', 'true');
+      }
     }
   }
 
-  return { sync, setHidden };
+  return { sync, setHidden, setCamera(next) { camera = next; } };
 }

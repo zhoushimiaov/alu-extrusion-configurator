@@ -123,5 +123,5 @@ export function createDimensions(svg, camera, renderer) {
     }
   }
 
-  return { update };
+  return { update, setCamera(next) { camera = next; } };
 }

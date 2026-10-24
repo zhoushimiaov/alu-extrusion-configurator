@@ -153,6 +153,21 @@ export function buildCartTable(config) {
     setMT(2, edge, glassW / 2 - e / 2, yG, 0, e, GLASS_T + 0.0002, glassD - 2 * e);
     setMT(3, edge, -(glassW / 2 - e / 2), yG, 0, e, GLASS_T + 0.0002, glassD - 2 * e);
     gGroup.add(edge);
+    // 四角透明减震垫片：玻璃底面 y=yPost1+2mm，框架上表面 y=yPost1。
+    // 之前只在五金清单中列垫片，却没有几何；导致玻璃从侧面看悬浮2mm。
+    const padT = 0.002;
+    const padR = 0.009;
+    const padGeo = new THREE.CylinderGeometry(padR, padR, padT, 16);
+    const padMat = new THREE.MeshStandardMaterial({
+      name: 'GlassIsolatorPad', color: 0x89949b, roughness: 0.84, metalness: 0,
+      transparent: true, opacity: 0.78, depthWrite: false,
+    });
+    const pads = new THREE.InstancedMesh(padGeo, padMat, 4); // 独立材质随玻璃组一起回收
+    let padIndex = 0;
+    for (const x of postXs) for (const z of postZs)
+      setMT(padIndex++, pads, x, yPost1 + padT / 2, z);
+    gGroup.add(pads);
+    groups.glassPads = pads;
     // 广告钉：镀铬圆帽 + 帽顶内六角
     const capGeo = new THREE.CylinderGeometry(0.0105, 0.0115, 0.0075, 24);
     const caps = instanced(capGeo, mat.rod, 4);
@@ -286,7 +301,7 @@ export function buildCartTable(config) {
     + (rodRails ? 8 * 0.05 : 0) + (hangCount ? 8 * 0.04 : 0)
     + nBeams * 2 * 0.012
     + (casters ? 4 * 0.15 : 4 * 0.05);
-  stats.partCount = 4 + 8 + nBeams + (glassTop ? 1 + 4 : 0) + (midAcrylic !== 'none' ? 1 : 0)
+  stats.partCount = 4 + 8 + nBeams + (glassTop ? 1 + 4 + 4 : 0) + (midAcrylic !== 'none' ? 1 : 0)
     + railCount + (rodRails ? 8 : 0) + hangCount + (hangCount ? 8 : 0) + 4;
 
   // ---- 算料单 ----
@@ -299,8 +314,8 @@ export function buildCartTable(config) {
   addCut('框梁 2020 · 两侧', '2020', +lenZ.toFixed(3), levels.length * 2);
   stats.cutList.push({ spec: '腿部木纹板 60×18', section: '板', len: +boardLen.toFixed(3), qty: 8 });
   if (rodRails) addCut('光轴挂杆', '⌀12', +railLen.toFixed(3), railCount);
-  if (glassTop) stats.cutList.push({ spec: '钢化玻璃台面 8mm', section: '板', len: +glassW.toFixed(2), qty: 1 });
-  if (midAcrylic !== 'none') stats.cutList.push({ spec: midAcrylic === 'amber' ? '橙色亚克力中板' : '磨砂亚克力中板', section: '板', len: +(lenX - 0.004).toFixed(2), qty: 1 });
+  if (glassTop) stats.cutList.push({ spec: '钢化玻璃台面 8mm', section: '板', len: +glassW.toFixed(2), qty: 1, pricedViaPane: true });
+  if (midAcrylic !== 'none') stats.cutList.push({ spec: midAcrylic === 'amber' ? '橙色亚克力中板' : '磨砂亚克力中板', section: '板', len: +(lenX - 0.004).toFixed(2), qty: 1, pricedViaPane: true });
   stats.panes = panes;
   stats.hardware = [
     casters ? { name: '万向轮 1.75 寸 平板式（镀铬轮叉 · 带刹车）', qty: 4 } : { name: '调平地脚 M10', qty: 4 },

@@ -13,6 +13,7 @@ export const MARKET = {
     { id: 'strip-2408', match: /24×8/, price: 5, range: [3, 8], query: '铝型材封边条' },
     { id: 'rod-20', match: /⌀20/, price: 22, range: [15, 30], query: '镀铬光轴 直径20' },
     { id: 'rod-12', match: /⌀12/, price: 12, range: [8, 18], query: '镀铬光轴 直径12' },
+    { id: 'steel-cable-2p4', match: /钢索/, price: 4.5, range: [3, 9], query: '不锈钢丝绳 Ø2.4mm' },
   ],
 
   // 五金：按 hardware.name 正则匹配，单位元/件
@@ -29,6 +30,7 @@ export const MARKET = {
     { match: /横杆卡夹/, price: 1.5, query: '光轴横杆夹' },
     { match: /背板挂扣/, price: 1.0, query: '展板挂扣' },
     { match: /层板托夹/, price: 1.0, query: '层板托夹' },
+    { match: /X拉索张紧端件/, price: 2.5, query: '不锈钢拉索 M4 张紧端子 卡头' },
   ],
 
   // 板件

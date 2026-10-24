@@ -2,7 +2,7 @@
 // 塔式：铬管框架 + 逐层斜面展板（前挡唇 + 可选亚克力前挡）+ 交叉拉索 + 木箱脚轮基座
 // 长桌：木台面 + 可选玻璃副层板 + 光轴桌腿 + 底部横杆
 export const BOOK_STYLES = {
-  tower: { label: '展示塔' },
+  tower: { label: '展示杂志架' },
   table: { label: '阅读长桌' },
 };
 
@@ -21,8 +21,8 @@ export const FRAME_COLORS = {
 };
 
 export const LIMITS = {
-  bays: [1, 2],        // 塔式跨数
-  levels: [2, 5],      // 层数
+  bays: [1, 4],        // 展示杂志架：1~4跨，仍受参数上限保护
+  levels: [2, 8],      // 展示杂志架：2~8层（高层配置仅作概念展示）
   bayW: [0.8, 1.2],    // 跨宽（步进 0.05）
   depth: [0.28, 0.45], // 框架深度（步进 0.01）
   tilt: [20, 40],      // 展板倾角（度，步进 2）
@@ -48,6 +48,15 @@ export const DEFAULT_BOOKSHELF_CONFIG = {
   tBays: 3,            // 长桌节数
   tBayW: 0.7,          // 长桌每节宽
   glassTop: true,      // 长桌玻璃副层板
+};
+
+// 阅读长桌独立品类沿用相同物理尺寸字段，单独存储与分享，不与杂志架相互覆盖。
+export const DEFAULT_TABLE_CONFIG = {
+  ...DEFAULT_BOOKSHELF_CONFIG,
+  kind: 'table',
+  style: 'table',
+  depth: 0.45,
+  glassTop: true,
 };
 
 export const INSTALL_STEPS_BOOKSHELF = [

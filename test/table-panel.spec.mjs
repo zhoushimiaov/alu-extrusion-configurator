@@ -1,0 +1,22 @@
+import { test, expect } from '@playwright/test';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
+const dist=pathToFileURL(resolve('dist/index.html')).href;
+test('independent table tab keeps eight aligned glass anchors through bay edits',async({page})=>{
+  const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
+  await page.addInitScript(()=>localStorage.setItem('modulo.tour.v1','1'));
+  await page.goto(dist+'#table');
+  await page.waitForFunction(()=>window.__ALU_READY);
+  await expect(page.locator('#panel .panel-title')).toContainText('阅读长桌');
+  const supports=()=>page.evaluate(()=>window.__ALU_GROUP().children.find(m=>m.geometry?.parameters?.height===0.094)?.count);
+  expect(await supports()).toBe(8);
+  await page.locator('[data-act="tBays-"]').click();
+  await expect(page.locator('[data-num="tBays"]')).toContainText('2');
+  await expect.poll(supports).toBe(8);
+  await page.locator('#product-tabs [data-kind="books"]').click();
+  await expect(page.locator('#panel .panel-title')).not.toContainText('阅读长桌');
+  await page.locator('#product-tabs [data-kind="table"]').click();
+  await expect(page.locator('[data-num="tBays"]')).toContainText('2');
+  await expect.poll(supports).toBe(8);
+  expect(errors).toEqual([]);
+});

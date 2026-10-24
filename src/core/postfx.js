@@ -54,7 +54,8 @@ function isSoftwareGL(renderer) {
 export function createPostFX(renderer, scene, camera) {
   if (NO_FX || isSoftwareGL(renderer)) {
     if (typeof window !== 'undefined') window.__ALU_FX = { mode: 'passthrough', reason: NO_FX ? 'nofx' : 'software-gl' };
-    return { render() { renderer.render(scene, camera); }, setSize() {} };
+    return { render() { renderer.render(scene, camera); }, setSize() {},
+      setCamera(next) { camera = next; } };
   }
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { samples: 4, type: THREE.HalfFloatType });
@@ -62,7 +63,8 @@ export function createPostFX(renderer, scene, camera) {
   composer.setPixelRatio(renderer.getPixelRatio());
   composer.setSize(size.x / renderer.getPixelRatio(), size.y / renderer.getPixelRatio());
 
-  composer.addPass(new RenderPass(scene, camera));
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
   composer.addPass(new OutputPass());
   composer.addPass(new ShaderPass(VignetteShader));
 
@@ -70,6 +72,7 @@ export function createPostFX(renderer, scene, camera) {
 
   return {
     render() { composer.render(); },
+    setCamera(next) { renderPass.camera = next; },
     setSize(w, h) {
       composer.setSize(w, h);
     },

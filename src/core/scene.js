@@ -78,8 +78,11 @@ export function createScene(canvas) {
   // 背景一层（模型照常），配合下方按 three 真实 ACES（Hill 拟合）反算的纹理色值，
   // 屏幕输出精确回到设计值 #fbfbfc / #eef0f2 / #dde1e6（截图采样验证）。
   scene.backgroundIntensity = 5;
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.005, 60);
-  camera.position.set(3.4, 2.0, 4.2);
+  const perspectiveCamera = new THREE.PerspectiveCamera(40, 1, 0.005, 120);
+  perspectiveCamera.position.set(3.4, 2.0, 4.2);
+  const orthographicCamera = new THREE.OrthographicCamera(-2, 2, 2, -2, 0.005, 200);
+  let camera = perspectiveCamera;
+  let orthoSpan = 4;
 
   // 环境光照（程序化摄影棚 PMREM）
   scene.environment = buildStudioEnv(renderer);
@@ -141,10 +144,45 @@ export function createScene(canvas) {
 
   function resize() {
     const el = canvas.parentElement;
-    const w = el.clientWidth, h = el.clientHeight;
+    const w = Math.max(1, el.clientWidth), h = Math.max(1, el.clientHeight);
+    const aspect = w / h;
     renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    perspectiveCamera.aspect = aspect;
+    perspectiveCamera.updateProjectionMatrix();
+    orthographicCamera.left = -orthoSpan * aspect / 2;
+    orthographicCamera.right = orthoSpan * aspect / 2;
+    orthographicCamera.top = orthoSpan / 2;
+    orthographicCamera.bottom = -orthoSpan / 2;
+    orthographicCamera.updateProjectionMatrix();
+  }
+
+  // 正交轴测必须使用 OrthographicCamera，而非窄FOV的伪轴测。
+  // 为了保持屏幕占比，按产品包围球及屏幕长宽比计算视锥，不凭固定魔法数。
+  function setProjection(mode, bounds) {
+    const next = mode === 'orthographic' ? orthographicCamera : perspectiveCamera;
+    if (next === camera) return camera;
+    const old = camera;
+    if (next.isOrthographicCamera) {
+      const { W, H, D } = bounds || { W: 2, H: 2, D: 0.6 };
+      const aspect = Math.max(0.3, canvas.parentElement.clientWidth / Math.max(1, canvas.parentElement.clientHeight));
+      const radius = Math.sqrt(W * W + H * H + D * D) / 2;
+      orthoSpan = Math.max(H * 1.20, radius * 2.35 / Math.min(1, aspect), 0.5);
+      next.zoom = 1;
+    } else {
+      // 从正交恢复透视时保留当前观察方向，并按当前正交视锥恢复等效镜头距离。
+      const dist = (orthoSpan / Math.max(0.5, old.zoom)) / (2 * Math.tan(THREE.MathUtils.degToRad(next.fov) / 2));
+      const direction = old.position.clone().sub(controls.target).normalize();
+      next.position.copy(controls.target).addScaledVector(direction, Math.min(controls.maxDistance, Math.max(controls.minDistance, dist)));
+    }
+    if (next.isOrthographicCamera) {
+      next.position.copy(old.position);
+      next.quaternion.copy(old.quaternion);
+    }
+    camera = next;
+    controls.object = camera;
+    resize();
+    controls.update();
+    return camera;
   }
   window.addEventListener('resize', resize);
   resize();
@@ -179,5 +217,6 @@ export function createScene(canvas) {
     return tex;
   }
 
-  return { renderer, scene, camera, controls, key, fitShadow };
+  return { renderer, scene, camera, controls, key, fitShadow, setProjection,
+    get projectionMode() { return camera.isOrthographicCamera ? 'orthographic' : 'perspective'; } };
 }

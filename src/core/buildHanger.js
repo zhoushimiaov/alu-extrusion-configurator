@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import { computeEnvelope } from './envelope.js';
 import { POST_D, DENSITY_ALU, DENSITY_PLY, DEFAULT_HANGER_CONFIG, HANGER_COLORS, ATELIER_TONES } from '../config/hanger.js';
-import { buildCasters, buildLevelFeet, outwardYaw } from './casters.js';
+import { buildCasters, buildLevelFeet, outwardYaw, resolveActualWheelD } from './casters.js';
 
 const _m4 = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -56,6 +56,9 @@ function buildClassic(cfg) {
   const matCabinet = new THREE.MeshPhysicalMaterial({ color: 0x8a94a0, roughness: 0.42, metalness: 0.15, envMapIntensity: 0.8 });
   const matTop = new THREE.MeshPhysicalMaterial({ color: 0x6b7280, roughness: 0.35, metalness: 0.2, envMapIntensity: 0.9 });
   const matHandle = new THREE.MeshPhysicalMaterial({ color: 0xd0d5dd, roughness: 0.25, metalness: 0.92, envMapIntensity: 1.0 });
+  const matConnector = new THREE.MeshStandardMaterial({
+    color: colorCfg.hex, roughness: 0.33, metalness: 0.83,
+  });
 
   const group = new THREE.Group();
   const groups = {};
@@ -82,7 +85,8 @@ function buildClassic(cfg) {
   const rodGeo = new THREE.CylinderGeometry(POST_D / 2, POST_D / 2, 1, 16);
   const clampGeo = new THREE.BoxGeometry(0.038, 0.038, 0.038);
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-  const braceGeo = new THREE.BoxGeometry(0.016, 1, 0.016);
+  const braceRadius = 0.006; // Ø12 光轴斜撑，替代厚重的 16×16 方杆
+  const braceGeo = new THREE.CylinderGeometry(braceRadius, braceRadius, 1, 12);
   const handleGeo = new THREE.BoxGeometry(1, 0.012, 0.018);
 
   // ---- 1. 四角 ⌀30 光轴立柱 ----
@@ -125,52 +129,196 @@ function buildClassic(cfg) {
     stats.profileLengthM += railLenX;
     stats.weightKg += railLenX * Math.PI * (POST_D / 2) ** 2 * DENSITY_ALU;
   }
-  // 居中挂衣主横杆（z=0）
-  const yHang = yTopRail - 0.10;
+  // ---- 光轴书架式贯穿节点：主杆、侧向承托杆都穿过连接位置 ----
+  // 避免侧向杆终止于立柱中心的“悬空圆管端头”；杆轴交叉处用轻型金属套筒。
+  const yHang = yTopRail - 0.24;
+  const mainOverhang = 0.055;
+  const mainLength = W + mainOverhang * 2;
+  const sideOverhang = 0.045;
+  const supportLength = D + sideOverhang * 2;
   const hangRail = new THREE.Mesh(rodGeo, matAlu);
+  hangRail.name = 'hangerMainRod';
   hangRail.rotation.z = Math.PI / 2;
-  hangRail.scale.set(1, railLenX, 1);
+  hangRail.scale.set(1, mainLength, 1);
   hangRail.position.set(0, yHang, 0);
   topRailsGroup.add(hangRail);
-  stats.profileLengthM += railLenX;
-  stats.weightKg += railLenX * Math.PI * (POST_D / 2) ** 2 * DENSITY_ALU;
-  for (const sx of [-1, 1]) {
-    const clamp = new THREE.Mesh(clampGeo, matAlu);
-    clamp.position.set(sx * px, yHang, 0);
-    topRailsGroup.add(clamp);
+  groups.hangRail = hangRail;
+  stats.profileLengthM += mainLength;
+  stats.weightKg += mainLength * Math.PI * (POST_D / 2) ** 2 * DENSITY_ALU;
+
+  // 两侧 Ø18 托杆沿 Z 方向贯穿前后立柱，端部各外露60mm（相对柱心）。
+  const supportRadius = 0.009;
+  // 两组垂直的实体圆杆不能占用同一轴心。保留 4mm 净距，由金属 T 接头桥接。
+  const crossClearance = 0.004;
+  const ySupport = yHang - (POST_D / 2 + supportRadius + crossClearance);
+  const supportGeo = new THREE.CylinderGeometry(supportRadius, supportRadius, 1, 16);
+  const supportGroup = new THREE.Group();
+  supportGroup.name = 'hangerSideSupports';
+  for (const x of postXs) {
+    const support = new THREE.Mesh(supportGeo, matAlu);
+    support.name = 'hangerThroughDepthRod';
+    support.rotation.x = Math.PI / 2;
+    support.scale.y = supportLength;
+    support.position.set(x, ySupport, 0);
+    supportGroup.add(support);
   }
+  topRailsGroup.add(supportGroup);
+  groups.hangSupports = supportGroup;
+  stats.profileLengthM += 2 * supportLength;
+  stats.weightKg += 2 * supportLength * Math.PI * supportRadius ** 2 * DENSITY_ALU;
+
+  // 统一 Ø30 竖柱抱箍（仅外壳，不再做厚重方形夹块）。
+  const postSleeveGeo = new THREE.CylinderGeometry(0.019, 0.019, 0.030, 18, 1, true);
+  const postSleeves = new THREE.Group();
+  postSleeves.name = 'hangerPostSleeves';
+  for (const x of postXs) for (const z of postZs) {
+    const sleeve = new THREE.Mesh(postSleeveGeo, matConnector);
+    sleeve.name = 'hangerPostSleeve';
+    sleeve.position.set(x, ySupport, z);
+    postSleeves.add(sleeve);
+  }
+  topRailsGroup.add(postSleeves);
+  groups.hangPostSleeves = postSleeves;
+
+  const saddleGeo = new THREE.CylinderGeometry(0.020, 0.020, 0.050, 20, 1, true);
+  const saddles = new THREE.Group();
+  saddles.name = 'hangerCrossingCouplers';
+  for (const x of postXs) {
+    const saddle = new THREE.Mesh(saddleGeo, matConnector);
+    saddle.name = 'hangerRodSaddle';
+    saddle.rotation.z = Math.PI / 2;
+    saddle.position.set(x, yHang, 0);
+    saddles.add(saddle);
+  }
+  topRailsGroup.add(saddles);
+  groups.hangSaddles = saddles;
+
+  // 两根不同高度的实心圆杆通过短竖向连桥和 Ø18 侧杆套筒连接。
+  // 杆身不再彼此穿透，节点仍作为可见的 T 形装配。
+  const crossBridgeGroup = new THREE.Group();
+  crossBridgeGroup.name = 'hangerCrossBridges';
+  const crossBridgeGeo = new THREE.CylinderGeometry(0.007, 0.007, 0.044, 12);
+  const crossSleeveGeo = new THREE.CylinderGeometry(0.013, 0.013, 0.042, 16, 1, true);
+  for (const x of postXs) {
+    const bridge = new THREE.Mesh(crossBridgeGeo, matConnector);
+    bridge.name = 'hangerVerticalTBridge';
+    bridge.position.set(x, (yHang + ySupport) / 2, 0);
+    crossBridgeGroup.add(bridge);
+    const sleeve = new THREE.Mesh(crossSleeveGeo, matConnector);
+    sleeve.name = 'hangerDepthRodSleeve';
+    sleeve.rotation.x = Math.PI / 2;
+    sleeve.position.set(x, ySupport, 0);
+    crossBridgeGroup.add(sleeve);
+  }
+  topRailsGroup.add(crossBridgeGroup);
+  groups.hangCrossBridges = crossBridgeGroup;
+  stats.weightKg += 2 * (
+    Math.PI * 0.007 ** 2 * 0.044 +
+    Math.PI * (0.013 ** 2 - supportRadius ** 2) * 0.042
+  ) * DENSITY_ALU;
   group.add(topRailsGroup);
   groups.topRail = topRailsGroup;
 
   // ---- 3. 顶部置物搁板 ----
   const shelfW = W - 2 * POST_D - 0.006;
   const shelfD = D - 2 * POST_D - 0.006;
-  const shelfT = 0.018;
-  const shelfY = yTopRail + POST_D / 2 - shelfT / 2;
+  const shelfT = 0.026; // 原 18mm 板偏薄：26mm 实体木芯，顶面仍与圆管框顶齐平
+  const shelfTop = yTopRail + POST_D / 2 - 0.001;
+  const shelfY = shelfTop - shelfT / 2;
   const shelf = new THREE.Mesh(boxGeo, matWood);
+  shelf.name = 'topShelfSolid26mm';
   shelf.scale.set(shelfW, shelfT, shelfD);
   shelf.position.set(0, shelfY, 0);
   group.add(shelf);
   groups.shelf = shelf;
   stats.weightKg += shelfW * shelfD * shelfT * DENSITY_PLY;
 
-  // ---- 4. 结构斜撑（左右侧框顶部 45°）----
-  const braceArm = 0.16;
-  const braceLen = Math.hypot(braceArm, braceArm);
-  const braces = instanced(braceGeo, matAlu, 4);
-  let bi = 0;
-  for (const sx of postXs) {
+  // 顶板落在四只金属托片上：托片顶面紧贴搁板底面，外侧紧贴纵梁圆管外壁，形成实体支承。
+  const shelfTabs = new THREE.Group();
+  shelfTabs.name = 'topShelfSupportTabs';
+  const tabGeo = new THREE.BoxGeometry(0.070, 0.006, 0.052);
+  for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
+      // 纵梁在 x = sx * px，在 y = shelfTop - shelfT = yTopRail - 0.012 时其圆柱表面在 x = sx * (px - 0.009)
+      const tabX = sx * (px - 0.009 - 0.035);
+      const tabZ = sz * (pz - 0.045);
+      const tab = new THREE.Mesh(tabGeo, matConnector);
+      tab.name = 'topShelfTab';
+      tab.position.set(tabX, shelfTop - shelfT - 0.003, tabZ);
+      shelfTabs.add(tab);
+    }
+  }
+  group.add(shelfTabs);
+  groups.shelfTabs = shelfTabs;
+  stats.weightKg += 4 * 0.070 * 0.006 * 0.052 * DENSITY_ALU;
+
+  // ---- 外侧斜撑：顶部侧梁/立柱 → X向连接穿销 → 外挂斜撑金属套筒 ----
+  // 斜撑整体位于侧框外32mm（与光轴书架同一外露节点语言）。
+  // 原 190mm 臂长使下端套筒与下方挂衣杆/抱箍几乎贴在一起。
+  // 缩到 155mm 后始终保持约 85mm 以上的标高差。
+  const braceArm = Math.min(0.155, pz - 0.047);
+  const braceLen = Math.SQRT2 * braceArm;
+  const braceOuterOffset = 0.032;
+  const pinRadius = 0.006;
+  const pinLength = braceOuterOffset + 0.030;
+  const braces = instanced(braceGeo, matAlu, 4);
+  const braceJoints = new THREE.Group();
+  braceJoints.name = 'topCornerBraceCouplers';
+  const bracePins = new THREE.Group();
+  bracePins.name = 'topCornerThroughPins';
+  const braceFrameCollars = new THREE.Group();
+  braceFrameCollars.name = 'topCornerFrameCollars';
+  const frameCollarGeo = new THREE.CylinderGeometry(0.019, 0.019, 0.028, 18, 1, true);
+  const fittingGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.038, 16, 1, true);
+  const pinGeo = new THREE.CylinderGeometry(pinRadius, pinRadius, 1, 12);
+  let bi = 0;
+  for (const x of postXs) {
+    const outerX = x + Math.sign(x) * braceOuterOffset;
+    for (const sz of [-1, 1]) {
+      const endTop = new THREE.Vector3(outerX, yTopRail, sz * (pz - braceArm));
+      const endPost = new THREE.Vector3(outerX, yTopRail - braceArm, sz * pz);
+      const direction = endPost.clone().sub(endTop).normalize();
       _s.set(1, braceLen, 1);
-      _q.setFromEuler(_e.set(-sz * Math.PI / 4, 0, 0));
-      _m4.compose(new THREE.Vector3(sx, yTopRail - braceArm / 2, sz * (pz - braceArm / 2)), _q, _s);
+      _q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      _m4.compose(endTop.clone().add(endPost).multiplyScalar(0.5), _q, _s);
       braces.setMatrixAt(bi++, _m4);
+      for (const [isTop, end] of [[true, endTop], [false, endPost]]) {
+        // 套筒沿斜杆退入24mm：避免套筒实体与顶侧梁/立柱直接挤成一团。
+        const sleeveInset = 0.024;
+        const sleeve = new THREE.Mesh(fittingGeo, matConnector);
+        sleeve.name = 'braceEndSleeve';
+        sleeve.position.copy(end).addScaledVector(direction, isTop ? sleeveInset : -sleeveInset);
+        sleeve.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+        braceJoints.add(sleeve);
+
+        // 梁柱侧各有自己的抱箍：顶端抱在进深向梁上，下端抱在竖立柱上。
+        const collar = new THREE.Mesh(frameCollarGeo, matConnector);
+        collar.name = isTop ? 'braceTopBeamCollar' : 'braceUprightCollar';
+        collar.position.set(x, end.y, end.z);
+        if (isTop) collar.rotation.x = Math.PI / 2;
+        braceFrameCollars.add(collar);
+
+        // X 向穿销连接两套独立抱箍，保持外侧32mm离柱距离。
+        const pin = new THREE.Mesh(pinGeo, matConnector);
+        pin.name = 'braceThroughPin';
+        pin.rotation.z = Math.PI / 2;
+        pin.scale.y = pinLength;
+        pin.position.set((x + outerX) / 2, end.y, end.z);
+        bracePins.add(pin);
+      }
     }
   }
   _s.set(1, 1, 1); _q.identity();
-  group.add(braces);
+  group.add(braces, braceJoints, bracePins, braceFrameCollars);
   groups.braces = braces;
-  stats.weightKg += 4 * braceLen * 0.016 * 0.016 * DENSITY_ALU;
+  groups.braceJoints = braceJoints;
+  groups.bracePins = bracePins;
+  groups.braceFrameCollars = braceFrameCollars;
+  stats.profileLengthM += 4 * braceLen;
+  stats.weightKg += 4 * braceLen * Math.PI * braceRadius ** 2 * DENSITY_ALU
+    + 8 * Math.PI * (0.012 ** 2 - braceRadius ** 2) * 0.038 * DENSITY_ALU
+    + 8 * Math.PI * pinRadius ** 2 * pinLength * DENSITY_ALU
+    + 8 * Math.PI * (0.019 ** 2 - (POST_D / 2) ** 2) * 0.028 * DENSITY_ALU;
 
   // ---- 5. 底部储物柜与抽屉 ----
   const cabH = 0.46;
@@ -250,18 +398,30 @@ function buildClassic(cfg) {
 
   // ---- 6. 后框中间加强横撑 ----
   const yRearTie = yPost0 + cabH + (H - cabH) * 0.45;
-  const rearTie = new THREE.Mesh(rodGeo, matAlu);
+  const rearOverhang = 0.045;
+  const rearLength = W + 2 * rearOverhang;
+  const rearTieRadius = 0.007; // Ø14 贯穿后横杆，沿用光轴书架的细杆语汇
+  const rearTieGeo = new THREE.CylinderGeometry(rearTieRadius, rearTieRadius, 1, 16);
+  const rearTie = new THREE.Mesh(rearTieGeo, matAlu);
+  rearTie.name = 'rearThroughTieRod';
   rearTie.rotation.z = Math.PI / 2;
-  rearTie.scale.set(1, railLenX, 1);
+  rearTie.scale.set(1, rearLength, 1);
   rearTie.position.set(0, yRearTie, -pz);
   group.add(rearTie);
-  stats.profileLengthM += railLenX;
-  stats.weightKg += railLenX * Math.PI * (POST_D / 2) ** 2 * DENSITY_ALU;
-  for (const sx of [-1, 1]) {
-    const clamp = new THREE.Mesh(clampGeo, matAlu);
-    clamp.position.set(sx * px, yRearTie, -pz);
-    group.add(clamp);
+  groups.rearTie = rearTie;
+  stats.profileLengthM += rearLength;
+  stats.weightKg += rearLength * Math.PI * rearTieRadius ** 2 * DENSITY_ALU;
+  const rearTieCollars = new THREE.Group();
+  rearTieCollars.name = 'rearThroughTieCollars';
+  const rearCollarGeo = new THREE.CylinderGeometry(0.020, 0.020, 0.032, 18, 1, true);
+  for (const x of postXs) {
+    const collar = new THREE.Mesh(rearCollarGeo, matConnector);
+    collar.name = 'rearTieCollar';
+    collar.position.set(x, yRearTie, -pz);
+    rearTieCollars.add(collar);
   }
+  group.add(rearTieCollars);
+  groups.rearTieCollars = rearTieCollars;
 
   // ---- 7. 2020 铝型材底框（立柱直接立在底框四角上）----
   const frameLenX = W;
@@ -279,6 +439,40 @@ function buildClassic(cfg) {
   stats.profileLengthM += 2 * (frameLenX + frameLenZ);
   stats.weightKg += 2 * (frameLenX + frameLenZ) * 0.02 * 0.02 * DENSITY_ALU;
 
+  // 底部下柜承托梁：两根 2020 铝型材横跨左右底框纵梁，柜底平置其上，荷载直接传递到底框与地脚/轮组
+  const bearingLenX = W - POST_D - beamH;
+  const bearingBeamGeo = new THREE.BoxGeometry(bearingLenX, beamH, beamH);
+  const cabBearings = new THREE.Group();
+  cabBearings.name = 'cabinetBearingBeams';
+  const cabSupportZs = [-cabD * 0.28, cabD * 0.28];
+  for (let bi = 0; bi < cabSupportZs.length; bi++) {
+    const cb = new THREE.Mesh(bearingBeamGeo, matAlu);
+    cb.name = `cabinetBearingBeam_${bi}`;
+    cb.position.set(0, yBottom, cabSupportZs[bi]);
+    cabBearings.add(cb);
+  }
+  const cabBrackets = new THREE.Group();
+  cabBrackets.name = 'cabinetBearingBrackets';
+  const bracketGeo = new THREE.BoxGeometry(0.02, 0.02, 0.02);
+  for (let bi = 0; bi < cabSupportZs.length; bi++) {
+    const zBeam = cabSupportZs[bi];
+    const sz = bi === 0 ? 1 : -1;
+    for (const sx of [-1, 1]) {
+      const br = new THREE.Mesh(bracketGeo, matConnector);
+      br.name = `cabinetBearingBracket_${bi}_${sx > 0 ? 'R' : 'L'}`;
+      br.position.set(sx * (bearingLenX / 2 - 0.01), yBottom, zBeam + sz * 0.02);
+      cabBrackets.add(br);
+    }
+  }
+  cabBearings.add(cabBrackets);
+  group.add(cabBearings);
+  groups.cabinetBearings = cabBearings;
+  groups.cabinetBrackets = cabBrackets;
+  stats.profileLengthM += 2 * bearingLenX;
+  stats.weightKg += 2 * bearingLenX * 0.02 * 0.02 * DENSITY_ALU
+    + 4 * 0.02 ** 3 * DENSITY_ALU; // 四只连接块按当前简化实体体积核重
+  stats.partCount += 2 + 4;
+
   // ---- 8. 万向轮 / 调平地脚（平板贴底框四角，轮沿对角外偏）----
   const legPts = postXs.flatMap((x) => postZs.map((z) => ({ x, z, yaw: outwardYaw(x, z, 'diag') })));
   const palette = color === 'black' ? 'black' : 'chrome';
@@ -294,27 +488,112 @@ function buildClassic(cfg) {
     stats.weightKg += 4 * 0.05;
   }
 
+  // ---- 8a. 可选左右侧面 X 拉索：每侧两根真实 Ø2.4mm 钢索 ----
+  if (cfg.sideWires) {
+    const wireR = 0.0012;
+    const wireGeo = new THREE.CylinderGeometry(wireR, wireR, 1, 10);
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0xb0b9c1, metalness: 0.87, roughness: 0.32 });
+    const wireGroup = new THREE.Group();
+    wireGroup.name = 'hangerSideXWires';
+    const ends = new THREE.Group();
+    ends.name = 'hangerSideWireEnds';
+    const terminalGeo = new THREE.CylinderGeometry(0.006, 0.006, 0.022, 10);
+    const y0 = yPost0 + 0.34, y1 = yTopRail - 0.34;
+    const z0 = -pz, z1 = pz;
+    const length = Math.hypot(y1 - y0, z1 - z0);
+    for (const x of postXs) {
+      const outerX = x + Math.sign(x) * 0.024; // 置于左右侧框外表面
+      for (const [ay,az,by,bz] of [[y0,z0,y1,z1],[y0,z1,y1,z0]]) {
+        const start=new THREE.Vector3(outerX,ay,az), end=new THREE.Vector3(outerX,by,bz);
+        const mesh=new THREE.Mesh(wireGeo,wireMat);
+        mesh.name='sideXSteelCable';
+        mesh.position.copy(start).add(end).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),end.clone().sub(start).normalize());
+        mesh.scale.y=length;
+        wireGroup.add(mesh);
+        for (const point of [start,end]) {
+          const terminal=new THREE.Mesh(terminalGeo,matConnector);
+          terminal.name='sideXWireTerminal';
+          terminal.position.copy(point);
+          // 柱侧端耳连接销：将钢索张紧端件直接锚固至立柱外壁，消除悬空断口
+          const lugGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.024, 10);
+          lugGeo.rotateZ(Math.PI / 2);
+          const lug = new THREE.Mesh(lugGeo, matConnector);
+          lug.name = 'sideXWirePostLug';
+          lug.position.set(-Math.sign(x) * 0.012, 0, 0);
+          terminal.add(lug);
+          ends.add(terminal);
+        }
+      }
+    }
+    group.add(wireGroup, ends);
+    groups.sideWires = wireGroup;
+    groups.sideWireEnds = ends;
+    // 金属钢索体积与四根钢索总长；端部五金对应8处实物（含随附回接立柱销耳）。
+    const lugVol = Math.PI * 0.004 * 0.004 * 0.024;
+    const lugMass = 8 * lugVol * 7850;
+    stats.profileLengthM += length * 4;
+    stats.weightKg += length * 4 * Math.PI * wireR * wireR * 7850 + lugMass;
+    stats.partCount += 12;
+    stats.cutList.push({ spec: '侧面X拉索不锈钢丝绳 Ø2.4', section: '钢索Ø2.4', len: +length.toFixed(3), qty: 4 });
+  }
+
   // ---- 9. 统计清单与算料 ----
-  stats.partCount += 4 + 2 + 2 + 1 + 1 + 4 + 1 + (nDrawers > 0 ? nDrawers * 2 : 2) + 1 + 4 + 4 + 4;
+  // 旧结构件数60；新增 T 型桥接组件4件、梁柱端金属抱箍8件。
+  stats.partCount += 4 + 2 + 2 + 1 + 1 + 4 + 1 + (nDrawers > 0 ? nDrawers * 2 : 2) + 1 + 4 + 4 + 4
+    - 2 + 2 + 2 + 4 + 4 + 8 + 8 + 2 + 4 + 8;
   const addCut = (spec, sec, len, qty) => {
     const prev = stats.cutList.find(c => c.spec === spec && Math.abs(c.len - len) < 1e-6);
     if (prev) prev.qty += qty; else stats.cutList.push({ spec, section: sec, len: +len.toFixed(3), qty });
   };
   addCut('立柱 ⌀30 光轴', '⌀30', H, 4);
-  addCut('主挂衣杆 ⌀30 光轴', '⌀30', railLenX, 1);
+  addCut('主挂衣杆贯穿光轴 ⌀30', '⌀30', mainLength, 1);
+  addCut('挂衣杆侧向贯穿光轴 ⌀18', '⌀18', supportLength, 2);
+  addCut('外挂斜撑光轴 ⌀12', '⌀12', braceLen, 4);
   addCut('顶框横杆 ⌀30 光轴', '⌀30', railLenX, 2);
   addCut('顶框纵杆 ⌀30 光轴', '⌀30', railLenZ, 2);
-  addCut('后框横撑 ⌀30 光轴', '⌀30', railLenX, 1);
+  addCut('后框贯穿横撑 ⌀14 光轴', '⌀14', rearLength, 1);
   addCut('底框横梁 2020', '20×20', frameLenX, 2);
   addCut('底框纵梁 2020', '20×20', frameLenZ, 2);
+  addCut('底框下柜承托梁 2020', '20×20', bearingLenX, 2);
+
+  // 经典款柜体与搁板木质构件下料清单
+  stats.cutList.push({ spec: '顶部置物搁板（26mm 胶合板）', section: '板', len: +shelfW.toFixed(3), width: +shelfD.toFixed(3), thickness: shelfT, qty: 1 });
+  stats.cutList.push({ spec: '下柜底板（15mm 胶合板）', section: '板', len: +cabW.toFixed(3), width: +cabD.toFixed(3), thickness: CAB_T, qty: 1 });
+  stats.cutList.push({ spec: '下柜侧板（15mm 胶合板）', section: '板', len: +cabH.toFixed(3), width: +cabD.toFixed(3), thickness: CAB_T, qty: 2 });
+  stats.cutList.push({ spec: '下柜背板（15mm 胶合板）', section: '板', len: +(cabW - 2 * CAB_T).toFixed(3), width: +(cabH - CAB_T).toFixed(3), thickness: CAB_T, qty: 1 });
+  stats.cutList.push({ spec: '下柜顶台板（20mm 饰面板）', section: '板', len: +(cabW + 0.016).toFixed(3), width: +(cabD + 0.016).toFixed(3), thickness: 0.02, qty: 1 });
+  if (nDrawers === 0) {
+    const inW = cabW - 2 * CAB_T - 0.004;
+    const inH = cabH - CAB_T;
+    const inD = cabD - CAB_T;
+    stats.cutList.push({ spec: '开放下柜横隔板（12mm 胶合板）', section: '板', len: +inW.toFixed(3), width: +inD.toFixed(3), thickness: 0.012, qty: 1 });
+    stats.cutList.push({ spec: '开放下柜立隔板（12mm 胶合板）', section: '板', len: +inH.toFixed(3), width: +inD.toFixed(3), thickness: 0.012, qty: 1 });
+  } else {
+    const drawerW = cabW - 0.018;
+    const marginY = 0.018;
+    const gapY = 0.008;
+    const totalDrawerH = cabH - marginY * 2;
+    const drawerH = (totalDrawerH - (nDrawers - 1) * gapY) / nDrawers;
+    stats.cutList.push({ spec: '抽屉面板（16mm 抽面）', section: '板', len: +drawerW.toFixed(3), width: +drawerH.toFixed(3), thickness: 0.016, qty: nDrawers });
+  }
 
   stats.panes = [];
   stats.hardware = [
     wheels ? { name: '万向轮 1.75 寸 平板式（带刹车）', qty: 4 } : { name: '调平地脚 M10', qty: 4 },
-    { name: 'T 型夹块（挂杆/横撑节点）', qty: 4 },
-    { name: '45° 加固斜撑角件', qty: 4 },
+    { name: '挂衣杆 T 型穿接套筒 Ø30', qty: 2 },
+    { name: '挂衣杆 T 型竖向桥接件', qty: 2 },
+    { name: '挂衣杆 Ø18 侧杆套筒', qty: 2 },
+    { name: '侧向贯穿光轴立柱抱箍', qty: 4 },
+    { name: '后框贯穿杆立柱抱箍', qty: 2 },
+    { name: '顶部搁板金属承托片', qty: 4 },
+    { name: '外挂斜撑端部金属套筒', qty: 8 },
+    { name: '外挂斜撑梁柱金属抱箍', qty: 8 },
+    { name: '外挂斜撑水平连接穿销', qty: 8 },
     { name: '底框压铸角件', qty: 4 },
+    { name: '下柜承托梁压铸角码', qty: 4 },
     ...(nDrawers > 0 ? [{ name: '铝合金极简横向拉手', qty: nDrawers }] : []),
+    ...(cfg.sideWires ? [{ name: 'X拉索张紧端件 Ø2.4（含回接立柱销耳总成）', qty: 8 }] : []),
   ];
 
   stats.supports = {
@@ -332,7 +611,7 @@ function buildClassic(cfg) {
     stats,
     bounds: { W: W + 0.06, H: yPostTall + 0.04, D: D + 0.06 },
     config: cfg,
-    dispose: () => disposeGroup(group, [matAlu, matWood, matCabinet, matTop, matHandle]),
+    dispose: () => disposeGroup(group, [matAlu, matWood, matCabinet, matTop, matHandle, matConnector]),
   };
 }
 
@@ -719,11 +998,15 @@ function buildAtelier(cfg) {
     { name: 'V 形挂杆托架', qty: 2 },
     { name: '环形管夹', qty: 6 },
     ...(drawerCount ? [{ name: '抽屉滑轨（三节 · 按压回弹）', qty: drawerCount }] : []),
-    wheels ? { name: '隐藏式万向轮 1.5 寸（底座下）', qty: 4 } : { name: '底座防滑脚垫', qty: 4 },
+    wheels ? { name: `隐藏式万向轮 ⌀${Math.round(resolveActualWheelD({ H: CASTER_H, wheelD: 0.036 }) * 1000)}mm（安装高 ${Math.round(CASTER_H * 1000)}mm · 底座下）`, qty: 4 } : { name: '底座防滑脚垫', qty: 4 },
   ];
   stats.supports = {
     kind: wheels ? 'casters' : 'feet',
-    points: footPts.map(({ x, z }) => [x, 0, z]),
+    points: footPts.map(({ x, z }) => {
+      if (!wheels) return [x, 0, z];
+      const l = Math.hypot(x, z) || 1;
+      return [+(x + (x / l) * 0.012).toFixed(4), 0, +(z + (z / l) * 0.012).toFixed(4)];
+    }),
   };
   stats.envelope = computeEnvelope(group);
   return {

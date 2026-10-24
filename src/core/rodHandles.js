@@ -247,6 +247,7 @@ export function createRodHandles(canvas, camera, renderer, controls, rodStore, g
     group,
     sync,
     setVisible,
+    setCamera(next) { camera = next; },
     dispose() {
       window.removeEventListener('pointermove', moveDrag);
       window.removeEventListener('pointerup', endDrag);

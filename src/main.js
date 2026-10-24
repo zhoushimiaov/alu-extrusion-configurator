@@ -4,19 +4,22 @@ import './fonts.css';
 import './styles.css';
 import { createScene } from './core/scene.js';
 import { createPostFX } from './core/postfx.js';
-import { buildShelf } from './core/buildShelf.js';
+import { buildReviewedShelf as buildShelf } from './core/buildReviewedShelf.js';
 import { buildGlbFrame, computeGlbStats } from './core/buildGlbFrame.js';
 import { retreatShelfBackPanels } from './core/shelfBackPanel.js';
 import './core/backPanelFinishes.js';
 import { declutterProps } from './core/propsDeclutter.js';
 import { decoratePanel } from './ui/panelDecor.js';
+import { withAssemblyDimensions } from './ui/reviewedPanel.js';
 import { initConfigList, addConfigItem } from './ui/configList.js';
 import { buildRodRack } from './core/buildRodRack.js';
 import { createAnims } from './core/anims.js';
-import { createDimensions } from './core/dimensions.js';
+import { createReviewedDimensions as createDimensions } from './core/reviewedDimensions.js';
+import { measureAssembly } from './core/assemblyEnvelope.js';
 import { createHotspots } from './core/hotspots.js';
 import { createRodHandles } from './core/rodHandles.js';
 import { createSupportMarkers } from './core/supportMarkers.js';
+import { applyXrayTo } from './core/xray.js';
 import { createGroundContact } from './core/groundContact.js';
 import { store, fmtPrice, calcPrice, setInstallSteps } from './ui/store.js';
 import { createPanel } from './ui/panel.js';
@@ -24,7 +27,10 @@ import { createRodPanel, rodStore, calcRodPrice } from './ui/rodPanel.js';
 import { createCartPanel, cartStore, calcCartPrice } from './ui/cartPanel.js';
 import { createWoodCartPanel, woodcartStore, calcWoodCartPrice } from './ui/woodCartPanel.js';
 import { createHangerPanel, hangerStore, calcHangerPrice } from './ui/hangerPanel.js';
-import { createBookshelfPanel, bookshelfStore, calcBookshelfPrice } from './ui/bookshelfPanel.js';
+import { createBookshelfPanel, bookshelfStore, tableStore, calcBookshelfPrice } from './ui/bookshelfPanel.js';
+import { createSheetPanel, sheetStore } from './ui/sheetPanel.js';
+import { createSheetPlaceholder, buildSheetCabinet, sheetPreviewStats, downloadOriginalSheetGlb } from './core/buildSheetCabinet.js';
+import { DEFAULT_SHEET_CONFIG, SHEET_ORIGINAL } from './config/sheet.js';
 import { buildWoodCart } from './core/buildWoodCart.js';
 import { buildHanger } from './core/buildHanger.js';
 import { buildBookshelf } from './core/buildBookshelf.js';
@@ -37,9 +43,9 @@ import { maybeStartTour } from './ui/tour.js';
 import { downloadCutlist } from './ui/cutlist.js';
 import { registerLabels } from './ui/cutlist.js';
 import { printCurrentReport } from './ui/printReport.js';
-import { downloadModel } from './ui/modelExport.js';
+import { captureAssemblyPose, downloadModel } from './ui/modelExport.js';
 import { onMarketRefresh } from './ui/marketPrice.js';
-import { loadSaved, persist } from './ui/persist.js';
+import { loadSaved, persist, migrateLegacyTableStorage, resolveStartupProduct, resolveProductConfig } from './ui/persist.js';
 import { INSTALL_STEPS } from './config/product.js';
 import { INSTALL_STEPS_ROD, BACK_TYPES, SHELF_TYPES, ROD_COLORS } from './config/rodrack.js';
 import { INSTALL_STEPS_CART, ACRYLIC_TYPES, WOOD_FINISHES } from './config/cart.js';
@@ -57,6 +63,7 @@ registerLabels('woodcart', { WOOD_TONES });
 registerLabels('crates', { CRATE_SCHEMES });
 registerLabels('hanger', { HANGER_COLORS, HANGER_STYLES, ATELIER_TONES, ATELIER_MODULES });
 registerLabels('books', { PANEL_MATERIALS, BOOK_STYLES });
+registerLabels('table', { PANEL_MATERIALS, BOOK_STYLES });
 
 const canvas = document.getElementById('gl');
 const dimSvg = document.getElementById('dim-layer');
@@ -68,10 +75,10 @@ const loader = document.getElementById('loader');
 installSpecCountUp(panelRoot); // 规格数字 count-up（显示层，不触碰 updateStats 写入）
 const toast = document.getElementById('toast');
 
-let renderer, scene, camera, controls, fitShadow, postfx;
+let renderer, scene, camera, controls, fitShadow, postfx, setProjectionCamera;
 let webglFailed = false;
 try {
-  ({ renderer, scene, camera, controls, fitShadow } = createScene(canvas));
+  ({ renderer, scene, camera, controls, fitShadow, setProjection: setProjectionCamera } = createScene(canvas));
   postfx = createPostFX(renderer, scene, camera);
 } catch (err) {
   webglFailed = true;
@@ -100,7 +107,10 @@ if (supportMarkers) { scene.add(supportMarkers.group); supportMarkers.setVisible
 const GROUND_PREVIEW = /[?&]ground=1/.test(location.search);
 const groundContact = (webglFailed || !GROUND_PREVIEW) ? null : createGroundContact();
 if (groundContact) scene.add(groundContact.group);
-let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.hash) ? 'cart' : /^#crates/.test(location.hash) ? 'crates' : /^#woodcart/.test(location.hash) ? 'woodcart' : /^#hanger/.test(location.hash) ? 'hanger' : /^#books/.test(location.hash) ? 'books' : 'profile';
+migrateLegacyTableStorage();
+const initialProduct = resolveStartupProduct();
+let productKind = initialProduct.kind;
+if (initialProduct.migrated) history.replaceState(null, '', initialProduct.hash);
 
 // ---- 配置恢复：分享链接（hash ?c=）优先，其次 localStorage ----
 // 白名单已由 persist.pickPersisted 按产品 schema 统一过滤，这里只做注入。
@@ -108,17 +118,30 @@ let productKind = /^#rod/.test(location.hash) ? 'rod' : /^#cart/.test(location.h
 const PRODUCT_STORES = {
   profile: store, rod: rodStore, cart: cartStore,
   crates: cratesStore, woodcart: woodcartStore, hanger: hangerStore,
-  books: bookshelfStore,
+  books: bookshelfStore, table: tableStore,
+  sheet: sheetStore,
 };
+const assemblyPoses = new WeakMap();
+function poseFor(product) {
+  if (!product?.group) return null;
+  let pose = assemblyPoses.get(product);
+  if (!pose) {
+    pose = captureAssemblyPose(product.group);
+    assemblyPoses.set(product, pose);
+  }
+  return pose;
+}
+function exportModel(product, kind, meta) {
+  if (!product?.group) throw new Error(`No active ${kind} model`);
+  return downloadModel(product.group, kind, meta, { assemblyPose: poseFor(product) });
+}
 for (const [kind, s] of Object.entries(PRODUCT_STORES)) {
   const saved = loadSaved(kind);
   if (saved && Object.keys(saved).length) {
-    if (kind === 'profile' && saved.frameMode === 'standard') {
-      saved.frameMode = 'glb';
-    }
     s.set(saved);
   }
 }
+if (initialProduct.migrated) persist(productKind, PRODUCT_STORES[productKind].get());
 
 let current = null;      // 型材架
 function syncPriceNote() {
@@ -134,17 +157,43 @@ let cratesCurrent = null; // 周转箱收纳架
 let woodCartCurrent = null; // 光轴木展车
 let hangerCurrent = null;   // 光轴挂衣架
 let booksCurrent = null;    // 光轴书架
+let sheetCurrent = null;    // 镀锌板书架 GLB 原型
+let sheetLoadVersion = 0; // 控制异步 GLB 载入与产品切换之间的竞态
 let panel = null;
 const center = new THREE.Vector3(0, 0, 0);
-const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : productKind === 'books' ? booksCurrent : current);
+const active = () => (productKind === 'rod' ? rodCurrent : productKind === 'cart' ? cartCurrent : productKind === 'crates' ? cratesCurrent : productKind === 'woodcart' ? woodCartCurrent : productKind === 'hanger' ? hangerCurrent : (productKind === 'books' || productKind === 'table') ? booksCurrent : productKind === 'sheet' ? sheetCurrent : current);
 
 // 场景处理：阴影已全局关闭，此处仅按产品包围盒调整主光位置
 function stageProduct(p) {
   if (!p || !p.group) return;
+  // Capture the finished assembly after visibility/back-panel processing and
+  // before entrance/explosion animation. Dimensions must stay on that assembly.
+  p.assemblyExtent = measureAssembly(p.group);
+  if (p.stats) p.stats.envelope = p.assemblyExtent.envelope;
+  p.dimensionBounds = { ...p.assemblyExtent.envelope, minY: p.assemblyExtent.min[1] };
+  poseFor(p);
   if (p.bounds) fitShadow(p.bounds);
   if (groundContact) groundContact.sync(p.stats?.envelope || p.bounds);
-  if (supportMarkers) supportMarkers.setPoints(p.stats?.supports?.points || []);
-  if (xrayOn) applyXrayTo(p.group, true);
+  if (supportMarkers) {
+    let points = p.stats?.supports?.points || [];
+    // 型材架没有脚轮配置，但通高立柱底部仍是明确的落地点。
+    // 标注结构落点而非捏造轮组：基于当前渲染立柱的变换计算。
+    if (!points.length && productKind === 'profile' && p.groups?.posts?.isInstancedMesh) {
+      const mesh = p.groups.posts;
+      const mat = new THREE.Matrix4(), loc = new THREE.Vector3();
+      points = [];
+      for (let i = 0; i < mesh.count; i++) {
+        mesh.getMatrixAt(i, mat);
+        loc.setFromMatrixPosition(mat).applyMatrix4(mesh.matrixWorld);
+        points.push([loc.x, 0, loc.z]);
+      }
+    }
+    supportMarkers.setPoints(points);
+  }
+  // XRay is a session-level view state. stageProduct runs after every product
+  // mount/rebuild, including async sheet completion, so all products follow
+  // the same HUD state instead of only the product that was active at toggle.
+  applyXrayTo(p.group, xrayOn);
 }
 
 
@@ -229,9 +278,9 @@ function rebuildCrates({ isEntrance = false } = {}) {
 }
 
 function rebuildBooks({ isEntrance = false } = {}) {
-  if (webglFailed || productKind !== 'books') return;
+  if (webglFailed || !['books', 'table'].includes(productKind)) return;
   const t0 = performance.now();
-  const cfg = bookshelfStore.get();
+  const cfg = (productKind === 'table' ? tableStore : bookshelfStore).get();
   if (booksCurrent) { scene.remove(booksCurrent.group); booksCurrent.dispose(); }
   booksCurrent = buildBookshelf(cfg);
   scene.add(booksCurrent.group);
@@ -244,6 +293,45 @@ function rebuildBooks({ isEntrance = false } = {}) {
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild books: ${cost.toFixed(1)}ms`);
+}
+
+function rebuildSheet({ isEntrance = false } = {}) {
+  if (webglFailed || productKind !== 'sheet') return;
+  const generation = ++sheetLoadVersion;
+  if (sheetCurrent) {
+    scene.remove(sheetCurrent.group);
+    sheetCurrent.dispose();
+  }
+  // Placeholder supplies verified source bounds immediately, so switchTo()/intro() never see null.
+  sheetCurrent = createSheetPlaceholder();
+  scene.add(sheetCurrent.group);
+  stageProduct(sheetCurrent);
+  hud.syncReadout(sheetStore.get(), sheetCurrent.stats);
+  panel.updateStats(sheetCurrent.stats);
+  panel.lastStats = sheetCurrent.stats;
+  window.__ALU_INVALIDATE?.();
+
+  buildSheetCabinet(sheetStore.get()).then(product => {
+    if (webglFailed || productKind !== 'sheet' || generation !== sheetLoadVersion) {
+      product.dispose();
+      return;
+    }
+    scene.remove(sheetCurrent.group);
+    sheetCurrent.dispose();
+    sheetCurrent = product;
+    scene.add(product.group);
+    stageProduct(product);
+    dimObstacleDirty = true;
+    if (anims?.exploded) anims.explode(product.groups, true);
+    hud.syncReadout(sheetStore.get(), product.stats);
+    panel.updateStats(product.stats);
+    panel.lastStats = product.stats;
+    window.__ALU_INVALIDATE?.();
+  }).catch(err => {
+    if (productKind !== 'sheet' || generation !== sheetLoadVersion) return;
+    console.error('[MEKIT] Galvanized cabinet GLB loading failed:', err);
+    showToast('镀锌板书架模型加载失败，请刷新重试');
+  });
 }
 
 function rebuildWoodCart({ isEntrance = false } = {}) {
@@ -334,8 +422,15 @@ function syncWoodCartStatsOnly() {
   b.dispose();
 }
 
+function syncSheetStatsOnly() {
+  const s = sheetPreviewStats();
+  hud.syncReadout(sheetStore.get(), s);
+  panel.updateStats(s);
+  panel.lastStats = s;
+}
+
 function syncBooksStatsOnly() {
-  const cfg = bookshelfStore.get();
+  const cfg = (productKind === 'table' ? tableStore : bookshelfStore).get();
   const b = buildBookshelf(cfg);
   hud.syncReadout(cfg, b.stats);
   panel.updateStats(b.stats);
@@ -403,37 +498,9 @@ function applyExplodeAux(hidden) {
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
 }
 
-// ---- X 光透视：构件材质半透切换（接线层实现；线框/标注保持实显，composer 链兼容半透）----
+// ---- XRay 结构分层：统一 0.15 透明度已移至 core/xray.js，保留主要杆件可读性 ----
 let xrayOn = false;
-const _xrayMats = new WeakMap(); // 原材质 → 共享半透克隆（跨 rebuild 复用，避免拖参反复新建）
-function xrayMatOf(orig) {
-  let m = _xrayMats.get(orig);
-  if (!m) {
-    m = orig.clone();
-    m.transparent = true;
-    m.opacity = 0.15;
-    m.depthWrite = false;
-    _xrayMats.set(orig, m);
-  }
-  return m;
-}
-function applyXrayTo(group, on) {
-  if (!group) return;
-  group.traverse((o) => {
-    if (!o.isMesh && !o.isInstancedMesh) return;
-    if (on) {
-      if (!o.userData.__origMat) o.userData.__origMat = o.material;
-      const orig = o.userData.__origMat;
-      // 材质数组（多材质网格）逐项半透；不可克隆的材质保持原样退出
-      o.material = Array.isArray(orig)
-        ? orig.map((m) => (m && typeof m.clone === 'function' ? xrayMatOf(m) : m))
-        : (orig && typeof orig.clone === 'function' ? xrayMatOf(orig) : orig);
-    } else if (o.userData.__origMat) {
-      o.material = o.userData.__origMat;
-      delete o.userData.__origMat;
-    }
-  });
-}
+
 function setXray(on) {
   xrayOn = on;
   if (!webglFailed) {
@@ -443,20 +510,82 @@ function setXray(on) {
   hud.setXrayUi(on);
 }
 
+// 镜头切换时同步全部使用 camera 的渲染/投影/交互子模块；避免界面轴测，
+ // 尺寸线与射线拾取却仍引用旧的透视 camera。
+function changeProjection(mode, bounds) {
+  if (webglFailed) return;
+  const next = setProjectionCamera(mode, bounds);
+  if (next === camera) return;
+  camera = next;
+  postfx.setCamera(camera);
+  anims.setCamera(camera);
+  dims.setCamera(camera);
+  hotspots.setCamera(camera);
+  rodHandles.setCamera(camera);
+  window.__ALU_INVALIDATE?.();
+}
+
+function currentJointTarget(act) {
+  const b = act?.bounds || { W: 1, H: 1, D: 0.4 };
+  if (b.nodeTarget?.isVector3) return b.nodeTarget.clone();
+  act?.group?.updateMatrixWorld(true);
+  const preferred = ['blocks', 'clips', 'brkV', 'brackets', 'sideDiagCouplers',
+    'hangSaddles', 'sleeves', 'railClamps', 'corners', 'depth', 'battens', 'segments'];
+  for (const key of preferred) {
+    const mesh = act?.groups?.[key];
+    if (!mesh) continue;
+    if (mesh.isInstancedMesh && mesh.count > 0) {
+      const m = new THREE.Matrix4(), v = new THREE.Vector3();
+      // Most products have an actual right-side joint among the first several instances.
+      let best = null, score = Infinity;
+      for (let i = 0; i < Math.min(mesh.count, 128); i++) {
+        mesh.getMatrixAt(i, m);
+        v.setFromMatrixPosition(m).applyMatrix4(mesh.matrixWorld);
+        const cost = Math.abs(v.x - b.W * 0.42) + Math.abs(v.y - b.H * 0.55)
+          + Math.abs(v.z - b.D * 0.3) * 0.5;
+        if (cost < score) { best = v.clone(); score = cost; }
+      }
+      if (best) return best;
+    }
+    if (mesh.isMesh) return mesh.getWorldPosition(new THREE.Vector3());
+  }
+  return new THREE.Vector3(b.W * 0.43, b.H * 0.5, b.D * 0.35);
+}
+
 // ---- HUD(单实例,双形态自适应)----
 const hud = createHud(hudLeft, hudRight, {
   setView: (name) => {
-    if (webglFailed) return;
+    if (webglFailed || !active()) return;
+    const act = active();
     if (name === 'node') {
       controls.autoRotate = false;
-      const act = active();
-      if (act?.groups) anims.explode(act.groups, false);
-      const boom = hudRight.querySelector('[aria-label="爆炸"]');
-      if (boom) boom.classList.remove('on');
+      if (act.groups) anims.explode(act.groups, false);
+      hudRight.querySelector('[aria-label="爆炸分解"]')?.classList.remove('on');
       applyExplodeAux(false);
+      const target = currentJointTarget(act);
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      if (dir.lengthSq() < 1e-6) dir.set(0.45, 0.3, 0.84);
+      if (camera.isOrthographicCamera) {
+        camera.zoom = 3.2;
+        camera.updateProjectionMatrix();
+      }
+      anims.flyTo(target.clone().addScaledVector(dir, 0.68), target, 850);
+      window.__ALU_INVALIDATE?.();
+      return; // 节点近看绝不能落回整个产品的 iso 视角。
     }
-    const vp = anims.viewPos(name, active().bounds);
+    if (['iso', 'front', 'side'].includes(name)) {
+      changeProjection('orthographic', act.bounds);
+    } else if (name === 'perspective') {
+      changeProjection('perspective', act.bounds);
+    }
+    // 退出正交节点近看时重置正交 zoom，否则槽口视角被永久放大。
+    if (camera.isOrthographicCamera) {
+      camera.zoom = 1;
+      camera.updateProjectionMatrix();
+    }
+    const vp = anims.viewPos(name === 'perspective' ? 'iso' : name, act.bounds);
     anims.flyTo(vp.pos, vp.tgt, 900);
+    window.__ALU_INVALIDATE?.();
   },
   setExplode: (on) => {
     if (!webglFailed) {
@@ -468,13 +597,21 @@ const hud = createHud(hudLeft, hudRight, {
   setSpin: (on) => { if (!webglFailed) controls.autoRotate = on; },
   setXray: (on) => setXray(on),
   setSupports: (on) => {
+    if (on && supportMarkers && supportMarkers.pointCount === 0) {
+      supportsOn = false;
+      supportMarkers.setVisible(false);
+      hud.setSupportsUi(false);
+      showToast('当前产品尚未设置可标记的实际支撑落点');
+      return;
+    }
     supportsOn = on;
-    if (supportMarkers) supportMarkers.setVisible(on && !explodeAuxHidden);
-    window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
+    supportMarkers?.setVisible(on && !explodeAuxHidden);
+    window.__ALU_INVALIDATE?.();
   },
 });
 if (supportsOn) hud.setSupportsUi(true);
 const hudRod = hud;
+
 
 // ---- 视口左侧浮动工具条：缩放 / 全屏 ----
 document.getElementById('view-tools')?.addEventListener('click', (e) => {
@@ -518,8 +655,16 @@ if (btnMobileFs && layoutEl) {
 // 打印 / 导出 PDF（各产品共用）：抓当前渲染帧快照 → A4 设计与报价单 iframe 打印
 function makePrintAction(kind) {
   return async () => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    const product = active();
+    const stats = panel?.lastStats;
+    const store = PRODUCT_STORES[kind];
+    if (productKind !== kind || !product?.group || !stats?.cutList || !store) {
+      showToast('采购数据生成中,请稍候重试');
+      return;
+    }
+    const cfg = store.get();
+    const model = product.group;
+    const modelPose = poseFor(product);
     showToast('正在生成打印稿 …');
     let snapshot = null;
     if (!webglFailed && window.__ALU_CAPTURE) {
@@ -528,8 +673,12 @@ function makePrintAction(kind) {
         window.__ALU_CAPTURE((d) => { clearTimeout(timer); res(d); });
       });
     }
+    if (productKind !== kind || active()?.group !== model || poseFor(active()) !== modelPose) {
+      showToast('产品已切换，请重新生成打印稿');
+      return;
+    }
     try {
-      await printCurrentReport({ kind, cfg: PRODUCT_STORES[kind].get(), stats: s, snapshot });
+      await printCurrentReport({ kind, cfg, stats, snapshot });
     } catch (err) {
       console.error('[ALU] print report failed:', err);
       showToast('打印稿生成失败,请重试');
@@ -553,14 +702,14 @@ const profileActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'profile');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料 · 型材总长 ${s.profileLengthM.toFixed(1)} m`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料 · 型材总长 ${s.profileLengthM.toFixed(1)} m`);
   },
   onExportModel: async () => {
     if (!current || !current.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(current.group, 'profile', store.get());
+      const name = await exportModel(current, 'profile', store.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] model export failed:', err);
@@ -585,14 +734,14 @@ const rodActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'rod');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!rodCurrent || !rodCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(rodCurrent.group, 'rod', rodStore.get());
+      const name = await exportModel(rodCurrent, 'rod', rodStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] rod model export failed:', err);
@@ -617,14 +766,14 @@ const cartActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'cart');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!cartCurrent || !cartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(cartCurrent.group, 'cart', cartStore.get());
+      const name = await exportModel(cartCurrent, 'cart', cartStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] cart model export failed:', err);
@@ -649,14 +798,14 @@ const cratesActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'crates');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!cratesCurrent || !cratesCurrent.group) { showToast(`模型生成中,请稍候重试`); return; }
     try {
-      const name = await downloadModel(cratesCurrent.group, 'crates', cratesStore.get());
+      const name = await exportModel(cratesCurrent, 'crates', cratesStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] crates model export failed:', err);
@@ -681,14 +830,14 @@ const woodcartActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'woodcart');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!woodCartCurrent || !woodCartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(woodCartCurrent.group, 'woodcart', woodcartStore.get());
+      const name = await exportModel(woodCartCurrent, 'woodcart', woodcartStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] woodcart model export failed:', err);
@@ -703,7 +852,7 @@ const bookActions = {
     const p = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
     const summary = cfg.style === 'table'
       ? `长桌 ${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m`
-      : `展示塔 ${cfg.levels} 层 × ${cfg.bays} 跨 · ${cfg.bayW.toFixed(2)} m`;
+      : `展示杂志架 ${cfg.levels} 层 × ${cfg.bays} 跨 · ${cfg.bayW.toFixed(2)} m`;
     const { totalCount } = addConfigItem({
       kind: 'books',
       title: '光轴书架',
@@ -715,18 +864,93 @@ const bookActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'books');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!booksCurrent || !booksCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(booksCurrent.group, 'books', bookshelfStore.get());
+      const name = await exportModel(booksCurrent, 'books', bookshelfStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] books model export failed:', err);
       showToast('模型导出失败,请重试');
+    }
+  },
+};
+
+// 同一几何构造函数但拥有独立产品身份：购物车、导出和分享链接均保持“阅读长桌”。
+const tableActions = {
+  onPrint: makePrintAction('table'),
+  onAdd: (cfg) => {
+    const quote = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+    const summary = `阅读长桌 ${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m`;
+    const { totalCount } = addConfigItem({
+      kind:'table', title:'阅读长桌', summary, priceText:quote, cfg,
+    });
+    showToast(`已加入配置清单（${totalCount} 件） · ${summary}`);
+  },
+  onExport: (cfg) => {
+    const stats=panel?.lastStats;
+    if (!stats?.cutList) return showToast('采购数据生成中，请稍候重试');
+    downloadCutlist(cfg,stats,'table');
+    showToast('阅读长桌 XLSX 采购清单已导出');
+  },
+  onExportModel: async () => {
+    if (!booksCurrent?.group) return showToast('模型生成中，请稍候重试');
+    try {
+      const name=await exportModel(booksCurrent,'table',tableStore.get());
+      showToast('3D 模型已导出 · '+name);
+    } catch (error) {
+      console.error('[MEKIT] reading table model export failed:',error);
+      showToast('模型导出失败，请重试');
+    }
+  },
+};
+
+// 同一份模型 BOM 给所有产品分别输出 XLSX / CSV；CSV 用于通用采购系统。
+for (const [kind, actions] of [
+  ['profile', profileActions], ['rod', rodActions], ['cart', cartActions],
+  ['crates', cratesActions], ['woodcart', woodcartActions],
+  ['books', bookActions], ['table', tableActions],
+]) {
+  actions.onExportCsv = (cfg) => {
+    const stats = panel?.lastStats;
+    if (!stats?.cutList) { showToast('采购数据生成中，请稍候重试'); return; }
+    downloadCutlist(cfg, stats, kind, 'csv');
+    showToast('采购清单 CSV 已导出 · ' + kind);
+  };
+}
+
+const sheetActions = {
+  onAdd: (cfg) => {
+    const summary = `原始材料柜 · 板厚 ${cfg.thicknessMm.toFixed(1)} mm · ${cfg.folds ? '带折边' : '无折边'} · 待工程拆件`;
+    const { totalCount } = addConfigItem({
+      kind: 'sheet', title: '镀锌板书架', summary,
+      priceText: '待工程拆件与报价', cfg,
+    });
+    showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary}`);
+  },
+  onExportModel: async () => {
+    if (!sheetCurrent?.group || sheetCurrent.group.name !== 'GalvanizedCabinet') {
+      showToast('深化模型正在生成，请稍候'); return;
+    }
+    try {
+      const name = await exportModel(sheetCurrent, 'sheet', sheetStore.get());
+      showToast(`深化 3D 模型已导出 · ${name}`);
+    } catch (err) {
+      console.error('[MEKIT] detailed sheet GLB export failed:', err);
+      showToast('深化模型导出失败，请重试');
+    }
+  },
+  onExportOriginal: async () => {
+    try {
+      const name = await downloadOriginalSheetGlb();
+      showToast(`原始 3D 模型已下载 · ${name}`);
+    } catch (err) {
+      console.error('[MEKIT] original sheet GLB export failed:', err);
+      showToast('原始模型下载失败，请重试');
     }
   },
 };
@@ -749,14 +973,14 @@ const hangerActions = {
   },
   onExport: (cfg) => {
     const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('算料数据生成中,请稍候重试'); return; }
+    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
     downloadCutlist(cfg, s, 'hanger');
-    showToast(`算料单已导出 · ${s.cutList.length} 项下料`);
+    showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
     if (!hangerCurrent || !hangerCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
     try {
-      const name = await downloadModel(hangerCurrent.group, 'hanger', hangerStore.get());
+      const name = await exportModel(hangerCurrent, 'hanger', hangerStore.get());
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] hanger model export failed:', err);
@@ -768,11 +992,18 @@ const hangerActions = {
 // ---- 产品挂载 ----
 // panel.dispose() 释放订阅与全局监听；原封的 panel.js 不返回 dispose，
 // 由包装对象以「摘除容器」兜底（DOM 摘除后其 root 级监听器不再可达）。
+hangerActions.onExportCsv = (cfg) => {
+  const stats = panel?.lastStats;
+  if (!stats?.cutList) { showToast('采购数据生成中，请稍候重试'); return; }
+  downloadCutlist(cfg, stats, 'hanger', 'csv');
+  showToast('挂衣架采购清单 CSV 已导出');
+};
+
 function mountActiveProduct() {
   if (panel && typeof panel.dispose === 'function') panel.dispose();
   panelRoot.innerHTML = '';
   hotspotLayer.style.display = productKind === 'profile' ? '' : 'none';
-  hotspots.setHidden(productKind !== 'profile');
+  hotspots?.setHidden(productKind !== 'profile');
   if (productKind === 'rod') {
     setInstallSteps(INSTALL_STEPS_ROD);
     panel = createRodPanel(panelRoot, rodActions);
@@ -792,9 +1023,15 @@ function mountActiveProduct() {
     panel = createWoodCartPanel(panelRoot, woodcartActions);
     if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
-  } else if (productKind === 'books') {
+  } else if (productKind === 'sheet') {
+    panel = createSheetPanel(panelRoot, sheetActions);
+    if (webglFailed) syncSheetStatsOnly(); else rebuildSheet({ isEntrance: true });
+    if (rodHandles?.group.parent) scene.remove(rodHandles.group);
+  } else if (productKind === 'books' || productKind === 'table') {
     setInstallSteps(INSTALL_STEPS_BOOKSHELF);
-    panel = createBookshelfPanel(panelRoot, bookActions);
+    panel = createBookshelfPanel(panelRoot,
+      productKind === 'table' ? tableActions : bookActions,
+      { kind: productKind, store: productKind === 'table' ? tableStore : bookshelfStore });
     if (webglFailed) syncBooksStatsOnly(); else rebuildBooks({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'hanger') {
@@ -804,9 +1041,9 @@ function mountActiveProduct() {
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else {
     setInstallSteps(INSTALL_STEPS);
-    const inner = createPanel(panelRoot, profileActions);
+    const inner = withAssemblyDimensions(createPanel(panelRoot, profileActions), panelRoot);
     decoratePanel(panelRoot, { onPrint: () => profileActions.onPrint() }); // 分区标题/行布局/打印按钮（panel.js 原封，装饰在接线层注入）
-    panel = { ...inner, dispose() { /* 原封 panel.js 无显式资源；容器已由上方 innerHTML 清空 */ } };
+    panel = inner;
     syncPriceNote();
     if (webglFailed) syncStatsOnly(); else rebuild({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
@@ -834,6 +1071,8 @@ function unloadAll() {
   if (woodCartCurrent) { scene.remove(woodCartCurrent.group); woodCartCurrent.dispose(); woodCartCurrent = null; }
   if (hangerCurrent) { scene.remove(hangerCurrent.group); hangerCurrent.dispose(); hangerCurrent = null; }
   if (booksCurrent) { scene.remove(booksCurrent.group); booksCurrent.dispose(); booksCurrent = null; }
+  ++sheetLoadVersion; // 异步加载完成时禁止把已离开的书架重新挂入场景
+  if (sheetCurrent) { scene.remove(sheetCurrent.group); sheetCurrent.dispose(); sheetCurrent = null; }
 }
 function syncSwitchLabel() {
   productTabs.querySelectorAll('button').forEach(b => {
@@ -855,6 +1094,8 @@ const SHARE_META = {
   profile: ['工业铝型材置物架', '逐层逐跨自由规划，实时算料报价，一键导出算料单与 3D 模型。'],
   rod: ['光轴展架', '双光轴立柱移动展示架：海报画面、镀锌背板与滚轮底盘，展陈更轻盈。'],
   books: ['光轴书架', '铬管框架阅读装置：斜面展板逐层陈列，交叉拉索张紧，木箱脚轮基座。'],
+  table: ['阅读长桌', '连续实木台面、光轴承托框架与可选玻璃展示副层板。'],
+  sheet: ['镀锌板书架', 'MEKIT 设计系统第八类结构：真实 Rhino GLB 材料柜原型，板材构造与折边后续参数化。'],
   cart: ['移动边几', '光轴 + 玻璃/亚克力台面的极简移动边几，小空间随手移动。'],
   crates: ['周转箱架', '2040 铝架 + 抽拉式物流周转箱：层数可调、箱色自由搭配，满载可推行。'],
   woodcart: ['光轴木展车', '光轴 + 胶合板移动展车：洞洞板展墙、层板与顶台板、卡片挂杆与顶部挂架。'],
@@ -862,9 +1103,9 @@ const SHARE_META = {
 };
 function updateShareMeta(kind) {
   const [title, desc] = SHARE_META[kind] || SHARE_META.profile;
-  document.title = 'MODULO 模数 · ' + title;
+  document.title = 'MEKIT · ' + title;
   for (const [sel, attr, val] of [
-    ['meta[property="og:title"]', 'content', 'MODULO 模数 · ' + title],
+    ['meta[property="og:title"]', 'content', 'MEKIT · ' + title],
     ['meta[property="og:description"]', 'content', desc],
     ['meta[name="description"]', 'content', desc],
   ]) {
@@ -883,7 +1124,7 @@ function switchTo(kind) {
   persist(productKind, PRODUCT_STORES[productKind].get());
   syncSwitchLabel();
   mountActiveProduct();
-  if (anims.exploded) {
+  if (anims?.exploded) {
     const act = active();
     if (act?.groups) anims.explode(act.groups, true);
   }
@@ -918,9 +1159,10 @@ syncSwitchLabel();
 
 // 初始化配置清单系统
 initConfigList((kind, cfg) => {
-  switchTo(kind);
-  const targetStore = PRODUCT_STORES[kind];
-  if (targetStore && cfg) targetStore.set(cfg);
+  const resolved = resolveProductConfig(kind, cfg);
+  switchTo(resolved.kind);
+  const targetStore = PRODUCT_STORES[resolved.kind];
+  if (targetStore && resolved.cfg) targetStore.set(resolved.cfg);
 });
 
 // 防抖（每个 store 独立定时器，参数微调只重构终态，不触发入场动画）
@@ -940,6 +1182,8 @@ const PRODUCT_SUBS = [
   { kind: 'woodcart', store: woodcartStore, rebuild: (opts) => rebuildWoodCart(opts), statsOnly: () => syncWoodCartStatsOnly() },
   { kind: 'hanger', store: hangerStore, rebuild: (opts) => rebuildHanger(opts), statsOnly: () => syncHangerStatsOnly() },
   { kind: 'books', store: bookshelfStore, rebuild: (opts) => rebuildBooks(opts), statsOnly: () => syncBooksStatsOnly() },
+  { kind: 'table', store: tableStore, rebuild: (opts) => rebuildBooks(opts), statsOnly: () => syncBooksStatsOnly() },
+  { kind: 'sheet', store: sheetStore, rebuild: (opts) => rebuildSheet(opts), statsOnly: () => syncSheetStatsOnly() },
 ];
 for (const { kind, store: s, rebuild, statsOnly, extra } of PRODUCT_SUBS) {
   s.subscribe(debounce(() => {
@@ -988,7 +1232,7 @@ function showToast(msg) {
 {
   const fire = () => {
     const diag = [
-      '=== MODULO 诊断信息 ===',
+      '=== MEKIT 诊断信息 ===',
       'UA: ' + navigator.userAgent,
       'URL: ' + location.href,
       'READY: ' + JSON.stringify(window.__ALU_READY || null),
@@ -1028,8 +1272,10 @@ function hideLoader() {
 
 // ---- 渲染循环（按需渲染：静止时零 GPU 负载，只有交互/动画/自动旋转时才出帧）----
 if (webglFailed) {
-  loader.textContent = '正在生成骨架 …';
+  // WebGL 失败后仍可使用算料；不能一直保留覆盖全屏的加载层。
   mountActiveProduct();
+  hideLoader();
+  showToast('3D 预览不可用，仍可配置和导出算料单');
 } else {
   let frames = 0;
   let fpsTime = performance.now();
@@ -1104,13 +1350,7 @@ if (webglFailed) {
     hotspotLayer.style.display = auxHidden ? 'none' : '';
     // 层板 LOD：远景（视距超阈值）用板条纹理整板替换亚像素板条几何（根治摩尔纹）。
     // stripsLOD 仅 GLB 模式生成；爆炸态两组都保留各自偏移，可见性切换独立于爆炸。
-    postfx.render();
-    // 打印报告快照：渲染后同一任务内同步抓帧（无 preserveDrawingBuffer 时合成前抓取有效）
-    if (captureCb) {
-      const cb = captureCb;
-      captureCb = null;
-      try { cb(canvas.toDataURL('image/jpeg', 0.88)); } catch { cb(null); }
-    }
+    // 在实际渲染前确定 LOD，防止距离跨阈值后一帧才切换。
     const a = active();
     if (a && productKind === 'profile' && a.groups?.stripsLOD) {
       const camDist = camera.position.distanceTo(controls.target);
@@ -1121,8 +1361,17 @@ if (webglFailed) {
         a.groups.stripsLOD.visible = far;
       }
     }
+    postfx.render();
+    // 打印报告快照：渲染后同一任务内同步抓帧（无 preserveDrawingBuffer 时合成前抓取有效）
+    if (captureCb) {
+      const cb = captureCb;
+      captureCb = null;
+      try { cb(canvas.toDataURL('image/jpeg', 0.88)); } catch { cb(null); }
+    }
     if (a && !backView) {
-      dims.update(a.stats?.envelope || a.bounds, center);
+      if (a.assemblyExtent) center.fromArray(a.assemblyExtent.center);
+      else center.set(0, 0, 0);
+      dims.update(a.dimensionBounds || a.stats?.envelope || a.bounds, center);
       nudgeDimLabels();
       if (productKind === 'profile') hotspots.sync();
       else rodHandles.sync();
@@ -1163,8 +1412,14 @@ if (webglFailed) {
   window.__ALU_INVALIDATE = invalidateView;
   // 打印报告用：请求下一渲染帧同步抓取 canvas（dataURL）；WebGL 不可用时不存在
   window.__ALU_CAPTURE = (cb) => { captureCb = cb; needsRender = true; hotspotsDirty = true; };
-  // QA：读取当前产品支撑点数据（配件标记层数据源）
-  window.__ALU_SUPPORTS = () => active()?.stats?.supports || null;
+  // QA：读取实际展示出来的支撑点数量，以及当前相机的真实投影类型
+  window.__ALU_SUPPORTS = () => ({
+    ...(active()?.stats?.supports || {}),
+    markerCount: supportMarkers?.pointCount || 0,
+    visible: !!supportMarkers?.group.visible,
+  });
+  window.__ALU_PROJECTION = () => camera.isOrthographicCamera ? 'orthographic' : 'perspective';
+  window.__ALU_CAMERA_TARGET = () => controls.target.toArray();
   // QA 用：读取当前产品装配的场景侧规模（与渲染路径无关，后期链下同样有效）
   window.__ALU_STATS = () => {
     const root = active();
@@ -1194,7 +1449,7 @@ if (webglFailed) {
   // QA 直达:#rod/side 或 #rod/front 时用对应静止视角替代入场动画
   const viewMatch = location.hash.startsWith('#node')
     ? [null, 'node']
-    : location.hash.match(/^#(?:rod|books|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
+    : location.hash.match(/^#(?:rod|books|table|sheet|cart|crates|woodcart|hanger|profile)\/([a-z]+)/);
   if (viewMatch) {
     const vp = anims.viewPos(viewMatch[1], active().bounds);
     camera.position.copy(vp.pos);

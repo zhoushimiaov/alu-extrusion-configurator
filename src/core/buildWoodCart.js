@@ -54,9 +54,9 @@ export function buildWoodCart(config) {
   const px = W / 2, pz = D / 2;
   const postXs = [-px, px];
   const postZs = [-pz, pz];
-  // 板材四向外伸/内缩（正扩负缩），施加于层板与顶台板；底台固定
-  const ohFB = Math.max(ohF + ohB, -(D - 0.08));
-  const ohLR = Math.max(ohL + ohR, -(W - 0.08));
+  // 板材四向外伸/内缩（正扩负缩），施加于层板与顶台板；底台固定；完全保持用户输入参数
+  const ohFB = ohF + ohB;
+  const ohLR = ohL + ohR;
   const ohOffX = (ohR - ohL) / 2;
   const ohOffZ = (ohF - ohB) / 2;
 
@@ -88,6 +88,20 @@ export function buildWoodCart(config) {
   setMT(0, top, ohOffX, yPlank, ohOffZ, boardW + ohLR, 1, boardD + ohFB);
   group.add(top);
   groups.top = top;
+  // 板材正面封边仅作为同一块胶合板的压合饰边，不新增采购零件。
+  // 3mm窄色带减轻多层板“无厚度纸片”的效果，并保持参考图的薄板语言。
+  const edgeBandMat = new THREE.MeshStandardMaterial({
+    color: woodTone === 'walnut' ? 0x896c55 : woodTone === 'oak' ? 0xcab18e : 0xe1c8a3,
+    roughness: 0.77, metalness: 0,
+  });
+  const frontEdgeBands = instanced(new THREE.BoxGeometry(1,0.003,0.003),edgeBandMat,shelves+1);
+  shelfYs.forEach((y,i)=>setMT(i,frontEdgeBands,ohOffX,y,
+    ohOffZ+(boardD+ohFB)/2-0.0015,boardW+ohLR,1,1));
+  setMT(shelves,frontEdgeBands,ohOffX,yPlank,
+    ohOffZ+(boardD+ohFB)/2-0.0015,boardW+ohLR,1,1);
+  frontEdgeBands.userData.displayOnly=true;
+  group.add(frontEdgeBands);
+  groups.frontEdgeBands=frontEdgeBands;
 
   // ---- 洞洞板展墙（分段夹在各层板之间，视觉连续）+ 两端封边立板 ----
   const pegW = boardW - 2 * DECK_T;
@@ -142,22 +156,106 @@ export function buildWoodCart(config) {
   groups.flanges = caps;
 
   // ---- 板下光轴夹块（每块板 × 4 立柱）----
-  const clampGeo = new THREE.BoxGeometry(0.034, 0.024, 0.034);
-  const boardYs = [...shelfYs.map((y) => y - BOARD_T / 2 - 0.012), yPlank - DECK_T / 2 - 0.012, deckTop + 0.012];
+  // Ø16 柱的板托套筒不能比立柱宽出太多：28×18×28mm；
+  // 每只夹块顶面刚好接触板底。此前底板夹块反而位于板面上方，视觉像穿板。
+  const clampGeo = new THREE.BoxGeometry(0.028, 0.018, 0.028);
+  const boardYs = [
+    ...shelfYs.map(y => y - BOARD_T / 2 - 0.009),
+    yPlank - DECK_T / 2 - 0.009,
+    deckY0 - 0.009,
+  ];
   const shelfClamps = instanced(clampGeo, mat.clamp, boardYs.length * 4);
   let ci = 0;
   for (const y of boardYs) for (const x of postXs) for (const z of postZs) setMT(ci++, shelfClamps, x, y, z);
   group.add(shelfClamps);
   groups.shelfClamps = shelfClamps;
 
+  // ---- 内缩层板与顶板悬挑承托支臂（CW-01）----
+  // 当四向外伸为负（内缩）时，板边脱离位于 (±px, ±pz) 的立柱固定夹块；
+  // 为每块内缩板从对应立柱生成自适应悬挑承托支臂，接触板底并延伸入板内形成真实承托。
+  const sW = boardW + ohLR;
+  const sD = boardD + ohFB;
+  const minX = ohOffX - sW / 2;
+  const maxX = ohOffX + sW / 2;
+  const minZ = ohOffZ - sD / 2;
+  const maxZ = ohOffZ + sD / 2;
+
+  const armSpecs = [];
+  const overlap = 0.035; // 承托梁伸入板底承托深度 35mm
+  const boardsWithOverhang = [
+    ...shelfYs.map(y => ({ yBottom: y - BOARD_T / 2 })),
+    { yBottom: yPlank - DECK_T / 2 },
+  ];
+
+  for (const board of boardsWithOverhang) {
+    const yBottom = board.yBottom;
+    for (const cx of postXs) {
+      for (const cz of postZs) {
+        let needArm = false;
+        let targetX = cx;
+        let targetZ = cz;
+
+        if (cx > 0) {
+          if (maxX < px) {
+            needArm = true;
+            targetX = Math.max(0.02, maxX - overlap);
+          }
+        } else {
+          if (minX > -px) {
+            needArm = true;
+            targetX = Math.min(-0.02, minX + overlap);
+          }
+        }
+
+        if (cz > 0) {
+          if (maxZ < pz) {
+            needArm = true;
+            targetZ = Math.max(0.02, maxZ - overlap);
+          }
+        } else {
+          if (minZ > -pz) {
+            needArm = true;
+            targetZ = Math.min(-0.02, minZ + overlap);
+          }
+        }
+
+        if (needArm) {
+          const sx = Math.abs(targetX - cx) + 0.028;
+          const sz = Math.abs(targetZ - cz) + 0.028;
+          const sy = 0.018;
+          const posX = (cx + targetX) / 2;
+          const posZ = (cz + targetZ) / 2;
+          const posY = yBottom - sy / 2;
+          armSpecs.push({ x: posX, y: posY, z: posZ, sx, sy, sz });
+        }
+      }
+    }
+  }
+
+  if (armSpecs.length > 0) {
+    const armGeo = new THREE.BoxGeometry(1, 1, 1);
+    const supportArms = instanced(armGeo, mat.clamp, armSpecs.length);
+    armSpecs.forEach((arm, idx) => {
+      setMT(idx, supportArms, arm.x, arm.y, arm.z, arm.sx, arm.sy, arm.sz);
+    });
+    group.add(supportArms);
+    groups.supportArms = supportArms;
+  }
+
+
+
   // ---- 挂杆体系 ----
   const railXGeo = new THREE.CylinderGeometry(1, 1, 1, 12).rotateZ(Math.PI / 2);
   const railZGeo = new THREE.CylinderGeometry(1, 1, 1, 12).rotateX(Math.PI / 2);
   const crossGeo = new THREE.BoxGeometry(0.03, 0.03, 0.03);
+  // 顶部前后向、左右向挂杆处于两个明确的标高，各自接入通高立柱。
+  // 原来二者都用30mm方块，视觉上误认为一个错位/穿模的“十字节点”。
+  const hangingCollarGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.018, 18, 1, true);
   const railLenX = W + 0.06;
   const railLenZ = D + 0.06;
   let railCount = 0;
   const crossPts = [];
+  const hangingCollarPts = [];
   // 正面卡片挂杆：每格一根，约在格高 62% 处（参考图挂卡片 / 夹子）
   const cardYs = segPairs.map(([a, b]) => a + (b - a) * 0.62);
   const cardRails = instanced(railXGeo, mat.rod, cardYs.length);
@@ -175,7 +273,7 @@ export function buildWoodCart(config) {
     setMT(0, rails, 0, yHang, pz, railLenX, RAIL_D / 2, RAIL_D / 2);
     setMT(1, rails, 0, yHang, -pz, railLenX, RAIL_D / 2, RAIL_D / 2);
     setMT(2, rails, 0, yUpper, pz + 0.002, railLenX, RAIL_D / 2, RAIL_D / 2);
-    crossPts.push([-px, yHang, pz], [px, yHang, pz], [-px, yHang, -pz], [px, yHang, -pz], [-px, yUpper, pz], [px, yUpper, pz]);
+    hangingCollarPts.push([-px, yHang, pz], [px, yHang, pz], [-px, yHang, -pz], [px, yHang, -pz], [-px, yUpper, pz], [px, yUpper, pz]);
     group.add(rails);
     groups.rails = rails;
     stats.profileLengthM += 3 * railLenX;
@@ -188,7 +286,7 @@ export function buildWoodCart(config) {
     for (const x of postXs) {
       setMT(k++, sideRails, x, yHang - 0.04, 0, RAIL_D / 2, RAIL_D / 2, railLenZ);
       setMT(k++, sideRails, x, yUpper - 0.04, 0, RAIL_D / 2, RAIL_D / 2, railLenZ);
-      crossPts.push([x, yHang - 0.04, pz], [x, yHang - 0.04, -pz], [x, yUpper - 0.04, pz], [x, yUpper - 0.04, -pz]);
+      hangingCollarPts.push([x, yHang - 0.04, pz], [x, yHang - 0.04, -pz], [x, yUpper - 0.04, pz], [x, yUpper - 0.04, -pz]);
     }
     group.add(sideRails);
     groups.sideRails = sideRails;
@@ -199,6 +297,14 @@ export function buildWoodCart(config) {
   crossPts.forEach(([x, y, z], k) => setMT(k, crosses, x, y, z));
   group.add(crosses);
   groups.railClamps = crosses;
+  // 独立立柱套筒，沿柱轴设置：顶部X杆与下方Z杆相隔40mm，
+  // 每只套筒高度18mm，保留22mm明确间隙，且从立柱外壁伸出4mm。
+  const hangingCollars = instanced(hangingCollarGeo, mat.clamp, hangingCollarPts.length);
+  hangingCollarPts.forEach(([x, y, z], i) => setMT(i, hangingCollars, x, y, z));
+  if (hangingCollars) {
+    group.add(hangingCollars);
+    groups.hangingCollars = hangingCollars;
+  }
 
   // ---- 万向轮 / 地脚 ×4（底台四角）----
   const footPts = [-1, 1].flatMap((sx) => [-1, 1].map((sz) => {
@@ -222,12 +328,17 @@ export function buildWoodCart(config) {
   const plyArea = boardW * boardD * (DECK_T / BOARD_T)           // 底台按板厚折算
     + shelves * shelfArea + shelfArea * (DECK_T / BOARD_T)
     + (pegboard ? pegArea * (PEG_T / BOARD_T) + 2 * 0.07 * (yPlank - deckTop) * (DECK_T / BOARD_T) : 0);
+  const DENSITY_ALU = 2700; // 6061 铝合金托臂密度 kg/m³
+  const armWeight = armSpecs.reduce((sum, a) => sum + (a.sx * a.sy * a.sz) * DENSITY_ALU, 0);
   stats.weightKg = volRod * DENSITY_STEEL
     + plyArea * BOARD_T * DENSITY_PLY
     + (casters ? 4 * 0.32 : 4 * 0.06)
-    + (boardYs.length * 4 + crossPts.length) * 0.012;
+    + (boardYs.length * 4 + crossPts.length) * 0.012
+    + hangingCollarPts.length * 0.008
+    + armWeight;
   stats.partCount = 4 + 4 + 1 + shelves + 1 + (pegboard ? segPairs.length + 2 : 0)
-    + boardYs.length * 4 + railCount + crossPts.length + 4;
+    + boardYs.length * 4 + railCount + crossPts.length + hangingCollarPts.length + 4
+    + armSpecs.length;
 
   // ---- 算料单 ----
   const addCut = (spec, sec, len, qty) => {
@@ -251,7 +362,9 @@ export function buildWoodCart(config) {
   stats.hardware = [
     casters ? { name: '万向轮 3 寸 平板式（黑色 · 带刹车）', qty: 4 } : { name: '调平地脚 M10', qty: 4 },
     { name: '光轴夹块（板下）', qty: boardYs.length * 4 },
-    { name: '十字光轴夹块（挂杆）', qty: crossPts.length },
+    ...(armSpecs.length ? [{ name: '内缩层板悬挑承托支臂（铝制）', qty: armSpecs.length }] : []),
+    { name: '十字光轴夹块（正面卡片挂杆）', qty: crossPts.length },
+    ...(hangingCollarPts.length ? [{ name: '独立圆形挂杆立柱套筒（上下错层）', qty: hangingCollarPts.length }] : []),
     { name: '立柱镀铬圆帽', qty: 4 },
   ];
 

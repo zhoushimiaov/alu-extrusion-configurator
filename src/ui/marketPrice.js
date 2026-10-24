@@ -24,10 +24,15 @@ export function onMarketRefresh(fn) {
 /** 规则匹配容错：match 可能是 RegExp（内置表）或字符串（未经清洗的远端表）；
  *  任何异常都返回 null（未计价），绝不让一项坏数据掀翻整张报价单。 */
 function matchCutRule(c) {
-  return current.rules.find(r => safeTest(r.match, c.section)) || null;
+  // 远端旧版定价表尚无新增钢索 SKU 时，仅对该新材料使用带来源提示的内置参考价。
+  // 不自动将不认识的普通材料按相似SKU报假价。
+  return current.rules.find(r => safeTest(r.match, c.section))
+    || (String(c.section).startsWith('钢索') ? MARKET.rules.find(r => safeTest(r.match, c.section)) : null);
 }
 function matchHwRule(name) {
-  return current.hardware.find(r => safeTest(r.match, name)) || null;
+  return current.hardware.find(r => safeTest(r.match, name))
+    || (String(name).startsWith('X拉索张紧端件')
+      ? MARKET.hardware.find(r => safeTest(r.match, name)) : null);
 }
 function safeTest(match, s) {
   try {
@@ -48,7 +53,12 @@ export function calcMarketPrice(stats) {
   let material = 0, hardware = 0, panes = 0;
 
   for (const c of stats.cutList || []) {
-    if (c.section === '板') continue; // 板件走 panes
+    // 板件只有明确声明由 panes 覆盖时才跳过，防止胶合板等主材被静默漏算。
+    if (c.section === '板') {
+      if (c.pricedViaPane && (stats.panes || []).length) continue;
+      unpriced.push(c.spec);
+      continue;
+    }
     const rule = matchCutRule(c);
     if (!rule) { unpriced.push(c.spec); continue; }
     const qtyM = c.len * c.qty;
@@ -70,7 +80,13 @@ export function calcMarketPrice(stats) {
       panes += current.posterFlat.price;
       lines.push({ label: p.label, detail: `1 张 × ¥${current.posterFlat.price}`, cost: current.posterFlat.price, query: current.posterFlat.query });
     } else {
-      const per = p.kind === 'acrylic' ? current.acrylicPerM2 : current.zincPerM2;
+      // 不识别的材料不可按镀锌板默认单价代替（例如玻璃、木板、水磨石）。
+      const per = p.kind === 'acrylic' ? current.acrylicPerM2
+        : p.kind === 'zinc' ? current.zincPerM2 : null;
+      if (!per || !Number.isFinite(p.areaM2) || p.areaM2 < 0) {
+        unpriced.push(p.label || p.kind || '未知板件');
+        continue;
+      }
       const cost = p.areaM2 * per.price;
       panes += cost;
       lines.push({ label: p.label, detail: `${p.areaM2.toFixed(2)} m² × ¥${per.price}/m²`, cost, query: per.query, range: per.range });

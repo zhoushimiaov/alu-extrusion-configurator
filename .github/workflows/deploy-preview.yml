@@ -1,0 +1,84 @@
+name: Deploy isolated Cloudflare preview (never production)
+
+on:
+  push:
+    branches: [fix/code-review-selfcheck-20261018]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modulo-alu-shelf-review-20261018
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == 'zhoushimiaov/alu-extrusion-configurator' && github.head_ref == 'fix/code-review-selfcheck-20261018')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Require existing Cloudflare deploy credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "::error::Cloudflare deployment secrets not configured. No deployment attempted."
+            exit 1
+          fi
+      - name: Install dependencies
+        run: npm ci
+      - name: Check imports
+        run: node tools/check-import-case.mjs
+      - name: Run regression tests
+        run: npm test
+      - name: Run geometry self-check
+        run: node tools/qa-geometry.mjs
+      - name: Build single-file site
+        run: npm run build
+      - name: Set independent preview version fingerprint
+        run: |
+          sed -i "s/const BUILD_ID = 'dev-local';/const BUILD_ID = '${GITHUB_SHA:0:7}';/" worker.js
+      - name: Deploy preview Worker (unique name, NO production KV or routes)
+        id: publish
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.132.0'
+          command: deploy --config wrangler.preview.toml
+      - name: Verify live preview and record URL
+        env:
+          DEPLOY_URL: ${{ steps.publish.outputs.deployment-url }}
+        run: |
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error::Wrangler returned no preview URL"
+            exit 1
+          fi
+          echo "Preview URL: $DEPLOY_URL"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsSL --max-time 30 "$DEPLOY_URL/?cb=${GITHUB_SHA}-$i" -o /tmp/preview.html \
+              && cmp -s dist/index.html /tmp/preview.html \
+              && curl -fsSL --max-time 30 "$DEPLOY_URL/api/version" | grep -q "${GITHUB_SHA:0:7}"; then
+              {
+                echo "### ✅ Cloudflare staging deployed (production unchanged)"
+                echo ""
+                echo "**Preview:** $DEPLOY_URL"
+                echo ""
+                echo "Commit: \`${GITHUB_SHA:0:7}\`"
+                echo "Worker: \`modulo-alu-shelf-review-20261018\`"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Preview deployed but response did not match built artifact or version"
+          exit 1

@@ -1,5 +1,5 @@
 // 光轴书架配置面板（Villa Medici 阅读装置：展示塔 / 阅读长桌）
-import { PANEL_MATERIALS, FRAME_COLORS, LIMITS as BOOK_LIMITS, DEFAULT_BOOKSHELF_CONFIG, INSTALL_STEPS_BOOKSHELF, BOOK_STYLES } from '../config/bookshelf.js';
+import { PANEL_MATERIALS, FRAME_COLORS, LIMITS as BOOK_LIMITS, DEFAULT_BOOKSHELF_CONFIG, DEFAULT_TABLE_CONFIG, INSTALL_STEPS_BOOKSHELF, BOOK_STYLES } from '../config/bookshelf.js';
 import { makeClamp } from '../config/clamp.js';
 import { attachDragSlider } from './dragSlider.js';
 import { calcMarketPrice } from './marketPrice.js';
@@ -12,21 +12,30 @@ const el = (tag, cls, html) => {
   return e;
 };
 
-const clampCfg = makeClamp(BOOK_LIMITS, DEFAULT_BOOKSHELF_CONFIG);
-let state = { ...DEFAULT_BOOKSHELF_CONFIG };
-const subs = new Set();
-export const bookshelfStore = {
-  limits: BOOK_LIMITS,
-  installSteps: INSTALL_STEPS_BOOKSHELF,
-  get: () => state,
-  set(patch) {
-    const next = clampCfg({ ...state, ...patch });
-    if (JSON.stringify(next) === JSON.stringify(state)) return;
-    state = next;
-    for (const fn of subs) fn(state);
-  },
-  subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
-};
+function makeShelfStore(defaultConfig) {
+  // makeClamp 永远把 kind 还原成其 defaults.kind；每个独立产品必须各建一份校验器。
+  const clampCfg = makeClamp(BOOK_LIMITS, defaultConfig, {
+    enums: { style: BOOK_STYLES, panelMat: PANEL_MATERIALS, color: FRAME_COLORS },
+    integerKeys: ['bays', 'levels', 'tBays'],
+  });
+  let current={...defaultConfig};
+  const subs=new Set();
+  const lockStyle=defaultConfig.kind==='table' ? 'table' : 'tower';
+  return {
+    limits:BOOK_LIMITS,
+    installSteps:INSTALL_STEPS_BOOKSHELF,
+    get:()=>current,
+    set(patch){
+      const next=clampCfg({...current,...patch,kind:defaultConfig.kind,style:lockStyle});
+      if(JSON.stringify(next)===JSON.stringify(current))return;
+      current=next;
+      for(const fn of subs)fn(current);
+    },
+    subscribe(fn){subs.add(fn);return()=>subs.delete(fn);}
+  };
+}
+export const bookshelfStore=makeShelfStore(DEFAULT_BOOKSHELF_CONFIG);
+export const tableStore=makeShelfStore(DEFAULT_TABLE_CONFIG);
 
 export function calcBookshelfPrice(cfg, stats) {
   if (stats && stats.cutList) return calcMarketPrice(stats).total;
@@ -34,14 +43,16 @@ export function calcBookshelfPrice(cfg, stats) {
 }
 
 let dragCleanup = null;
-export function createBookshelfPanel(root, actions) {
+export function createBookshelfPanel(root, actions, options={}) {
+  const panelStore = options.store || bookshelfStore;
+  const isTable = options.kind === 'table';
   const container = el('div');
   root.appendChild(container);
   const mount = container;
   mount.appendChild(el('div', 'panel-title',
-    `光轴书架<span class="en">ROD BOOKSHELF</span>`));
+    (isTable ? `阅读长桌<span class="en">ROD READING TABLE</span>` : `光轴书架<span class="en">ROD BOOKSHELF</span>`)));
   mount.appendChild(el('p', 'panel-lead',
-    '铬管框架阅读装置：展示塔以斜面展板逐层陈列，交叉拉索张紧；长桌以木台面配玻璃副层板。木箱脚轮基座可整体推行。'));
+    (isTable ? '独立阅读长桌：连续实木工作面、光轴支撑框架、精细连接节点；可选高位玻璃展示层。' : '铬管框架阅读装置：展示杂志架以斜面展板逐层陈列，交叉拉索张紧；木箱脚轮基座可整体推行。')));
 
   const spec = el('div', 'spec-grid', `
     <div class="spec-cell"><div class="k">宽 W</div><div class="v" data-spec="w">1.00<small>m</small></div></div>
@@ -62,8 +73,8 @@ export function createBookshelfPanel(root, actions) {
     f.dataset.limits = JSON.stringify([key, lo, hi, step, unit]);
     return f;
   };
-  const baysField = mkStepper('跨数 BAYS', 'bays', 1, 2, 1, ' 跨');
-  const levelsField = mkStepper('层数 LEVELS', 'levels', 2, 5, 1, ' 层');
+  const baysField = mkStepper('跨数 BAYS', 'bays', ...BOOK_LIMITS.bays, 1, ' 跨');
+  const levelsField = mkStepper('层数 LEVELS', 'levels', ...BOOK_LIMITS.levels, 1, ' 层');
   const bayWField = mkStepper('跨宽 BAY WIDTH', 'bayW', 0.8, 1.2, 0.05, ' m');
   const depthField = mkStepper('框架深度 DEPTH', 'depth', 0.28, 0.45, 0.01, ' m');
   const tiltField = mkStepper('展板倾角 TILT', 'tilt', 20, 40, 2, '°');
@@ -79,8 +90,8 @@ export function createBookshelfPanel(root, actions) {
 
   dragCleanup && dragCleanup();
   dragCleanup = attachDragSlider(mount, {
-    get: () => bookshelfStore.get(),
-    set: (patch) => bookshelfStore.set(patch),
+    get: () => panelStore.get(),
+    set: (patch) => panelStore.set(patch),
     limits: BOOK_LIMITS,
   });
 
@@ -93,7 +104,8 @@ export function createBookshelfPanel(root, actions) {
     styleSeg.appendChild(b);
   }
   styleField.appendChild(styleSeg);
-  mount.insertBefore(styleField, mount.children[2]); // 紧跟规格卡
+  mount.insertBefore(styleField, mount.children[2]);
+  styleField.style.display = 'none'; // 独立品类由产品Tab切换，不再用STYLE切换
 
   // 展板材质（塔式）
   const matField = el('div', null, `<div class="field-label"><span>展板材质 PANEL</span></div>`);
@@ -123,7 +135,7 @@ export function createBookshelfPanel(root, actions) {
     mount.appendChild(row);
     return sw;
   };
-  const wiresSw = mkSwitch('交叉拉索 CROSS WIRES', 'wires');
+  const wiresSw = mkSwitch('侧框 X 拉索 CROSS WIRES（含张紧端件，计入报价）', 'wires');
   const baseSw = mkSwitch('木箱基座（含脚轮，取消用调平地脚）', 'base');
   const acrylicSw = mkSwitch('亚克力前挡 ACRYLIC FRONT', 'acrylic');
   const glassSw = mkSwitch('玻璃副层板 GLASS SHELF', 'glassTop');
@@ -150,7 +162,8 @@ export function createBookshelfPanel(root, actions) {
     <div class="weight-note" data-weight>自重计算中 …</div>
     <div class="action-row">
       <button class="cta" data-cta>加入配置清单</button>
-      <button class="cta-ghost" data-export title="SpreadsheetML 算料单，支持 Excel / WPS 打开">导出算料单</button>
+      <button class="cta-ghost" data-export title="Excel/WPS 可直接打开的真实 .xlsx，含采购汇总和逐件明细">采购清单 .xlsx</button>
+      <button class="cta-ghost" data-export-csv title="通用 UTF-8 CSV 采购汇总">采购清单 .csv</button>
       <button class="cta-ghost" data-model>导出 3D 模型 (.glb)</button>
       <button class="cta-ghost" data-print title="生成 A4 设计与报价单（浏览器打印 / 另存 PDF）">打印 / 导出 PDF</button>
     </div>
@@ -173,8 +186,8 @@ export function createBookshelfPanel(root, actions) {
   mount.addEventListener('click', (e) => {
     const btn = e.target.closest('button, .switch');
     if (!btn) return;
-    const c = bookshelfStore.get();
-    const lim = bookshelfStore.limits;
+    const c = panelStore.get();
+    const lim = panelStore.limits;
     const step = (key, dflt) => {
       for (const f of [baysField, levelsField, bayWField, depthField, tiltField, tBaysField, tBayWField]) {
         const meta = JSON.parse(f.dataset.limits);
@@ -183,29 +196,30 @@ export function createBookshelfPanel(root, actions) {
       return { lo: 0, hi: 999, st: dflt };
     };
     for (const key of ['bays', 'levels', 'tBays']) {
-      if (btn.dataset.act === key + '+') { const s = step(key); bookshelfStore.set({ [key]: Math.min(s.hi, c[key] + s.st) }); }
-      if (btn.dataset.act === key + '-') { const s = step(key); bookshelfStore.set({ [key]: Math.max(s.lo, c[key] - s.st) }); }
+      if (btn.dataset.act === key + '+') { const s = step(key); panelStore.set({ [key]: Math.min(s.hi, c[key] + s.st) }); }
+      if (btn.dataset.act === key + '-') { const s = step(key); panelStore.set({ [key]: Math.max(s.lo, c[key] - s.st) }); }
     }
     for (const key of ['bayW', 'tBayW']) {
-      if (btn.dataset.act === key + '+') { const s = step(key); bookshelfStore.set({ [key]: Math.min(s.hi, +(c[key] + s.st).toFixed(2)) }); }
-      if (btn.dataset.act === key + '-') { const s = step(key); bookshelfStore.set({ [key]: Math.max(s.lo, +(c[key] - s.st).toFixed(2)) }); }
+      if (btn.dataset.act === key + '+') { const s = step(key); panelStore.set({ [key]: Math.min(s.hi, +(c[key] + s.st).toFixed(2)) }); }
+      if (btn.dataset.act === key + '-') { const s = step(key); panelStore.set({ [key]: Math.max(s.lo, +(c[key] - s.st).toFixed(2)) }); }
     }
     for (const key of ['depth']) {
-      if (btn.dataset.act === key + '+') bookshelfStore.set({ [key]: Math.min(lim.depth[1], +(c[key] + 0.01).toFixed(2)) });
-      if (btn.dataset.act === key + '-') bookshelfStore.set({ [key]: Math.max(lim.depth[0], +(c[key] - 0.01).toFixed(2)) });
+      if (btn.dataset.act === key + '+') panelStore.set({ [key]: Math.min(lim.depth[1], +(c[key] + 0.01).toFixed(2)) });
+      if (btn.dataset.act === key + '-') panelStore.set({ [key]: Math.max(lim.depth[0], +(c[key] - 0.01).toFixed(2)) });
     }
     for (const key of ['tilt']) {
-      if (btn.dataset.act === key + '+') bookshelfStore.set({ [key]: Math.min(lim.tilt[1], c[key] + 2) });
-      if (btn.dataset.act === key + '-') bookshelfStore.set({ [key]: Math.max(lim.tilt[0], c[key] - 2) });
+      if (btn.dataset.act === key + '+') panelStore.set({ [key]: Math.min(lim.tilt[1], c[key] + 2) });
+      if (btn.dataset.act === key + '-') panelStore.set({ [key]: Math.max(lim.tilt[0], c[key] - 2) });
     }
-    if (btn.dataset.seg === 'style') bookshelfStore.set({ style: btn.dataset.val });
-    if (btn.dataset.seg === 'panelMat') bookshelfStore.set({ panelMat: btn.dataset.val });
-    if (btn.dataset.color) bookshelfStore.set({ color: btn.dataset.color });
-    if (btn.dataset.sw) bookshelfStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
-    if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(bookshelfStore.get());
-    if (btn.dataset.export != null && actions.onExport) actions.onExport(bookshelfStore.get());
-    if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(bookshelfStore.get());
-    if (btn.dataset.print != null && actions.onPrint) actions.onPrint(bookshelfStore.get());
+    if (btn.dataset.seg === 'style') panelStore.set({ style: btn.dataset.val });
+    if (btn.dataset.seg === 'panelMat') panelStore.set({ panelMat: btn.dataset.val });
+    if (btn.dataset.color) panelStore.set({ color: btn.dataset.color });
+    if (btn.dataset.sw) panelStore.set({ [btn.dataset.sw]: !c[btn.dataset.sw] });
+    if (btn.dataset.cta != null && actions.onAdd) actions.onAdd(panelStore.get());
+    if (btn.dataset.exportCsv != null && actions.onExportCsv) actions.onExportCsv(panelStore.get());
+    if (btn.dataset.export != null && actions.onExport) actions.onExport(panelStore.get());
+    if (btn.dataset.model != null && actions.onExportModel) actions.onExportModel(panelStore.get());
+    if (btn.dataset.print != null && actions.onPrint) actions.onPrint(panelStore.get());
   });
 
   function syncSpecs(c) {
@@ -241,7 +255,7 @@ export function createBookshelfPanel(root, actions) {
     bindNum(tBayWField, 'tBayW', ' m', 2, '0.05');
     const bindBtns = (field, key) => {
       if (!field) return;
-      const lim = bookshelfStore.limits[key];
+      const lim = panelStore.limits[key];
       if (!lim) return;
       const lo = field.querySelector(`[data-act="${key}-"]`);
       const hi = field.querySelector(`[data-act="${key}+"]`);
@@ -273,6 +287,7 @@ export function createBookshelfPanel(root, actions) {
     booksSw.parentElement.style.display = tower ? '' : 'none';
     booksSw.classList.toggle('on', c.books);
     booksSw.setAttribute('aria-checked', String(c.books));
+    wiresSw.parentElement.style.display = tower ? '' : 'none';
     wiresSw.classList.toggle('on', c.wires);
     wiresSw.setAttribute('aria-checked', String(c.wires));
     baseSw.classList.toggle('on', c.base);
@@ -287,8 +302,8 @@ export function createBookshelfPanel(root, actions) {
       s.setAttribute('aria-pressed', String(on));
     });
   }
-  syncSpecs(state);
-  const unsub = bookshelfStore.subscribe(syncSpecs);
+  syncSpecs(panelStore.get());
+  const unsub = panelStore.subscribe(syncSpecs);
 
   function updateStats(stats) {
     if (!stats) return;

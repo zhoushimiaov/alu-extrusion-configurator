@@ -1,0 +1,10 @@
+# 临时审查环境：专用 Worker，不能与生产 modulo-alu-shelf 同名。
+# 不配置 routes/custom_domain/KV/Secrets；/api/market 自动回退内置参考价。
+name = "modulo-alu-shelf-review-20261018"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+preview_urls = true
+
+[assets]
+directory = "./dist"

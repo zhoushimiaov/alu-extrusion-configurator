@@ -1,7 +1,7 @@
 # 部署说明
 
-> 一句话结论：**把代码推送到 GitHub 不会触发任何部署。**
-> 线上更新必须显式执行构建 + `wrangler deploy`；Vercel 那一层只是反向代理，不需要重新部署。
+> 一句话结论：**推送非文档改动到 `main` 会自动构建并部署 Worker。**
+> Vercel 只负责反向代理，不需要重新部署；也可在 Actions 页面手动触发完整部署与双域名自检。
 
 ---
 
@@ -30,7 +30,7 @@ mekit.means.group ──(CNAME, 纯 DNS)──▶ 同一个 Vercel 反代项目
 
 ## 2. 本地部署（默认方式）
 
-前置：Node 20+、Cloudflare 账号（`npx wrangler login`）。
+前置：Node 22+、Cloudflare 账号（`npx wrangler login`）。
 
 ```powershell
 npm ci
@@ -126,14 +126,15 @@ gh secret list --repo $repo      # 校验（只显示名称与更新时间，不
 ### 3.3 工作流做了什么
 
 ```
-checkout → setup-node(20, npm cache)
+checkout → setup-node(22, npm cache)
   → 检查 Secrets（缺失则跳过后续步骤）
   → npm ci
   → node tools/check-import-case.mjs   # 导入路径大小写检查（跨平台可移植性）
-  → npm test                           # 50 项单元测试，不通过则不部署
+  → npm test                           # 191 项单元测试，不通过则不部署
   → npm run build                      # 产出单文件 dist/index.html
   → node tools/make-ci-config.mjs      # 由公开 wrangler.toml 生成 wrangler.ci.toml
   → wrangler deploy --config wrangler.ci.toml
+  → 双域名线上 SHA 自检（rack / mekit）
   → 写入运行摘要（Worker 名、提交 SHA、触发方式、线上地址）
 ```
 
@@ -171,8 +172,20 @@ curl.exe -sS -o mekit-online.html https://mekit.means.group/
 `rack.means.group` 是既有主入口；`mekit.means.group` 是 MEKIT 品牌子域名，
 两者必须由同一个 Vercel `proxy-rack` 项目反代到 `modulo-alu-shelf` Worker。
 新域名接入时，先在 Vercel 项目登记 `mekit.means.group`，再在 Cloudflare DNS
-添加 `CNAME mekit → cname.vercel-dns.com`（DNS only）。不要为它另建 Worker，
-否则价格表、部署版本和 API 会分叉。部署工作流会同时校验两个域名。
+添加 Vercel 项目页面或 `npx vercel@latest domains verify mekit.means.group`
+返回的**项目专属 CNAME 目标**（DNS only）。不要硬编码通用
+`cname.vercel-dns.com`：它可能完成 HTTP 回源，却不能为该新域名正确签发 TLS
+证书，表现为 HTTPS 握手 EOF。登记 DNS 后运行：
+
+```powershell
+npx vercel@latest domains verify mekit.means.group
+curl.exe -sS -I https://mekit.means.group/
+curl.exe -sS https://mekit.means.group/api/version
+```
+
+Vercel 必须返回 `configured_correctly`，HTTPS 首页应为 `200`，版本接口中的
+`build` 应与主入口一致。不要为 `mekit` 另建 Worker，否则价格表、部署版本和
+API 会分叉。部署工作流会同时校验两个域名。
 
 浏览器侧建议跑一遍仓库自带的 QA：
 

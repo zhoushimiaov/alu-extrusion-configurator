@@ -18,7 +18,7 @@ const argVal = (name) => {
 };
 const config = argVal('--config') || 'wrangler.toml';
 const token = argVal('--token') || process.env.PURGE_TOKEN || '';
-const BASE = process.env.RACK_BASE || 'https://rack.means.group';
+const BASE = process.env.MEKIT_BASE || process.env.RACK_BASE || 'https://mekit.means.group';
 
 console.log('[price] 1/3 重新导出 tools/price_table.json …');
 execSync('node tools/export-price.mjs', { stdio: 'inherit' });

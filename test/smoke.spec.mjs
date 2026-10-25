@@ -170,3 +170,11 @@ test('构建产物内含 OG meta 与模型导出器', () => {
   expect(html).toContain('og:image');
   expect(html).toContain('model/gltf-binary');
 });
+
+test('构建产物把 MEKIT 作为 canonical 主入口', () => {
+  const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
+  expect(html).toContain('<link rel="canonical" href="https://mekit.means.group/" />');
+  expect(html).toContain('<meta property="og:url" content="https://mekit.means.group/" />');
+  expect(html).toContain('<meta property="og:image" content="https://mekit.means.group/og-cover.jpg?v=5" />');
+  expect(html).not.toContain('https://rack.means.group/');
+});

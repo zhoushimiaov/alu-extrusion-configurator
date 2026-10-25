@@ -24,7 +24,7 @@ const VALID = JSON.parse(readFileSync(new URL('../tools/price_table.json', impor
 const VALID_JSON = JSON.stringify(VALID);
 
 function req(path, opts = {}) {
-  return new Request('https://rack.means.group' + path, opts);
+  return new Request('https://mekit.means.group' + path, opts);
 }
 function ctx() {
   return { waitUntil: () => {} };

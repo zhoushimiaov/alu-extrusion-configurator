@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>🌐 Live Demo / 在线体验：<a href="https://rack.means.group">rack.means.group</a></strong><br>
+  <strong>🌐 Live Demo / 在线体验：<a href="https://mekit.means.group">mekit.means.group</a></strong><br>
   完全在浏览器端程序化建模的实时产品配置器 · Real-time product configurator with fully procedural in-browser 3D modeling
 </p>
 
@@ -67,7 +67,7 @@ npm run build
 npx wrangler deploy --config wrangler.local.toml
 ```
 
-- 线上架构：`rack.means.group` → Vercel 边缘反向代理（纯 rewrite）→ Cloudflare Worker（静态资产 + `/api/market` 价格表）。Vercel 那层无需重新部署。
+- 线上架构：主入口 `mekit.means.group` → Vercel 边缘反向代理（纯 rewrite）→ Cloudflare Worker（静态资产 + `/api/market` 价格表）。`rack.means.group` 保留为 308 跳转兼容入口；Vercel 那层无需重新部署。
 - 自动部署只对「非文档改动」生效，且需要先在仓库配置 2 个 Secrets（缺失时会自动跳过，不报错）
 - 详细步骤、配置文件分工、Secrets 清单：见 **[docs/deployment.md](docs/deployment.md)**
 - 反代架构与踩坑记录：见 [docs/vercel-reverse-proxy.md](docs/vercel-reverse-proxy.md)

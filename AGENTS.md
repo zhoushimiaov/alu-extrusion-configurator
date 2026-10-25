@@ -33,7 +33,7 @@ Three.js 程序化建模，零外部模型文件，`npm run build` 产出单文�
    此基线不变（或解释变化原因）。
 4. 部署：
    - 配置器更新：`npm run build` 后 `npx wrangler deploy`（Cloudflare，
-     绑定 rack.means.group，见 wrangler.toml）
+     主入口 mekit.means.group；rack.means.group 为 308 跳转兼容入口）
    - 国内可达的 portfolio 反代：Vercel 项目 proxy-t2（vercel.json 纯
      rewrite 到 portfolio.means.group），绑定 p.means.group
 5. 完成后更新**本地**运维记录 `DEPLOYMENTS.md`（新地址、版本号、验证结论；该文件不入库），公开侧同步 `docs/deployment.md`。

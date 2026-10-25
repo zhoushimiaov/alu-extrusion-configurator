@@ -11,8 +11,8 @@
 浏览器
   │
   ▼
-rack.means.group  ──(CNAME, 纯 DNS)──▶ Vercel 边缘（反向代理，纯 rewrite）
-mekit.means.group ──(CNAME, 纯 DNS)──▶ 同一个 Vercel 反代项目
+mekit.means.group ──(CNAME, 纯 DNS)──▶ Vercel 边缘（反向代理，纯 rewrite）
+rack.means.group  ──(CNAME, 纯 DNS)──▶ 同一项目，308 跳转到主入口
                                         │
                                         ▼
                      <worker-name>.<account-subdomain>.workers.dev
@@ -87,7 +87,7 @@ Cloudflare Workers。工作流文件：[.github/workflows/deploy.yml](../.github
    | Account | <你的账号> | **Workers KV Storage** → Edit |
    | Account | <你的账号> | Account Settings → Read（可选，便于账号解析） |
 
-   可选：若将来要重新启用 `rack.means.group` 的 Cloudflare 自定义域，
+   可选：若将来要重新启用兼容入口的 Cloudflare 自定义域，
    需再加 **Zone → Workers Routes → Edit**（当前架构用不到）。
 4. Account Resources 选你的账号，Zone Resources 选 All zones（或留空）
 5. TTL 建议设 1 年或不设过期；**创建后立即复制**（只显示一次）
@@ -164,14 +164,16 @@ checkout → setup-node(22, npm cache)
 ## 4. 部署后自检
 
 ```powershell
-# 线上文件与本地构建产物一致（单文件构建，哈希可直接比）
-curl.exe -sS -o online.html https://rack.means.group/
+# 主入口线上文件与本地构建产物一致（单文件构建，哈希可直接比）
 curl.exe -sS -o mekit-online.html https://mekit.means.group/
+
+# 旧入口保留兼容，308 到主入口
+curl.exe -sS -I https://rack.means.group/
 ```
 
-`rack.means.group` 是既有主入口；`mekit.means.group` 是 MEKIT 品牌子域名，
-两者必须由同一个 Vercel `proxy-rack` 项目反代到 `modulo-alu-shelf` Worker。
-新域名接入时，先在 Vercel 项目登记 `mekit.means.group`，再在 Cloudflare DNS
+`mekit.means.group` 是 MEKIT 品牌主入口；`rack.means.group` 是旧链接的
+308 兼容入口。两者由同一个 Vercel `proxy-rack` 项目管理，主入口反代到
+`modulo-alu-shelf` Worker。新域名接入时，先在 Vercel 项目登记域名，再在 Cloudflare DNS
 添加 Vercel 项目页面或 `npx vercel@latest domains verify mekit.means.group`
 返回的**项目专属 CNAME 目标**（DNS only）。不要硬编码通用
 `cname.vercel-dns.com`：它可能完成 HTTP 回源，却不能为该新域名正确签发 TLS

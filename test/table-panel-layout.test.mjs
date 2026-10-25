@@ -10,7 +10,7 @@ function box(mesh,i=0){
   const m=new THREE.Matrix4(); mesh.getMatrixAt(i,m);
   return mesh.geometry.boundingBox.clone().applyMatrix4(m);
 }
-test('glass anchors preserve the current eight points when lower bays are rearranged',()=>{
+test('glass anchors preserve the default eight points and remain independent of lower bay configuration',()=>{
   const reference=buildBookshelf({style:'table',tBays:3,tBayW:0.7});
   try {
     for(const [tBays,tBayW] of [[1,2.1],[2,1.05],[3,0.7],[4,0.525]]){
@@ -21,7 +21,7 @@ test('glass anchors preserve the current eight points when lower bays are rearra
           const stand=box(p.groups.tableGlassStandoffs,i),pad=box(p.groups.tableGlassPads,i);
           const foot=box(p.groups.tableStandoffFeet,i),old=box(reference.groups.tableGlassStandoffs,i);
           near(stand.min.x,old.min.x); near(stand.min.z,old.min.z);
-          near(stand.getCenter(new THREE.Vector3()).x,[-1.015,-0.35,0.35,1.015][Math.floor(i/2)]);
+          near(stand.getCenter(new THREE.Vector3()).x,[-1.05,-0.35,0.35,1.05][Math.floor(i/2)]);
           near(stand.max.y,pad.min.y);
           near(pad.max.y,p.groups.tableGlass.position.y-0.004);
           near(foot.min.y,0.88);
@@ -37,7 +37,7 @@ test('glass anchors derive from true tabletop width at every supported total wid
     const p=buildBookshelf({style:'table',tBays,tBayW});
     try {
       const W=tBays*tBayW;
-      const expected=[-W/2+0.035,-W/6,W/6,W/2-0.035];
+      const expected=[-W/2,-W/6,W/6,W/2];
       assert.equal(p.groups.tableGlassStandoffs.count,8);
       for(let i=0;i<8;i++){
         const stand=box(p.groups.tableGlassStandoffs,i);
@@ -56,6 +56,30 @@ test('glass anchors derive from true tabletop width at every supported total wid
         assert.equal(p.stats.hardware.find(h=>name.test(h.name)).qty,8);
     } finally {p.dispose();}
   }
+});
+test('default reading table glass supports align with upper and lower leg axes',()=>{
+  const p=buildBookshelf({style:'table',tBays:3,tBayW:0.7});
+  try {
+    const standXs=[],standZs=[],legXs=[],legZs=[];
+    for(let i=0;i<8;i++){
+      const stand=box(p.groups.tableGlassStandoffs,i);
+      const pad=box(p.groups.tableGlassPads,i);
+      const head=box(p.groups.tableStandoffFeet,i);
+      const center=stand.getCenter(new THREE.Vector3());
+      standXs.push(center.x); standZs.push(center.z);
+      near(head.getCenter(new THREE.Vector3()).x,center.x);
+      near(head.getCenter(new THREE.Vector3()).z,center.z);
+      near(pad.getCenter(new THREE.Vector3()).x,center.x);
+      near(pad.getCenter(new THREE.Vector3()).z,center.z);
+    }
+    for(let i=0;i<p.groups.tableLevelFeet.count;i++){
+      const c=box(p.groups.tableLevelFeet,i).getCenter(new THREE.Vector3());
+      legXs.push(c.x); legZs.push(c.z);
+    }
+    const unique=s=>[...new Set(s.map(v=>v.toFixed(5)))].sort();
+    assert.deepEqual(unique(standXs),unique(legXs));
+    assert.deepEqual(unique(standZs),unique(legZs));
+  } finally {p.dispose();}
 });
 test('panel lower rail has no redundant frame when shelf is off, with connected center collar and matching BOM',()=>{
   for(const width of [0.6,0.9,1.2])for(const shelf of ['none','tray','deck'])for(const casters of [false,true]){

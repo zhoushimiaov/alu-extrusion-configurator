@@ -124,10 +124,11 @@ export function buildBookshelf(config) {
         len:+(W-0.04).toFixed(3),width:+(D-0.02).toFixed(3),thickness:0.008,
         qty:1,pricedViaPane:true });
       stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +glassArea.toFixed(3), kind: 'glass' });
-      // 每条节边界前后各一处支撑：原先分配8个实例、只放6个，另外2根出现在原点。
-      // 保留默认三跨桌的八个支点，只按台面尺寸定位，与下部跨数/腿位解耦。
+      // 默认三跨桌固定八个支点：四组 X 与桌腿轴线一一对齐，前后 Z 与
+      // 桌腿同轴；点位只由台面宽度锁定，不随下部框架重建而重排。
       // 支撑上沿0.094、减震垫0.094~0.096、玻璃底面0.096，严格连续接触。
-      const glassSupportXs=[-W/2+0.035,-W/6,W/6,W/2-0.035];
+      const glassSupportXs=[-W/2,-W/6,W/6,W/2];
+      const glassSupportZs=[D/2-0.03,-D/2+0.03];
       const nStand=glassSupportXs.length*2;
       const standGeo=new THREE.CylinderGeometry(0.005,0.005,0.094,12);
       const stands=instanced(standGeo,mat.block,nStand);
@@ -138,7 +139,7 @@ export function buildBookshelf(config) {
       const heads=instanced(headGeo,mat.block,nStand);
       let si=0;
       for(const x of glassSupportXs){
-        for(const z of [D/2-0.045,-D/2+0.045]){
+        for(const z of glassSupportZs){
           setMT(si,stands,x,tableH+0.047,z);
           setMT(si,standPads,x,tableH+0.095,z);
           setMT(si,heads,x,tableH+0.002,z);

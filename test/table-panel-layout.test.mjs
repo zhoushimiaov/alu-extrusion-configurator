@@ -21,7 +21,7 @@ test('glass anchors preserve the default eight points and remain independent of 
           const stand=box(p.groups.tableGlassStandoffs,i),pad=box(p.groups.tableGlassPads,i);
           const foot=box(p.groups.tableStandoffFeet,i),old=box(reference.groups.tableGlassStandoffs,i);
           near(stand.min.x,old.min.x); near(stand.min.z,old.min.z);
-          near(stand.getCenter(new THREE.Vector3()).x,[-1.05,-0.35,0.35,1.05][Math.floor(i/2)]);
+          near(stand.getCenter(new THREE.Vector3()).x,[-1.015,-0.35,0.35,1.015][Math.floor(i/2)]);
           near(stand.max.y,pad.min.y);
           near(pad.max.y,p.groups.tableGlass.position.y-0.004);
           near(foot.min.y,0.88);
@@ -37,7 +37,7 @@ test('glass anchors derive from true tabletop width at every supported total wid
     const p=buildBookshelf({style:'table',tBays,tBayW});
     try {
       const W=tBays*tBayW;
-      const expected=[-W/2,-W/6,W/6,W/2];
+      const expected=[-W/2+0.035,-W/6,W/6,W/2-0.035];
       assert.equal(p.groups.tableGlassStandoffs.count,8);
       for(let i=0;i<8;i++){
         const stand=box(p.groups.tableGlassStandoffs,i);
@@ -51,6 +51,10 @@ test('glass anchors derive from true tabletop width at every supported total wid
         near(stand.max.y,pad.min.y);
         near(pad.max.y,glass.min.y);
         assert.ok(stand.intersectsBox(foot));
+        assert.ok(stand.min.x>glass.min.x&&stand.max.x<glass.max.x,
+          'glass support stays inside the glass width');
+        assert.ok(stand.min.z>glass.min.z&&stand.max.z<glass.max.z,
+          'glass support stays inside the glass depth');
       }
       for(const name of [/玻璃副层板支承立柱/,/玻璃端座\/金属帽/,/玻璃隔振垫/])
         assert.equal(p.stats.hardware.find(h=>name.test(h.name)).qty,8);

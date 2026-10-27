@@ -159,6 +159,7 @@ export function createAnims(camera, controls) {
       ['battens', new THREE.Vector3(0, -0.28, 0.30)],  // 板下横条
       ['segments', new THREE.Vector3(0, 0, 0.34)],     // 正面分段立柱 ≈ beamsRail
       ['depth', new THREE.Vector3(0, 0.12, 0.30)],     // 进深梁
+      ['connectors', new THREE.Vector3(0, 0.12, 0.30)], // 进深梁端节点
       ['props', new THREE.Vector3(0, -0.45, 0.18)],    // 摆件跟随层板
 
       // ---- 光轴展架（buildRodRack）----

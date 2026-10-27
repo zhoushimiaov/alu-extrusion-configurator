@@ -14,7 +14,7 @@ test('GLB exact mode emits real cut list, positive mass and explicit unpriced re
   assert.ok(quote.total > 0);
   assert.equal(quote.complete, false);
   assert.ok(quote.unpriced.some(name => /30×30/.test(name)));
-  assert.ok(quote.unpriced.some(name => /连接方式/.test(name)));
+  assert.ok(quote.unpriced.some(name => /精确节点连接件/.test(name)));
   assert.ok(built.stats.cutList.some(c => c.section === '20×20'));
 
   built.dispose();

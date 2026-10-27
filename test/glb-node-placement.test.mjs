@@ -3,19 +3,45 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { glbLayout, buildGlbFrame } from '../src/core/buildGlbFrame.js';
 
-test('GLB layout has no invented floating mid-bay connector grid', () => {
+test('GLB layout has no invented mid-bay connector grid', () => {
   const a = glbLayout({ bayWidths: [.57, .57], levels: 3 });
-  assert.equal(a.rows.connectors, undefined);
+  assert.equal(a.rows.connectors.length, a.rows.depth.length);
+  assert.deepEqual(a.rows.connectors, a.rows.depth.map(([x, y]) => [x, y, -.17]));
   assert.equal(a.rows.bolts, undefined);
 });
 
-test('exact joint section is installed on depth members at post lines', () => {
+test('exact joint entities match depth-member/post intersections one-for-one', () => {
   const a = glbLayout({ bayWidths: [.57, .57], levels: 3 });
   assert.deepEqual([...new Set(a.rows.depth.map(r => r[0]))], [-.57, 0, .57]);
   const b = buildGlbFrame({ bayWidths: [.57, .57], levels: 3 });
-  assert.equal(b.groups.connectors, undefined);
+  assert.ok(b.groups.connectors);
+  assert.equal(b.groups.connectors.count, a.rows.depth.length);
+  assert.equal(b.groups.connectors.userData.jointCount, a.rows.depth.length);
+  assert.equal(
+    b.stats.hardware.find(h => h.name.includes('精确节点连接件')).qty,
+    b.groups.connectors.count,
+  );
   assert.equal(b.groups.bolts, undefined);
   assert.ok(b.groups.depth);
+  const connectorMaterials = Array.isArray(b.groups.connectors.material)
+    ? b.groups.connectors.material
+    : [b.groups.connectors.material];
+  assert.ok(b.groups.connectors.geometry.groups.length > 0);
+  assert.ok(
+    b.groups.connectors.geometry.groups.every(
+      group => group.materialIndex < connectorMaterials.length,
+    ),
+    'every connector geometry group must resolve to an exported material',
+  );
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < b.groups.connectors.count; i++) {
+    b.groups.connectors.getMatrixAt(i, matrix);
+    const position = new THREE.Vector3().setFromMatrixPosition(matrix);
+    const expected = a.rows.connectors[i];
+    for (let axis = 0; axis < 3; axis++) {
+      assert.ok(Math.abs(position.getComponent(axis) - expected[axis]) < 1e-6);
+    }
+  }
   b.dispose();
 });
 

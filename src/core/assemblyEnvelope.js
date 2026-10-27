@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isDisplayOnlyNode } from './exportPolicy.js';
 
 // Match the delivered assembly: ancestor visibility applies, and far-view LOD
 // never replaces the actual strips when measuring the assembled product.
@@ -11,6 +12,7 @@ export function measureAssembly(root) {
     if (!o.isMesh || !o.geometry) return;
     for (let node = o; node; node = node.parent) {
       if (node.name === 'stripsLOD' || node.userData?.exportSkip === true) return;
+      if (isDisplayOnlyNode(node)) return;
       if (!node.visible && node.name !== 'strips') return;
       if (node === root) break;
     }

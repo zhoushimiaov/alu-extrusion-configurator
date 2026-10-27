@@ -413,7 +413,11 @@ test('GLB 默认无参调用与部分 backs 开关与 stats 同源一致', () =>
     assert.equal(def.layout.H, 2.33, 'Default GLB H must be 2.33m (5 levels)');
     assert.equal(def.groups.posts.count, 7, '7通高立柱');
     assert.equal(def.groups.segments.count, 35, '35分段立柱');
-    assert.equal(def.stats.hardware[0].qty, def.groups.depth.count, 'Hardware depth count matches depth mesh count');
+    assert.equal(
+      def.stats.hardware.find(h => h.name.includes('精确节点连接件')).qty,
+      def.groups.connectors.count,
+      'Hardware node count matches real connector mesh count',
+    );
   } finally {
     def.dispose();
   }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
+import { buildBookshelf } from '../src/core/buildBookshelf.js';
 import { buildGlbFrame } from '../src/core/buildGlbFrame.js';
 import { LIMITS } from '../src/config/product.js';
 import { buildRodRack } from '../src/core/buildRodRack.js';
@@ -13,6 +14,125 @@ import {
   flattenToPlainMeshes,
 } from '../src/ui/modelExport.js';
 import { applyXrayTo } from '../src/core/xray.js';
+
+class NodeFileReader {
+  constructor() {
+    this.result = null;
+    this.onloadend = null;
+    this.onerror = null;
+  }
+  async readAsArrayBuffer(blob) {
+    try {
+      this.result = await blob.arrayBuffer();
+      this.onloadend?.();
+    } catch (error) {
+      this.onerror?.(error);
+    }
+  }
+}
+
+test('manufacturing export excludes display props while retaining structure and connector entities', () => {
+  const built = buildGlbFrame({
+    bayWidths: [.57, .57],
+    levels: 3,
+    decks: ['rib', 'rib', 'rib'],
+    props: true,
+    sidePanels: false,
+  });
+  const exported = flattenToPlainMeshes(built.group, 'Manufacturing');
+  try {
+    assert.ok(built.groups.props);
+    assert.equal(built.groups.props.userData.displayOnly, true);
+    assert.equal(exported.children.some(mesh => mesh.name.startsWith('props')), false);
+    assert.equal(exported.children.some(mesh => mesh.name.startsWith('displayBooks')), false);
+    assert.equal(
+      exported.children.filter(mesh => mesh.name.startsWith('connectors_')).length,
+      built.groups.connectors.count,
+    );
+    assert.equal(
+      exported.children.filter(mesh => mesh.name.startsWith('connectors_')).length,
+      built.stats.hardware.find(h => h.name.includes('精确节点连接件')).qty,
+    );
+  } finally {
+    disposeFlattenedMeshes(exported);
+    built.dispose();
+  }
+});
+
+test('manufacturing export passes through GLTFExporter with connector geometry', async () => {
+  const previousFileReader = globalThis.FileReader;
+  globalThis.FileReader = NodeFileReader;
+  const built = buildGlbFrame({
+    bayWidths: [.57, .57],
+    levels: 3,
+    decks: ['rib', 'rib', 'rib'],
+    props: true,
+    sidePanels: false,
+  });
+  const exported = flattenToPlainMeshes(built.group, 'ExporterSmoke', { cloneResources: true });
+  try {
+    const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+    const glb = await new GLTFExporter().parseAsync(exported, {
+      binary: true,
+      onlyVisible: true,
+    });
+    assert.ok(glb instanceof ArrayBuffer);
+    assert.ok(glb.byteLength > 10000);
+  } finally {
+    disposeFlattenedMeshes(exported);
+    built.dispose();
+    globalThis.FileReader = previousFileReader;
+  }
+});
+
+test('manufacturing export excludes standard-shelf and rod-book display props', () => {
+  const previousDocument = globalThis.document;
+  const gradient = { addColorStop() {} };
+  const context = new Proxy({}, {
+    get(_target, property) {
+      if (property === 'createLinearGradient' || property === 'createRadialGradient') {
+        return () => gradient;
+      }
+      return () => {};
+    },
+    set() { return true; },
+  });
+  globalThis.document = {
+    createElement(tag) {
+      if (tag !== 'canvas') return {};
+      return { width: 0, height: 0, getContext: () => context };
+    },
+  };
+  let shelf;
+  let books;
+  let shelfExport;
+  let booksExport;
+  try {
+    shelf = buildShelf({
+      bays: 2,
+      levels: 3,
+      bayWidths: [.57, .57],
+      decks: ['rib', 'acrylic', 'rib'],
+      props: true,
+      sidePanels: false,
+    }, true);
+    shelfExport = flattenToPlainMeshes(shelf.group, 'Shelf');
+    books = buildBookshelf({ style: 'tower', bays: 1, levels: 2, books: true });
+    booksExport = flattenToPlainMeshes(books.group, 'Books');
+    assert.ok(shelf.groups.props);
+    assert.equal(shelfExport.children.some(mesh => mesh.name.startsWith('props')), false);
+    assert.ok(books.groups.books);
+    assert.equal(books.groups.books.userData.displayOnly, true);
+    assert.equal(booksExport.children.some(mesh => mesh.name.startsWith('displayBooks')), false);
+    assert.ok(booksExport.children.length > books.groups.books.children.length);
+  } finally {
+    if (shelfExport) disposeFlattenedMeshes(shelfExport);
+    if (booksExport) disposeFlattenedMeshes(booksExport);
+    shelf?.dispose();
+    books?.dispose();
+    globalThis.document = previousDocument;
+  }
+});
 
 test('levels can go down to the new minimum of 2 and still build finite geometry', () => {
   assert.equal(LIMITS.levels[0], 2);

@@ -69,7 +69,7 @@ export function glbLayout({ bayWidths = [.57, .57, .57, .57, .57, .57], levels =
   const H = levels * .46 + .03;
   const xs = [-W / 2];
   for (const w of bayWidths) xs.push(xs.at(-1) + w);
-  const rows = { posts: [], segments: [], depth: [], strips: [], battens: [] };
+  const rows = { posts: [], segments: [], depth: [], connectors: [], strips: [], battens: [] };
   for (const x of xs) {
     // 通高立柱在背面墙面侧
     rows.posts.push([x, 0, -0.185]);
@@ -94,6 +94,9 @@ export function glbLayout({ bayWidths = [.57, .57, .57, .57, .57, .57], levels =
       rows.battens.push([0, k * .46 - .005, z]);
     }
   }
+  // One physical connector node per depth-beam/post intersection. Keep this
+  // derived from the beam rows so geometry, export and procurement cannot drift.
+  rows.connectors = rows.depth.map(([x, y, z]) => [x, y, DEPTH_BACK_Z]);
   return {
     W,
     H,
@@ -288,6 +291,7 @@ function makeGlbStats(layout, config = {}) {
   const posts = layout.rows.posts.length;
   const segments = layout.rows.segments.length;
   const depth = layout.rows.depth.length;
+  const connectors = layout.rows.connectors.length;
   const strips = layout.rows.strips.length;
   const battens = layout.rows.battens.length;
 
@@ -326,7 +330,7 @@ function makeGlbStats(layout, config = {}) {
   }
 
   const hardware = [
-    { name: 'GLB 精确节点连接方式（未核价）', qty: depth },
+    { name: 'GLB 精确节点连接件（未核价）', qty: connectors },
   ];
 
   let backPanelCount = 0;
@@ -363,7 +367,7 @@ function makeGlbStats(layout, config = {}) {
     cutList,
     hardware,
     panes,
-    partCount: posts + segments + depth + strips + battens + paneCount + backPanelCount + backBracketCount,
+    partCount: posts + segments + depth + connectors + strips + battens + paneCount + backPanelCount + backBracketCount,
     profileLengthM: +profileLengthM.toFixed(1),
     weightKg: +weightKg.toFixed(1),
     referenceOnly: true,
@@ -426,6 +430,7 @@ export function buildGlbFrame(config = {}) {
     posts: `tslot-up:0.03x0.03:${layout.H}`,
     segments: 'tslot-up:0.03x0.03:0.43',
     depth: 'glbjoint:0.37',
+    connectors: 'glbconnector:0.034x0.034x0.003',
     strips: 'glbstrip:0.4',
     battens: `exact2010-x:${layout.W + .03}`,
   };
@@ -433,6 +438,16 @@ export function buildGlbFrame(config = {}) {
     posts: cachedGeometry(geometryKeys.posts, () => extrudeUp(makeTSlotShape(.03, .03), layout.H)),
     segments: cachedGeometry(geometryKeys.segments, () => extrudeUp(makeTSlotShape(.03, .03), .43)),
     depth: cachedGeometry(geometryKeys.depth, () => orientDepthGeometry(extrudeAlongZ(makeGlbJointShape(), .37))),
+    // BoxGeometry creates six material groups (one per face), but this
+    // connector is exported with a two-material InstancedMesh. Collapse the
+    // groups to one valid material slot so GLTFExporter never reads an
+    // undefined material index.
+    connectors: cachedGeometry(geometryKeys.connectors, () => {
+      const geometry = new THREE.BoxGeometry(.034, .034, .003);
+      geometry.clearGroups();
+      geometry.addGroup(0, geometry.index.count, 0);
+      return geometry;
+    }),
     strips: cachedGeometry(geometryKeys.strips, () => extrudeAlongZ(makeGlbStripShape(), .4)),
     battens: cachedGeometry(geometryKeys.battens, () => extrudeAlongX(makeExact2010Shape(), layout.W + .03)),
   };
@@ -440,12 +455,38 @@ export function buildGlbFrame(config = {}) {
   const paneGeoKey = 'glbpane:unit';
 
   for (const [key, rows] of Object.entries(layout.rows)) {
+    if (key === 'connectors') continue;
     const mesh = new THREE.InstancedMesh(geometries[key], [cap.clone(), side.clone()], rows.length);
     mesh.name = key;
     rows.forEach(([x, y, z], i) => mesh.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y, z)));
     mesh.instanceMatrix.needsUpdate = true;
     group.add(mesh);
     groups[key] = mesh;
+  }
+
+  // Visible hardware nodes at the measured rear end of every depth beam/post
+  // intersection. Keeping them inside the original 370 mm beam envelope avoids
+  // an unpriced 3 mm protrusion beyond the nominal product dimensions.
+  {
+    const connectorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x3f454c,
+      metalness: 0.62,
+      roughness: 0.34,
+    });
+    const nodes = new THREE.InstancedMesh(
+      geometries.connectors,
+      [connectorMaterial, connectorMaterial.clone()],
+      layout.rows.connectors.length,
+    );
+    nodes.name = 'connectors';
+    nodes.userData.jointCount = layout.rows.connectors.length;
+    nodes.userData.attachment = 'depth-beam-post';
+    layout.rows.connectors.forEach(([x, y, z], i) => {
+      nodes.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, y, z));
+    });
+    nodes.instanceMatrix.needsUpdate = true;
+    group.add(nodes);
+    groups.connectors = nodes;
   }
 
   // ---- 层板 LOD：每跨每层（rib 层）一块板条纹理整板，远景替换亚像素板条几何 ----

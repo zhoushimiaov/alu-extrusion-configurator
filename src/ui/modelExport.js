@@ -4,6 +4,7 @@
 // 因此导出前把整机「展平」为普通 Mesh：每个网格（含每个实例）都把世界矩阵烘焙进自身，
 // 保证任何查看器打开的形体都与屏幕一致。
 import * as THREE from 'three';
+import { isDisplayOnlyNode } from '../core/exportPolicy.js';
 
 const ROOT_NAMES = {
   profile: 'AluShelf',
@@ -223,10 +224,12 @@ export function flattenToPlainMeshes(sourceGroup, rootName, {
   const textures = new Map();
   // 展平后的 Mesh 默认可见；导出时必须继承源节点及祖先的可见性。
   // stripsLOD 仅用于远景预览；无论当前距离多远，始终导出高精度 strips。
+  // props/displayBooks 和显式 displayOnly 节点属于展示陈设，不进入制造交接模型。
   const isExportable = (mesh) => {
     let node = mesh;
     while (node) {
       if (node.name === 'stripsLOD' || node.userData?.exportSkip === true) return false;
+      if (isDisplayOnlyNode(node)) return false;
       if (!node.visible && node.name !== 'strips') return false;
       if (node === sourceGroup) break;
       node = node.parent;

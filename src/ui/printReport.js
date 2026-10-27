@@ -46,7 +46,7 @@ export function buildReportHtml({ kind, cfg, stats, snapshot, price }) {
 
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
-<title>MODULO 模数 · ${esc(title)} · 设计与报价单</title>
+<title>MEKIT. · ${esc(title)} · 设计与报价单</title>
 <style>
   @page { size: A4; margin: 13mm 12mm; }
   * { box-sizing: border-box; }
@@ -73,7 +73,7 @@ export function buildReportHtml({ kind, cfg, stats, snapshot, price }) {
   .page-break { page-break-before: always; }
   .foot { margin-top: 14px; border-top: 1px solid #c9cdd2; padding-top: 6px; color: #778; font-size: 9.5px; line-height: 1.7; }
 </style></head><body>
-  <div class="hd"><span class="brand">MODULO 模数</span><span class="sub">DESIGN &amp; QUOTATION</span></div>
+  <div class="hd"><span class="brand">MEKIT.</span><span class="sub">A DESIGN SYSTEM BY MEANS · DESIGN &amp; QUOTATION</span></div>
   <div class="cfg-line"><b>${esc(title)}</b> · 设计与报价单</div>
   <div class="meta">
     <span>生成时间 ${esc(stamp)}</span>

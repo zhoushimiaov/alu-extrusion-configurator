@@ -124,11 +124,11 @@ export function buildBookshelf(config) {
         len:+(W-0.04).toFixed(3),width:+(D-0.02).toFixed(3),thickness:0.008,
         qty:1,pricedViaPane:true });
       stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +glassArea.toFixed(3), kind: 'glass' });
-      // 默认三跨桌固定八个支点：四组 X 与桌腿轴线一一对齐，前后 Z 与
-      // 桌腿同轴；点位只由台面宽度锁定，不随下部框架重建而重排。
+      // 默认三跨桌固定八个支点：保留支柱在玻璃内侧的安全边距，
+      // 点位只由台面宽度锁定，不随下部框架重建而重排。
       // 支撑上沿0.094、减震垫0.094~0.096、玻璃底面0.096，严格连续接触。
-      const glassSupportXs=[-W/2,-W/6,W/6,W/2];
-      const glassSupportZs=[D/2-0.03,-D/2+0.03];
+      const glassSupportXs=[-W/2+0.035,-W/6,W/6,W/2-0.035];
+      const glassSupportZs=[D/2-0.045,-D/2+0.045];
       const nStand=glassSupportXs.length*2;
       const standGeo=new THREE.CylinderGeometry(0.005,0.005,0.094,12);
       const stands=instanced(standGeo,mat.block,nStand);
@@ -161,15 +161,21 @@ export function buildBookshelf(config) {
       );
     }
 
-    // 桌腿：每节边界前后各一
+    // 桌腿：每节边界前后各一。外圈腿轴线内收到固定玻璃支点，
+    // 中间跨边界保持原位，从而上下连续传力且不移动玻璃支点。
     const bndXs = [];
-    for (let b = 0; b <= cfg.tBays; b++) bndXs.push(-W / 2 + b * cfg.tBayW);
+    for (let b = 0; b <= cfg.tBays; b++) {
+      const rawX = -W / 2 + b * cfg.tBayW;
+      bndXs.push(b === 0 ? -W / 2 + 0.035
+        : b === cfg.tBays ? W / 2 - 0.035 : rawX);
+    }
     const legs = instanced(strutGeo, mat.rod, bndXs.length * 2);
     let li = 0;
     const legLen = tableH - 0.02;
+    const legZ = D / 2 - 0.045;
     for (const x of bndXs) {
-      setDir(li++, legs, x, 0.015, D / 2 - 0.03, x, legLen, D / 2 - 0.03, legR);
-      setDir(li++, legs, x, 0.015, -D / 2 + 0.03, x, legLen, -D / 2 + 0.03, legR);
+      setDir(li++, legs, x, 0.015, legZ, x, legLen, legZ, legR);
+      setDir(li++, legs, x, 0.015, -legZ, x, legLen, -legZ, legR);
       rodLen += legLen * 2;
       steelVol += Math.PI * legR * legR * legLen * 2;
       stats.cutList.push({ spec: '光轴桌腿 ⌀18', section: '18', len: +legLen.toFixed(3), qty: 2 });
@@ -181,7 +187,7 @@ export function buildBookshelf(config) {
     // 上端与每节竖直光轴柱交汇，不再靠一整块木台面独自悬在立柱上。
     const topUnderRails=instanced(railGeo,mat.rod,2);
     for(let i=0;i<2;i++)setMT(i,topUnderRails,0,tableH-0.034,
-      (i?-1:1)*(D/2-0.03),W,railR,railR);
+      (i?-1:1)*legZ,W,railR,railR);
     group.add(topUnderRails);
     groups.tableUnderRails=topUnderRails;
     partCount+=2;
@@ -190,7 +196,7 @@ export function buildBookshelf(config) {
     stats.cutList.push({spec:'阅读长桌台面承托光轴 Ø12',section:'⌀12',len:+W.toFixed(3),qty:2});
     // 真正连续的光轴框架：上下两档均是前后各一根 X 向通长杆，
     // 所有跨中立柱穿过完整横杆，杜绝 10mm/20mm 分段断口悬空。
-    const jointZ=[D/2-0.03,-D/2+0.03];
+    const jointZ=[legZ,-legZ];
     const railLevels=[0.10,0.42];
     const nRails=jointZ.length*railLevels.length;
     const rails=instanced(railGeo,mat.rod,nRails);
@@ -565,6 +571,7 @@ export function buildBookshelf(config) {
       // 书的下表面位于层板上表面之上 2mm；法线与层板始终一致。
       const booksGroup = new THREE.Group();
       booksGroup.name = 'displayBooks';
+      booksGroup.userData.displayOnly = true;
       const bookGeo = new THREE.BoxGeometry(1, 1, 1);
       panelPlacements.forEach((panel, index) => {
         const bm = new THREE.MeshStandardMaterial({

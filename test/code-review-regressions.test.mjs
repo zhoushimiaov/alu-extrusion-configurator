@@ -7,6 +7,7 @@ import { makeClamp } from '../src/config/clamp.js';
 import { calcMarketPrice } from '../src/ui/marketPrice.js';
 import { summarizeBom } from '../src/ui/bomSummary.js';
 import { flattenToPlainMeshes } from '../src/ui/modelExport.js';
+import { buildBookshelf } from '../src/core/buildBookshelf.js';
 
 test('型材架配置：非法 URL/存储数据不可突破层数、跨数与宽度限制', () => {
   const cfg = normalizeConfig({
@@ -102,4 +103,27 @@ test('GLB 展平：即使远景隐藏高精度板条，也只导出真实板条�
   assert.equal(flattened.children[0].position.y, 2);
   assert.equal(flattened.children[0].position.z, 3);
   geo.dispose(); mat.dispose();
+});
+
+test('展示样书不改变制造零件数，长桌台面与玻璃分别计入制造件数', () => {
+  const withBooks = buildBookshelf({ style: 'tower', books: true });
+  const withoutBooks = buildBookshelf({ style: 'tower', books: false });
+  const glass = buildBookshelf({ style: 'table', glassTop: true });
+  const noGlass = buildBookshelf({ style: 'table', glassTop: false });
+  try {
+    assert.equal(withBooks.stats.partCount, withoutBooks.stats.partCount);
+    assert.deepEqual(withBooks.stats.cutList, withoutBooks.stats.cutList);
+    assert.equal(
+      glass.stats.partCount - noGlass.stats.partCount,
+      1 + glass.groups.tableGlassStandoffs.count * 3,
+    );
+    assert.equal(glass.stats.cutList.find((item) => item.spec === '长桌台面（实木拼板）').partCount, 1);
+    assert.equal(glass.stats.cutList.find((item) => item.spec === '玻璃副层板 8mm').partCount, 1);
+    assert.equal(noGlass.stats.cutList.some((item) => item.spec === '玻璃副层板 8mm'), false);
+  } finally {
+    withBooks.dispose();
+    withoutBooks.dispose();
+    glass.dispose();
+    noGlass.dispose();
+  }
 });

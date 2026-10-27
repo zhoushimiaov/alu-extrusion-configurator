@@ -683,7 +683,7 @@ hr.sec-rule { border: 0; border-top: 1px solid var(--hairline); margin: 26px 0 0
   max-width: 360px;
 }
 .field-row .field-label { margin-bottom: 0; font-size: var(--fs-body); color: var(--fg-2); flex: 1; }
-#panel > div { margin-top: 4px; }
+#panel > div, #panel > .panel-product > div { margin-top: 4px; }
 
 /* 步进器：白胶囊 + 细线 ±（CSS 绘制，非字符） */
 .stepper {

@@ -121,6 +121,52 @@ const PRODUCT_STORES = {
   books: bookshelfStore, table: tableStore,
   sheet: sheetStore,
 };
+const deliveryRevisions = new Map(Object.keys(PRODUCT_STORES).map((kind) => [kind, 0]));
+const deliverySnapshots = new Map();
+const pendingBuilds = new Map();
+const flushBuilds = new Map();
+
+function deliveryRevision(kind) {
+  return deliveryRevisions.get(kind) || 0;
+}
+
+function recordDeliverySnapshot(kind, cfg, product) {
+  if (!product || !Object.prototype.hasOwnProperty.call(product, 'group') || !product.stats) return;
+  const pending = pendingBuilds.get(kind);
+  const revision = pending?.revision ?? deliveryRevision(kind);
+  if (pending && pending.revision !== deliveryRevision(kind)) return;
+  if (!pending && deliverySnapshots.get(kind)?.revision === revision &&
+      deliverySnapshots.get(kind)?.product?.group === product.group) return;
+  deliverySnapshots.set(kind, {
+    kind,
+    cfg: { ...cfg },
+    stats: product.stats,
+    product,
+    revision,
+  });
+}
+
+async function waitForDeliverySnapshot(kind) {
+  if (productKind !== kind) return null;
+  const expected = deliveryRevision(kind);
+  flushBuilds.get(kind)?.();
+  const pending = pendingBuilds.get(kind);
+  if (pending && pending.revision >= expected) {
+    const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+    await Promise.race([pending.promise, timeout]);
+  }
+  const snapshot = deliverySnapshots.get(kind);
+  if (snapshot?.revision !== expected) return null;
+  if (snapshot.product?.group && (productKind !== kind || active()?.group !== snapshot.product.group)) return null;
+  return snapshot;
+}
+
+async function requireDeliverySnapshot(kind) {
+  const snapshot = await waitForDeliverySnapshot(kind);
+  if (!snapshot) showToast('当前配置正在生成，请稍候重试');
+  return snapshot;
+}
+
 const assemblyPoses = new WeakMap();
 function poseFor(product) {
   if (!product?.group) return null;
@@ -216,6 +262,7 @@ function rebuild({ isEntrance = false } = {}) {
   hud.syncReadout(cfg, current.stats);
   panel.updateStats(current.stats);
   panel.lastStats = current.stats;
+  recordDeliverySnapshot('profile', cfg, current);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild profile: ${cost.toFixed(1)}ms`);
@@ -236,6 +283,7 @@ function rebuildRod({ isEntrance = false } = {}) {
   hudRod.syncReadout(cfg, rodCurrent.stats);
   panel.updateStats(rodCurrent.stats);
   panel.lastStats = rodCurrent.stats;
+  recordDeliverySnapshot('rod', cfg, rodCurrent);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild rod: ${cost.toFixed(1)}ms`);
@@ -254,6 +302,7 @@ function rebuildCart({ isEntrance = false } = {}) {
   hud.syncReadout(cfg, cartCurrent.stats);
   panel.updateStats(cartCurrent.stats);
   panel.lastStats = cartCurrent.stats;
+  recordDeliverySnapshot('cart', cfg, cartCurrent);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild cart: ${cost.toFixed(1)}ms`);
@@ -272,6 +321,7 @@ function rebuildCrates({ isEntrance = false } = {}) {
   hud.syncReadout(cfg, cratesCurrent.stats);
   panel.updateStats(cratesCurrent.stats);
   panel.lastStats = cratesCurrent.stats;
+  recordDeliverySnapshot('crates', cfg, cratesCurrent);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild crates: ${cost.toFixed(1)}ms`);
@@ -290,6 +340,7 @@ function rebuildBooks({ isEntrance = false } = {}) {
   hud.syncReadout(cfg, booksCurrent.stats);
   panel.updateStats(booksCurrent.stats);
   panel.lastStats = booksCurrent.stats;
+  recordDeliverySnapshot(productKind, cfg, booksCurrent);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild books: ${cost.toFixed(1)}ms`);
@@ -298,6 +349,7 @@ function rebuildBooks({ isEntrance = false } = {}) {
 function rebuildSheet({ isEntrance = false } = {}) {
   if (webglFailed || productKind !== 'sheet') return;
   const generation = ++sheetLoadVersion;
+  const cfg = sheetStore.get();
   if (sheetCurrent) {
     scene.remove(sheetCurrent.group);
     sheetCurrent.dispose();
@@ -306,12 +358,12 @@ function rebuildSheet({ isEntrance = false } = {}) {
   sheetCurrent = createSheetPlaceholder();
   scene.add(sheetCurrent.group);
   stageProduct(sheetCurrent);
-  hud.syncReadout(sheetStore.get(), sheetCurrent.stats);
+  hud.syncReadout(cfg, sheetCurrent.stats);
   panel.updateStats(sheetCurrent.stats);
   panel.lastStats = sheetCurrent.stats;
   window.__ALU_INVALIDATE?.();
 
-  buildSheetCabinet(sheetStore.get()).then(product => {
+  return buildSheetCabinet(cfg).then(product => {
     if (webglFailed || productKind !== 'sheet' || generation !== sheetLoadVersion) {
       product.dispose();
       return;
@@ -323,9 +375,10 @@ function rebuildSheet({ isEntrance = false } = {}) {
     stageProduct(product);
     dimObstacleDirty = true;
     if (anims?.exploded) anims.explode(product.groups, true);
-    hud.syncReadout(sheetStore.get(), product.stats);
+    hud.syncReadout(cfg, product.stats);
     panel.updateStats(product.stats);
     panel.lastStats = product.stats;
+    recordDeliverySnapshot('sheet', cfg, product);
     window.__ALU_INVALIDATE?.();
   }).catch(err => {
     if (productKind !== 'sheet' || generation !== sheetLoadVersion) return;
@@ -347,6 +400,7 @@ function rebuildWoodCart({ isEntrance = false } = {}) {
   hud.syncReadout(cfg, woodCartCurrent.stats);
   panel.updateStats(woodCartCurrent.stats);
   panel.lastStats = woodCartCurrent.stats;
+  recordDeliverySnapshot('woodcart', cfg, woodCartCurrent);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild woodcart: ${cost.toFixed(1)}ms`);
@@ -365,6 +419,7 @@ function rebuildHanger({ isEntrance = false } = {}) {
   hud.syncReadout(cfg, hangerCurrent.stats);
   panel.updateStats(hangerCurrent.stats);
   panel.lastStats = hangerCurrent.stats;
+  recordDeliverySnapshot('hanger', cfg, hangerCurrent);
   window.__ALU_INVALIDATE && window.__ALU_INVALIDATE();
   const cost = performance.now() - t0;
   if (cost > 10) console.debug(`[ALU] rebuild hanger: ${cost.toFixed(1)}ms`);
@@ -655,30 +710,35 @@ if (btnMobileFs && layoutEl) {
 // 打印 / 导出 PDF（各产品共用）：抓当前渲染帧快照 → A4 设计与报价单 iframe 打印
 function makePrintAction(kind) {
   return async () => {
-    const product = active();
-    const stats = panel?.lastStats;
-    const store = PRODUCT_STORES[kind];
-    if (productKind !== kind || !product?.group || !stats?.cutList || !store) {
-      showToast('采购数据生成中,请稍候重试');
-      return;
+    const delivery = await requireDeliverySnapshot(kind);
+    if (!delivery) return;
+    const { cfg, stats, product, revision } = delivery;
+    const model = product?.group || null;
+    const modelPose = model ? poseFor(product) : null;
+    if (!product?.group) {
+      showToast('当前环境无法生成 3D 打印快照，已降级为无图报价单');
+    } else {
+      showToast('正在生成打印稿 …');
     }
-    const cfg = store.get();
-    const model = product.group;
-    const modelPose = poseFor(product);
-    showToast('正在生成打印稿 …');
     let snapshot = null;
-    if (!webglFailed && window.__ALU_CAPTURE) {
-      snapshot = await new Promise((res) => {
-        const timer = setTimeout(() => res(null), 1500);
-        window.__ALU_CAPTURE((d) => { clearTimeout(timer); res(d); });
-      });
+    if (model && !webglFailed && window.__ALU_CAPTURE) {
+      try {
+        snapshot = await new Promise((res) => {
+          const timer = setTimeout(() => res(null), 1500);
+          window.__ALU_CAPTURE((d) => { clearTimeout(timer); res(d); });
+        });
+      } catch (err) {
+        console.warn('[MEKIT] 3D snapshot unavailable; printing without it:', err);
+      }
     }
-    if (productKind !== kind || active()?.group !== model || poseFor(active()) !== modelPose) {
+    if (productKind !== kind || deliveryRevision(kind) !== revision ||
+        (model && (active()?.group !== model || poseFor(active()) !== modelPose))) {
       showToast('产品已切换，请重新生成打印稿');
       return;
     }
     try {
-      await printCurrentReport({ kind, cfg, stats, snapshot });
+      const screenshot = model ? snapshot : null;
+      await printCurrentReport({ kind, cfg, stats, snapshot: screenshot });
     } catch (err) {
       console.error('[ALU] print report failed:', err);
       showToast('打印稿生成失败,请重试');
@@ -688,8 +748,11 @@ function makePrintAction(kind) {
 
 const profileActions = {
   onPrint: makePrintAction('profile'),
-  onAdd: (cfg) => {
-    const p = fmtPrice(calcPrice(cfg, panel.lastStats));
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('profile');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const p = fmtPrice(calcPrice(cfg, stats));
     const summary = `${cfg.bays} 跨 × ${cfg.levels} 层 · ${cfg.series} 系列`;
     const { totalCount } = addConfigItem({
       kind: 'profile',
@@ -700,16 +763,21 @@ const profileActions = {
     });
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
   },
-  onExport: (cfg) => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('profile');
+    if (!delivery) return;
+    const { cfg, stats: s } = delivery;
     downloadCutlist(cfg, s, 'profile');
     showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料 · 型材总长 ${s.profileLengthM.toFixed(1)} m`);
   },
   onExportModel: async () => {
-    if (!current || !current.group) { showToast('模型生成中,请稍候重试'); return; }
+    const delivery = await requireDeliverySnapshot('profile');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name = await exportModel(current, 'profile', store.get());
+      const name = await exportModel(delivery.product, 'profile', delivery.cfg);
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] model export failed:', err);
@@ -719,8 +787,11 @@ const profileActions = {
 };
 const rodActions = {
   onPrint: makePrintAction('rod'),
-  onAdd: (cfg) => {
-    const p = `¥ ${calcRodPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('rod');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const p = `¥ ${calcRodPrice(cfg, stats).toLocaleString('zh-CN')}`;
     const styleLabel = { poster: '海报架', panel: '双联展板', acrylic: '亚克力展示屏' }[cfg.style] || '海报架';
     const summary = `柱距 ${cfg.width.toFixed(2)} m · 柱长 ${cfg.height.toFixed(2)} m · ${styleLabel}`;
     const { totalCount } = addConfigItem({
@@ -732,16 +803,21 @@ const rodActions = {
     });
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
   },
-  onExport: (cfg) => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('rod');
+    if (!delivery) return;
+    const { cfg, stats: s } = delivery;
     downloadCutlist(cfg, s, 'rod');
     showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
-    if (!rodCurrent || !rodCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
+    const delivery = await requireDeliverySnapshot('rod');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name = await exportModel(rodCurrent, 'rod', rodStore.get());
+      const name = await exportModel(delivery.product, 'rod', delivery.cfg);
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] rod model export failed:', err);
@@ -752,8 +828,11 @@ const rodActions = {
 
 const cartActions = {
   onPrint: makePrintAction('cart'),
-  onAdd: (cfg) => {
-    const p = `¥ ${calcCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('cart');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const p = `¥ ${calcCartPrice(cfg, stats).toLocaleString('zh-CN')}`;
     const summary = `宽 ${cfg.width.toFixed(2)} m × 深 ${cfg.depth.toFixed(2)} m`;
     const { totalCount } = addConfigItem({
       kind: 'cart',
@@ -764,16 +843,21 @@ const cartActions = {
     });
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
   },
-  onExport: (cfg) => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('cart');
+    if (!delivery) return;
+    const { cfg, stats: s } = delivery;
     downloadCutlist(cfg, s, 'cart');
     showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
-    if (!cartCurrent || !cartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
+    const delivery = await requireDeliverySnapshot('cart');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name = await exportModel(cartCurrent, 'cart', cartStore.get());
+      const name = await exportModel(delivery.product, 'cart', delivery.cfg);
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] cart model export failed:', err);
@@ -784,8 +868,11 @@ const cartActions = {
 
 const cratesActions = {
   onPrint: makePrintAction('crates'),
-  onAdd: (cfg) => {
-    const p = `¥ ${calcCratesPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('crates');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const p = `¥ ${calcCratesPrice(cfg, stats).toLocaleString('zh-CN')}`;
     const summary = `${cfg.tiers} 层周转箱 · 宽 ${cfg.width.toFixed(2)} m`;
     const { totalCount } = addConfigItem({
       kind: 'crates',
@@ -796,16 +883,21 @@ const cratesActions = {
     });
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
   },
-  onExport: (cfg) => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('crates');
+    if (!delivery) return;
+    const { cfg, stats: s } = delivery;
     downloadCutlist(cfg, s, 'crates');
     showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
-    if (!cratesCurrent || !cratesCurrent.group) { showToast(`模型生成中,请稍候重试`); return; }
+    const delivery = await requireDeliverySnapshot('crates');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name = await exportModel(cratesCurrent, 'crates', cratesStore.get());
+      const name = await exportModel(delivery.product, 'crates', delivery.cfg);
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] crates model export failed:', err);
@@ -816,8 +908,11 @@ const cratesActions = {
 
 const woodcartActions = {
   onPrint: makePrintAction('woodcart'),
-  onAdd: (cfg) => {
-    const p = `¥ ${calcWoodCartPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('woodcart');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const p = `¥ ${calcWoodCartPrice(cfg, stats).toLocaleString('zh-CN')}`;
     const summary = `木展车 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m`;
     const { totalCount } = addConfigItem({
       kind: 'woodcart',
@@ -828,16 +923,21 @@ const woodcartActions = {
     });
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
   },
-  onExport: (cfg) => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('woodcart');
+    if (!delivery) return;
+    const { cfg, stats: s } = delivery;
     downloadCutlist(cfg, s, 'woodcart');
     showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
-    if (!woodCartCurrent || !woodCartCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
+    const delivery = await requireDeliverySnapshot('woodcart');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name = await exportModel(woodCartCurrent, 'woodcart', woodcartStore.get());
+      const name = await exportModel(delivery.product, 'woodcart', delivery.cfg);
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] woodcart model export failed:', err);
@@ -848,8 +948,11 @@ const woodcartActions = {
 
 const bookActions = {
   onPrint: makePrintAction('books'),
-  onAdd: (cfg) => {
-    const p = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('books');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const p = `¥ ${calcBookshelfPrice(cfg, stats).toLocaleString('zh-CN')}`;
     const summary = cfg.style === 'table'
       ? `长桌 ${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m`
       : `展示杂志架 ${cfg.levels} 层 × ${cfg.bays} 跨 · ${cfg.bayW.toFixed(2)} m`;
@@ -862,16 +965,21 @@ const bookActions = {
     });
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
   },
-  onExport: (cfg) => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('books');
+    if (!delivery) return;
+    const { cfg, stats: s } = delivery;
     downloadCutlist(cfg, s, 'books');
     showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
-    if (!booksCurrent || !booksCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
+    const delivery = await requireDeliverySnapshot('books');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name = await exportModel(booksCurrent, 'books', bookshelfStore.get());
+      const name = await exportModel(delivery.product, 'books', delivery.cfg);
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] books model export failed:', err);
@@ -880,27 +988,39 @@ const bookActions = {
   },
 };
 
+function mountStatsOnlySnapshot(kind, cfg, stats) {
+  recordDeliverySnapshot(kind, cfg, { group: null, stats });
+}
+
 // 同一几何构造函数但拥有独立产品身份：购物车、导出和分享链接均保持“阅读长桌”。
 const tableActions = {
   onPrint: makePrintAction('table'),
-  onAdd: (cfg) => {
-    const quote = `¥ ${calcBookshelfPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('table');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const quote = `¥ ${calcBookshelfPrice(cfg, stats).toLocaleString('zh-CN')}`;
     const summary = `阅读长桌 ${cfg.tBays} 节 × ${cfg.tBayW.toFixed(2)} m`;
     const { totalCount } = addConfigItem({
       kind:'table', title:'阅读长桌', summary, priceText:quote, cfg,
     });
     showToast(`已加入配置清单（${totalCount} 件） · ${summary}`);
   },
-  onExport: (cfg) => {
-    const stats=panel?.lastStats;
-    if (!stats?.cutList) return showToast('采购数据生成中，请稍候重试');
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('table');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
     downloadCutlist(cfg,stats,'table');
     showToast('阅读长桌 XLSX 采购清单已导出');
   },
   onExportModel: async () => {
-    if (!booksCurrent?.group) return showToast('模型生成中，请稍候重试');
+    const delivery = await requireDeliverySnapshot('table');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name=await exportModel(booksCurrent,'table',tableStore.get());
+      const name=await exportModel(delivery.product,'table',delivery.cfg);
       showToast('3D 模型已导出 · '+name);
     } catch (error) {
       console.error('[MEKIT] reading table model export failed:',error);
@@ -915,16 +1035,20 @@ for (const [kind, actions] of [
   ['crates', cratesActions], ['woodcart', woodcartActions],
   ['books', bookActions], ['table', tableActions],
 ]) {
-  actions.onExportCsv = (cfg) => {
-    const stats = panel?.lastStats;
-    if (!stats?.cutList) { showToast('采购数据生成中，请稍候重试'); return; }
+  actions.onExportCsv = async () => {
+    const delivery = await requireDeliverySnapshot(kind);
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
     downloadCutlist(cfg, stats, kind, 'csv');
     showToast('采购清单 CSV 已导出 · ' + kind);
   };
 }
 
 const sheetActions = {
-  onAdd: (cfg) => {
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('sheet');
+    if (!delivery) return;
+    const { cfg } = delivery;
     const summary = `原始材料柜 · 板厚 ${cfg.thicknessMm.toFixed(1)} mm · ${cfg.folds ? '带折边' : '无折边'} · 待工程拆件`;
     const { totalCount } = addConfigItem({
       kind: 'sheet', title: '镀锌板书架', summary,
@@ -933,11 +1057,13 @@ const sheetActions = {
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary}`);
   },
   onExportModel: async () => {
-    if (!sheetCurrent?.group || sheetCurrent.group.name !== 'GalvanizedCabinet') {
-      showToast('深化模型正在生成，请稍候'); return;
+    const delivery = await requireDeliverySnapshot('sheet');
+    if (!delivery?.product?.group || delivery.product.group.name !== 'GalvanizedCabinet') {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
     }
     try {
-      const name = await exportModel(sheetCurrent, 'sheet', sheetStore.get());
+      const name = await exportModel(delivery.product, 'sheet', delivery.cfg);
       showToast(`深化 3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[MEKIT] detailed sheet GLB export failed:', err);
@@ -957,8 +1083,11 @@ const sheetActions = {
 
 const hangerActions = {
   onPrint: makePrintAction('hanger'),
-  onAdd: (cfg) => {
-    const p = `¥ ${calcHangerPrice(cfg, panel.lastStats).toLocaleString('zh-CN')}`;
+  onAdd: async () => {
+    const delivery = await requireDeliverySnapshot('hanger');
+    if (!delivery) return;
+    const { cfg, stats } = delivery;
+    const p = `¥ ${calcHangerPrice(cfg, stats).toLocaleString('zh-CN')}`;
     const summary = cfg.style === 'atelier'
       ? `原木水磨石 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${ATELIER_MODULES[cfg.drawers]}`
       : `光轴抽屉柜 ${cfg.width.toFixed(2)}×${cfg.depth.toFixed(2)} m · ${cfg.drawers} 抽屉`;
@@ -971,16 +1100,21 @@ const hangerActions = {
     });
     showToast(`已加入配置清单（当前共 ${totalCount} 件）· ${summary} · ${p}`);
   },
-  onExport: (cfg) => {
-    const s = panel.lastStats;
-    if (!s || !s.cutList) { showToast('采购数据生成中,请稍候重试'); return; }
+  onExport: async () => {
+    const delivery = await requireDeliverySnapshot('hanger');
+    if (!delivery) return;
+    const { cfg, stats: s } = delivery;
     downloadCutlist(cfg, s, 'hanger');
     showToast(`采购清单 XLSX 已导出 · ${s.cutList.length} 项下料`);
   },
   onExportModel: async () => {
-    if (!hangerCurrent || !hangerCurrent.group) { showToast('模型生成中,请稍候重试'); return; }
+    const delivery = await requireDeliverySnapshot('hanger');
+    if (!delivery?.product?.group) {
+      if (delivery) showToast('当前环境无法导出 3D 模型');
+      return;
+    }
     try {
-      const name = await exportModel(hangerCurrent, 'hanger', hangerStore.get());
+      const name = await exportModel(delivery.product, 'hanger', delivery.cfg);
       showToast(`3D 模型已导出 · ${name}`);
     } catch (err) {
       console.error('[ALU] hanger model export failed:', err);
@@ -990,11 +1124,12 @@ const hangerActions = {
 };
 
 // ---- 产品挂载 ----
-// panel.dispose() 释放订阅与全局监听；原封的 panel.js 不返回 dispose，
-// 由包装对象以「摘除容器」兜底（DOM 摘除后其 root 级监听器不再可达）。
-hangerActions.onExportCsv = (cfg) => {
-  const stats = panel?.lastStats;
-  if (!stats?.cutList) { showToast('采购数据生成中，请稍候重试'); return; }
+// 原封 panel.js 的根节点 click 监听器无法通过 dispose 解绑；型材面板必须挂到
+// mountActiveProduct 创建的独立容器，并在切换时摘除该容器，不能只清空子节点。
+hangerActions.onExportCsv = async () => {
+  const delivery = await requireDeliverySnapshot('hanger');
+  if (!delivery) return;
+  const { cfg, stats } = delivery;
   downloadCutlist(cfg, stats, 'hanger', 'csv');
   showToast('挂衣架采购清单 CSV 已导出');
 };
@@ -1007,45 +1142,64 @@ function mountActiveProduct() {
   if (productKind === 'rod') {
     setInstallSteps(INSTALL_STEPS_ROD);
     panel = createRodPanel(panelRoot, rodActions);
-    if (webglFailed) syncRodStatsOnly(); else { rebuildRod({ isEntrance: true }); if (rodCurrent && !scene.children.includes(rodHandles.group)) scene.add(rodHandles.group); }
+    if (webglFailed) { syncRodStatsOnly(); mountStatsOnlySnapshot('rod', rodStore.get(), panel.lastStats); }
+    else { rebuildRod({ isEntrance: true }); if (rodCurrent && !scene.children.includes(rodHandles.group)) scene.add(rodHandles.group); }
   } else if (productKind === 'cart') {
     setInstallSteps(INSTALL_STEPS_CART);
     panel = createCartPanel(panelRoot, cartActions);
-    if (webglFailed) syncCartStatsOnly(); else rebuildCart({ isEntrance: true });
+    if (webglFailed) { syncCartStatsOnly(); mountStatsOnlySnapshot('cart', cartStore.get(), panel.lastStats); }
+    else rebuildCart({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'crates') {
     setInstallSteps(INSTALL_STEPS_CRATES);
     panel = createCratesPanel(panelRoot, cratesActions);
-    if (webglFailed) syncCratesStatsOnly(); else rebuildCrates({ isEntrance: true });
+    if (webglFailed) { syncCratesStatsOnly(); mountStatsOnlySnapshot('crates', cratesStore.get(), panel.lastStats); }
+    else rebuildCrates({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'woodcart') {
     setInstallSteps(INSTALL_STEPS_WOODCART);
     panel = createWoodCartPanel(panelRoot, woodcartActions);
-    if (webglFailed) syncWoodCartStatsOnly(); else rebuildWoodCart({ isEntrance: true });
+    if (webglFailed) { syncWoodCartStatsOnly(); mountStatsOnlySnapshot('woodcart', woodcartStore.get(), panel.lastStats); }
+    else rebuildWoodCart({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'sheet') {
     panel = createSheetPanel(panelRoot, sheetActions);
-    if (webglFailed) syncSheetStatsOnly(); else rebuildSheet({ isEntrance: true });
+    if (webglFailed) { syncSheetStatsOnly(); mountStatsOnlySnapshot('sheet', sheetStore.get(), panel.lastStats); }
+    else rebuildSheet({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'books' || productKind === 'table') {
     setInstallSteps(INSTALL_STEPS_BOOKSHELF);
     panel = createBookshelfPanel(panelRoot,
       productKind === 'table' ? tableActions : bookActions,
       { kind: productKind, store: productKind === 'table' ? tableStore : bookshelfStore });
-    if (webglFailed) syncBooksStatsOnly(); else rebuildBooks({ isEntrance: true });
+    if (webglFailed) {
+      syncBooksStatsOnly();
+      mountStatsOnlySnapshot(productKind, (productKind === 'table' ? tableStore : bookshelfStore).get(),
+        panel.lastStats);
+    } else rebuildBooks({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else if (productKind === 'hanger') {
     setInstallSteps(INSTALL_STEPS_HANGER);
     panel = createHangerPanel(panelRoot, hangerActions);
-    if (webglFailed) syncHangerStatsOnly(); else rebuildHanger({ isEntrance: true });
+    if (webglFailed) { syncHangerStatsOnly(); mountStatsOnlySnapshot('hanger', hangerStore.get(), panel.lastStats); }
+    else rebuildHanger({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   } else {
     setInstallSteps(INSTALL_STEPS);
-    const inner = withAssemblyDimensions(createPanel(panelRoot, profileActions), panelRoot);
-    decoratePanel(panelRoot, { onPrint: () => profileActions.onPrint() }); // 分区标题/行布局/打印按钮（panel.js 原封，装饰在接线层注入）
+    const profileRoot = document.createElement('div');
+    profileRoot.className = 'panel-product';
+    panelRoot.appendChild(profileRoot);
+    const inner = withAssemblyDimensions(createPanel(profileRoot, profileActions), profileRoot);
+    decoratePanel(profileRoot, { onPrint: () => profileActions.onPrint() }); // 分区标题/行布局/打印按钮（panel.js 原封，装饰在接线层注入）
+    const disposeInner = inner.dispose;
+    inner.dispose = () => {
+      disposeInner?.();
+      profileRoot.remove();
+    };
     panel = inner;
     syncPriceNote();
-    if (webglFailed) syncStatsOnly(); else rebuild({ isEntrance: true });
+    if (webglFailed) { syncStatsOnly(); mountStatsOnlySnapshot('profile', store.get(), panel.lastStats); }
+    else rebuild({ isEntrance: true });
     if (rodHandles?.group.parent) scene.remove(rodHandles.group);
   }
   dimObstacleDirty = true; // 切换后读数卡/浮层几何变化，标注避让缓存置脏
@@ -1168,8 +1322,31 @@ initConfigList((kind, cfg) => {
 // 防抖（每个 store 独立定时器，参数微调只重构终态，不触发入场动画）
 const debounce = (fn, ms = 60) => {
   let t = 0;
-  return () => { clearTimeout(t); t = setTimeout(fn, ms); };
+  const delayed = () => { clearTimeout(t); t = setTimeout(fn, ms); };
+  delayed.flush = () => {
+    if (!t) return false;
+    clearTimeout(t);
+    t = 0;
+    fn();
+    return true;
+  };
+  return delayed;
 };
+
+function queueDeliveryBuild(kind) {
+  deliveryRevisions.set(kind, deliveryRevision(kind) + 1);
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  const pending = { revision: deliveryRevision(kind), promise, resolve };
+  pendingBuilds.set(kind, pending);
+  return pending;
+}
+
+function settleDeliveryBuild(kind, pending) {
+  if (pendingBuilds.get(kind) !== pending) return;
+  pendingBuilds.delete(kind);
+  pending.resolve();
+}
 
 // 订阅注册表：kind → { store, rebuild, statsOnly, extra }
 // 新增产品只需在此登记，订阅接线（persist → rebuild → stats 兜底）自动完成，
@@ -1186,21 +1363,47 @@ const PRODUCT_SUBS = [
   { kind: 'sheet', store: sheetStore, rebuild: (opts) => rebuildSheet(opts), statsOnly: () => syncSheetStatsOnly() },
 ];
 for (const { kind, store: s, rebuild, statsOnly, extra } of PRODUCT_SUBS) {
-  s.subscribe(debounce(() => {
+  let pending = null;
+  const rebuildNow = debounce(() => {
+    if (pendingBuilds.get(kind) !== pending) return;
     persist(kind, s.get());
     if (productKind === kind) {
-      rebuild({ isEntrance: false });
+      let result;
+      try {
+        result = rebuild({ isEntrance: false });
+      } catch (err) {
+        console.error(`[MEKIT] ${kind} rebuild failed:`, err);
+        showToast('配置生成失败，请重试');
+        settleDeliveryBuild(kind, pending);
+        return;
+      }
       if (webglFailed) statsOnly();
       if (extra) extra();
+      Promise.resolve(result).then(() => {
+        if (webglFailed) {
+          const snapshotStats = panel?.lastStats;
+          if (snapshotStats) recordDeliverySnapshot(kind, s.get(), { group: null, stats: snapshotStats });
+        }
+        settleDeliveryBuild(kind, pending);
+      }, (err) => {
+        console.error(`[MEKIT] ${kind} async rebuild failed:`, err);
+        settleDeliveryBuild(kind, pending);
+      });
+      return;
     }
-  }, 60));
+    settleDeliveryBuild(kind, pending);
+  }, 60);
+  flushBuilds.set(kind, () => rebuildNow.flush());
+  s.subscribe(() => {
+    if (pending && pendingBuilds.get(kind) === pending) settleDeliveryBuild(kind, pending);
+    pending = queueDeliveryBuild(kind);
+    rebuildNow();
+  });
 }
 
 // KV 价格表到达后重刷价格区块（覆盖全部六产品；未配置 KV 时回退内置表也会触发一次，无副作用）
 onMarketRefresh(() => {
-  if (webglFailed) return;
-  const a = active();
-  if (a) panel.updateStats(a.stats);
+  if (panel?.lastStats) panel.updateStats(panel.lastStats);
   if (productKind === 'profile') syncPriceNote();
 });
 

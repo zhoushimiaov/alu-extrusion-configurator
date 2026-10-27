@@ -100,9 +100,10 @@ export function buildBookshelf(config) {
     group.add(edgeVeneers);
     groups.tableEdgeBand=edgeVeneers;
     woodVol += (W + 0.06) * (D + 0.04) * 0.028;
-    stats.cutList.push({ spec: '长桌台面（实木拼板）', section: '板',
+    stats.cutList.push({ spec: '长桌台面（实木拼板）', section: '板', partCount: 1,
       len: +(W + 0.06).toFixed(3), width:+(D+0.04).toFixed(3),
       thickness:0.028,qty:1 });
+    partCount++;
 
     // 玻璃副层板 + standoff
     if (cfg.glassTop !== false) {
@@ -120,9 +121,10 @@ export function buildBookshelf(config) {
       groups.tableGlass=glass;
       const glassArea = (W - 0.04) * (D - 0.02);
       glassWeight = glassArea * 0.008 * GLASS_DENSITY;
-      stats.cutList.push({ spec: '玻璃副层板 8mm', section: '板',
+      stats.cutList.push({ spec: '玻璃副层板 8mm', section: '板', partCount: 1,
         len:+(W-0.04).toFixed(3),width:+(D-0.02).toFixed(3),thickness:0.008,
         qty:1,pricedViaPane:true });
+      partCount++;
       stats.panes.push({ label: '玻璃副层板（8mm）', areaM2: +glassArea.toFixed(3), kind: 'glass' });
       // 默认三跨桌固定八个支点：保留支柱在玻璃内侧的安全边距，
       // 点位只由台面宽度锁定，不随下部框架重建而重排。
@@ -587,7 +589,6 @@ export function buildBookshelf(config) {
         booksGroup.add(book);
       });
       group.add(booksGroup);
-      partCount += panelPlacements.length;
       groups.books = booksGroup;
     }
     stats.cutList.push({ spec: `斜面展板 ${panelCfg.label}`, section: '板', len: +(cfg.bayW - 0.05).toFixed(2), qty: nPanels, pricedViaPane: true });

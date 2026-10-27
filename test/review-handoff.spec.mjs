@@ -67,3 +67,55 @@ test('loading a legacy table from the configuration list keeps its product ident
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('modulo_config_list')));
   expect(saved[0].cfg).toEqual(cfg);
 });
+
+test('profile panel does not retain root click handlers after product round trips', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(String(e)));
+  await page.goto(dist + '#profile');
+  await page.waitForFunction(() => window.__ALU_READY);
+  for (let i = 0; i < 3; i++) {
+    await page.locator('#product-tabs [data-kind="rod"]').click();
+    await expect(page.locator('#panel .panel-title')).toContainText('光轴展架');
+    await page.locator('#product-tabs [data-kind="profile"]').click();
+    await expect(page.locator('#panel .panel-title')).toContainText('工业铝型材置物架');
+  }
+  const before = +(await page.locator('[data-num="bays"]').textContent());
+  await page.locator('[data-act="bays+"]').click();
+  await expect(page.locator('[data-num="bays"]')).toHaveText(String(before + 1));
+  expect(errors).toEqual([]);
+});
+
+test('configuration drawer replaces cards and recovers invalid local storage', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('review_config_seeded') === '1') return;
+    localStorage.setItem('modulo_config_list', JSON.stringify([
+      { id:'a', kind:'rod', title:'A', summary:'A', priceText:'¥1', cfg:{width:0.8}, timestamp:1 },
+      { id:'b', kind:'rod', title:'B', summary:'B', priceText:'¥2', cfg:{width:0.9}, timestamp:2 },
+    ]));
+    sessionStorage.setItem('review_config_seeded', '1');
+  });
+  await page.goto(dist + '#rod');
+  await page.waitForFunction(() => window.__ALU_READY);
+  const button = page.getByRole('button', { name: '查看配置清单', exact: true });
+  for (let i = 0; i < 5; i++) {
+    await button.click();
+    await expect(page.locator('.drawer-card')).toHaveCount(2);
+    await page.getByRole('button', { name: '关闭清单', exact: true }).click();
+  }
+  await page.evaluate(() => localStorage.setItem('modulo_config_list', 'null'));
+  await page.reload();
+  await page.waitForFunction(() => window.__ALU_READY);
+  await expect(page.locator('#panel .panel-title')).toContainText('光轴展架');
+  expect(await page.evaluate(() => localStorage.getItem('mekit_config_list_recovery'))).toBe('null');
+});
+
+test('export waits for the same completed revision after an immediate parameter edit', async ({ page }) => {
+  await page.goto(dist + '#table');
+  await page.waitForFunction(() => window.__ALU_READY);
+  const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+  await page.evaluate(() => {
+    document.querySelector('[data-act="tBays-"]').click();
+    document.querySelector('[data-model]').click();
+  });
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toContain('2B');
+});

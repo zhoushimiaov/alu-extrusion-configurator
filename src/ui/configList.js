@@ -3,12 +3,59 @@
 // 坚持 textContent 杜绝持久化 XSS 路径）；抽屉为模态对话框——焦点圈闭、
 // Escape 关闭、关闭后焦点归还触发按钮。
 const STORAGE_KEY = 'modulo_config_list';
+const RECOVERY_KEY = 'mekit_config_list_recovery';
+const KNOWN_KINDS = new Set(['profile', 'rod', 'cart', 'crates', 'woodcart', 'hanger', 'books', 'table', 'sheet']);
+const MAX_ITEMS = 40;
+
+function validCfg(value, depth = 0) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 3) return false;
+  const keys = Object.keys(value);
+  if (keys.length > 64) return false;
+  return keys.every((key) => {
+    if (key.length > 64) return false;
+    const field = value[key];
+    if (field == null || typeof field === 'string' || typeof field === 'boolean') return true;
+    if (typeof field === 'number') return Number.isFinite(field);
+    if (Array.isArray(field)) {
+      return field.length <= 128 && field.every((entry) =>
+        entry == null || ['string', 'number', 'boolean'].includes(typeof entry));
+    }
+    return depth < 2 && validCfg(field, depth + 1);
+  });
+}
+
+function validItem(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+  if (typeof item.id !== 'string' || !item.id || item.id.length > 128) return false;
+  if (!KNOWN_KINDS.has(item.kind) || !validCfg(item.cfg)) return false;
+  if (typeof item.timestamp !== 'number' || !Number.isFinite(item.timestamp)) return false;
+  return ['title', 'summary', 'priceText', 'url'].every((key) =>
+    item[key] == null || (typeof item[key] === 'string' && item[key].length <= 4096));
+}
+
+function preserveRecovery(raw) {
+  if (!raw) return;
+  try { localStorage.setItem(RECOVERY_KEY, raw); } catch { /* best effort */ }
+}
 
 function loadList() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      preserveRecovery(raw);
+      try { localStorage.setItem(STORAGE_KEY, '[]'); } catch { /* best effort */ }
+      return [];
+    }
+    const valid = parsed.filter(validItem).slice(0, MAX_ITEMS);
+    if (valid.length !== parsed.length) {
+      preserveRecovery(raw);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(valid)); } catch { /* best effort */ }
+    }
+    return valid;
   } catch {
+    try { preserveRecovery(localStorage.getItem(STORAGE_KEY)); } catch { /* storage unavailable */ }
     return [];
   }
 }
@@ -40,6 +87,7 @@ function toast(msg) {
 
 export function initConfigList(onLoad) {
   loadCallback = onLoad;
+  loadList();
   updateBadge();
 }
 
@@ -60,7 +108,7 @@ export function addConfigItem({ kind, title, summary, priceText, cfg }) {
     url: location.href,
   };
   list.unshift(item);
-  if (list.length > 40) list.length = 40;
+  if (list.length > MAX_ITEMS) list.length = MAX_ITEMS;
   saveList(list);
   if (drawerEl && drawerEl.classList.contains('open')) {
     renderDrawerContent();
@@ -156,9 +204,9 @@ function renderDrawerContent() {
   const footerEl = root.querySelector('[data-dh-footer]');
 
   countEl.textContent = `(${list.length})`;
+  bodyEl.replaceChildren();
 
   if (!list.length) {
-    bodyEl.replaceChildren();
     const empty = el('div', 'drawer-empty');
     const icon = el('div', 'empty-icon');
     icon.innerHTML = '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg>';
@@ -172,7 +220,7 @@ function renderDrawerContent() {
     return;
   }
 
-  // 卡片：createElement + textContent（item 字段来自 localStorage，不走 innerHTML）
+  // 每次完整替换卡片集合，避免重复打开时叠加 DOM 与事件。
   for (const item of list) {
     const time = new Date(item.timestamp);
     const timeStr = `${time.getMonth() + 1}/${time.getDate()} ${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
@@ -252,7 +300,7 @@ function renderDrawerContent() {
     // AI 契约雏形：结构化导出（cfg 即各产品 persist 白名单字段，可直接回灌 loadSaved）
     const payload = {
       schema: 'modulo.configs.v1',
-      app: 'MODULO 模数',
+      app: 'MEKIT',
       exportedAt: new Date().toISOString(),
       url: location.origin + location.pathname,
       note: 'items[].cfg 为该产品全部可持久化参数（与 persist.js SCHEMA 白名单一致）。可将 JSON 交给模型改参后用分享链接或载入配置回灌。',
@@ -270,7 +318,7 @@ function renderDrawerContent() {
     const a = document.createElement('a');
     a.href = url;
     const d = new Date();
-    a.download = `modulo-configs-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
+    a.download = `mekit-configs-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();

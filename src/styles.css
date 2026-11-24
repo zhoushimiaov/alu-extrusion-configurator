@@ -109,7 +109,7 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: 0.12em;
   color: var(--fg);
 }
-.brand-dot { letter-spacing: 0; }
+.brand-dot { letter-spacing: 0; color: #cc3333; }
 .brand-sub {
   font-size: var(--fs-caption);
   font-weight: 500;

@@ -179,11 +179,12 @@ test('构建产物把 MEKIT 作为 canonical 主入口', () => {
   expect(html).not.toContain('https://rack.means.group/');
 });
 
-test('页面提供 clickable 的 means.group 主站入口', async ({ page }) => {
+test('页面提供 clickable 的 means.group 主站入口与品牌红点', async ({ page }) => {
   await page.goto(dist + '#profile');
   const link = page.locator('#means-home-link');
   await expect(link).toBeVisible();
   await expect(link).toHaveAttribute('href', 'https://means.group/');
   await expect(link).toHaveAttribute('target', '_blank');
   await expect(link).toHaveAttribute('rel', /noopener/);
+  await expect(page.locator('.brand-dot')).toHaveCSS('color', 'rgb(204, 51, 51)');
 });

@@ -95,6 +95,13 @@ button { font-family: inherit; cursor: pointer; }
   align-items: flex-start;
   gap: 8px;
 }
+.brand-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
 .brand { display: flex; flex-direction: column; gap: 2px; pointer-events: auto; }
 .brand-name {
   font-weight: 650;
@@ -116,6 +123,52 @@ button { font-family: inherit; cursor: pointer; }
   white-space: nowrap;
 }
 .price-src-badge.fallback { color: var(--warning); }
+.brand-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.means-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  pointer-events: auto;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s, box-shadow 0.18s, border-color 0.18s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.means-home-link svg {
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.means-home-link:hover {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.16);
+  transform: translateY(-1.5px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.10);
+}
+.means-home-link:hover svg {
+  transform: translate(1px, -1px);
+}
+.means-home-link:active {
+  transform: translateY(0) scale(0.97);
+}
+.means-home-link .btn-text-short { display: none; }
+@media (min-width: 920px) {
+  .brand-actions .config-list-btn { order: -1; }
+}
 
 /* ---------- 产品切换（顶部居中胶囊） ---------- */
 .product-tabs {
@@ -152,10 +205,16 @@ button { font-family: inherit; cursor: pointer; }
 .product-tabs button:hover { color: var(--fg); background: rgba(0,0,0,0.05); }
 .product-tabs button.on { background: var(--fg); color: #ffffff; }
 
-@media (max-width: 1280px) and (min-width: 901px) {
-  /* 八种产品在窄屏压住 MEKIT 字标：导航下移至品牌行下方独立滚动 */
+@media (max-width: 1280px) and (min-width: 920px) {
+  /* 八种产品在窄屏压住 MEKIT 字标：动作按钮靠右上对齐，导航下移至品牌行下方独立滚动 */
+  .brand-overlay {
+    right: 30px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
   .product-tabs {
-    top: 118px;
+    top: 108px;
     left: 30px;
     right: auto;
     transform: none;
@@ -1150,11 +1209,19 @@ details.install li b { color: var(--fg); font-weight: 600; }
     flex-direction: row; /* 覆盖桌面 column：品牌居左、全屏/清单居右（此前清单纵落进 tabs 行被盖住） */
     justify-content: space-between;
     align-items: center;
-    pointer-events: auto;
+    pointer-events: none;
   }
   .brand-name { font-size: 16px; letter-spacing: 0.11em; }
   .brand-sub { display: none; }
   .price-src-badge { display: none; }
+  .brand-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .means-home-link { padding: 6px 10px; font-size: 11.5px; }
   .config-list-btn { padding: 6px 12px; font-size: 11.5px; }
 
   /* 产品切换：移动端置顶，紧随品牌栏下方，彻底移出 3D 视口中央！
@@ -1262,7 +1329,8 @@ details.install li b { color: var(--fg); font-weight: 600; }
   /* 移动端全屏查看 3D 模型浮动按钮：置于顶部品牌栏右侧（紧靠清单按钮），彻底避开右下角 3D 尺寸标注 */
   .btn-mobile-fullscreen {
     position: static; /* 品牌行 flex 流内右对齐，不再魔数定位压住 MODULO 字标 */
-    margin-left: auto;
+    margin-left: 0;
+    pointer-events: auto;
     z-index: 6;
     display: inline-flex;
     align-items: center;
@@ -1315,6 +1383,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
   /* 沉浸全屏：只留「返回编辑」与底部 chip 条 */
   .mode-fullscreen-model .product-tabs,
   .mode-fullscreen-model .brand,
+  .mode-fullscreen-model .means-home-link,
   .mode-fullscreen-model .config-list-btn {
     display: none !important;
   }
@@ -1407,6 +1476,18 @@ details.install li b { color: var(--fg); font-weight: 600; }
   .price-breakdown { font-size: 11.5px; }
   .action-row .cta { height: 44px; font-size: 14px; }
   .action-row .cta-ghost { height: 40px; font-size: 13px; }
+}
+
+@media (max-width: 540px) {
+  .brand-actions { gap: 4px; }
+  .means-home-link .btn-text-full { display: none; }
+  .means-home-link .btn-text-short { display: inline; }
+  .means-home-link,
+  .config-list-btn,
+  .btn-mobile-fullscreen {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 479px) {

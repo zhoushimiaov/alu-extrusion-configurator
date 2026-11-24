@@ -427,7 +427,7 @@ function rebuildHanger({ isEntrance = false } = {}) {
 
 // 标注避让：W/H/D 标签压到读数卡/控件条/tabs 等浮层上时整组抬离（dims.js 原封，避让在接线层做）。
 // 每帧先复位 transform 再测相交，避免「上移后不相交→复位→又相交」的抖动闭环。
-const DIM_AVOID_SELECTORS = ['#hud-left', '#hud-right', '#view-tools', '.product-tabs', '#btn-mobile-fullscreen', '#config-list-btn'];
+const DIM_AVOID_SELECTORS = ['#hud-left', '#hud-right', '#view-tools', '.product-tabs', '#btn-mobile-fullscreen', '#config-list-btn', '#means-home-link'];
 // obstacle 矩形缓存：每帧 6 次 getBoundingClientRect 是强制回流的源头；
 // 浮层只在 resize / 产品切换 / 配置变化时改变几何——500ms 节流刷新 + resize 失效。
 let dimObstacles = null;

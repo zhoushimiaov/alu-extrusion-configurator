@@ -136,7 +136,7 @@ export function updateBadge() {
   const count = list.length;
   let btn = document.getElementById('config-list-btn');
   if (!btn) {
-    const overlay = document.querySelector('.brand-overlay') || document.body;
+    const overlay = document.querySelector('.brand-actions') || document.querySelector('.brand-overlay') || document.body;
     btn = document.createElement('button');
     btn.id = 'config-list-btn';
     btn.className = 'config-list-btn';

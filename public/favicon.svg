@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect x="4" y="4" width="120" height="120" rx="28" ry="28" fill="#1c1c1e"/>
+  <g fill="#f5f3ef">
+    <!-- Top-Left L quadrant -->
+    <path d="M 44 26 A 6 6 0 0 1 56 26 L 56 44 Q 56 56 44 56 L 26 56 A 6 6 0 0 1 26 44 L 40 44 A 4 4 0 0 0 44 40 Z"/>
+    <!-- Top-Right L quadrant -->
+    <path d="M 84 26 A 6 6 0 0 0 72 26 L 72 44 Q 72 56 84 56 L 102 56 A 6 6 0 0 0 102 44 L 88 44 A 4 4 0 0 1 84 40 Z"/>
+    <!-- Bottom-Left L quadrant -->
+    <path d="M 44 102 A 6 6 0 0 0 56 102 L 56 84 Q 56 72 44 72 L 26 72 A 6 6 0 0 0 26 84 L 40 84 A 4 4 0 0 1 44 88 Z"/>
+    <!-- Bottom-Right L quadrant -->
+    <path d="M 84 102 A 6 6 0 0 1 72 102 L 72 84 Q 72 72 84 72 L 102 72 A 6 6 0 0 1 102 84 L 88 84 A 4 4 0 0 0 84 88 Z"/>
+  </g>
+  <circle cx="64" cy="64" r="6.8" fill="#cc3333"/>
+</svg>

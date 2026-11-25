@@ -84,40 +84,60 @@ button { font-family: inherit; cursor: pointer; }
 #dim-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #hotspot-layer { position: absolute; inset: 0; pointer-events: none; }
 
-/* ---------- 品牌浮层（左上） ---------- */
+/* ---------- 顶部浮层栏（左品牌 · 中产品切换 · 右操作胶囊） ---------- */
 .brand-overlay {
   position: absolute;
-  top: 26px; left: 30px;
+  top: 22px; left: 26px; right: 26px;
   z-index: 5;
   pointer-events: none;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-start;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
 }
 .brand-meta {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 3px;
+  padding-top: 5px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.brand-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
   pointer-events: none;
 }
 .brand { display: flex; flex-direction: column; gap: 2px; pointer-events: auto; }
 .brand-name {
-  font-weight: 650;
+  font-family: var(--font-mix);
+  font-weight: 700;
   font-size: var(--fs-display);
-  letter-spacing: 0.12em;
+  line-height: 1.06;
+  letter-spacing: 0.14em;
   color: var(--fg);
+  font-feature-settings: "kern" 1;
 }
-.brand-dot { letter-spacing: 0; color: #cc3333; }
+.brand-dot {
+  letter-spacing: 0;
+  color: #cc3333;
+  margin-left: -0.04em;
+}
 .brand-sub {
-  font-size: var(--fs-caption);
-  font-weight: 500;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.3;
   color: var(--meta);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  pointer-events: auto;
 }
 .price-src-badge {
   font-size: 10px;
+  line-height: 1.3;
   letter-spacing: 0.04em;
   color: var(--caption);
   white-space: nowrap;
@@ -127,62 +147,97 @@ button { font-family: inherit; cursor: pointer; }
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
+  margin-top: 1px;
   pointer-events: none;
 }
 .means-home-link {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  height: 26px;
   pointer-events: auto;
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 243, 239, 0.86) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(28, 28, 30, 0.13);
   border-radius: var(--r-pill);
-  padding: 5px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--fg);
+  padding: 0 11px;
+  font-family: var(--font-mix);
+  line-height: 1;
+  color: var(--fg-2);
   white-space: nowrap;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s, box-shadow 0.18s, border-color 0.18s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s, color 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
-.means-home-link svg {
+.means-home-link .btn-text-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.means-home-link .mhl-domain {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--fg);
+  transition: color 0.2s;
+}
+.means-home-link .mhl-sep {
+  width: 1px;
+  height: 9px;
+  background: rgba(28, 28, 30, 0.18);
   flex-shrink: 0;
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background 0.2s;
+}
+.means-home-link .mhl-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--meta);
+  transition: color 0.2s;
 }
 .means-home-link:hover {
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.16);
-  transform: translateY(-1.5px);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.10);
+  background: var(--fg);
+  border-color: var(--fg);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(28, 28, 30, 0.18);
 }
-.means-home-link:hover svg {
-  transform: translate(1px, -1px);
-}
+.means-home-link:hover .mhl-domain { color: #ffffff; }
+.means-home-link:hover .mhl-sep { background: rgba(255, 255, 255, 0.28); }
+.means-home-link:hover .mhl-label { color: rgba(245, 243, 239, 0.88); }
 .means-home-link:active {
-  transform: translateY(0) scale(0.97);
+  transform: translateY(0) scale(0.975);
 }
-.means-home-link .btn-text-short { display: none; }
+.means-home-link .btn-text-short {
+  display: none;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
 @media (min-width: 920px) {
   .brand-actions .config-list-btn { order: -1; }
 }
 
-/* ---------- 产品切换（顶部居中胶囊） ---------- */
+/* ---------- 产品切换（顶部居中胶囊，与品牌/操作胶囊同轴对齐） ---------- */
 .product-tabs {
-  position: absolute;
-  top: 22px; left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   z-index: 5;
+  pointer-events: auto;
   display: flex;
+  align-items: center;
   gap: 2px;
+  height: 38px;
   padding: 4px;
-  max-width: min(calc(100% - 420px), 780px);
+  margin: 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--hairline);
@@ -191,12 +246,16 @@ button { font-family: inherit; cursor: pointer; }
 }
 .product-tabs::-webkit-scrollbar { display: none; }
 .product-tabs button {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
   border: 0;
   background: transparent;
   border-radius: 999px;
-  padding: 6px 11px;
+  padding: 0 11px;
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.2;
   color: var(--fg-3);
   white-space: nowrap;
   flex-shrink: 0;
@@ -205,25 +264,46 @@ button { font-family: inherit; cursor: pointer; }
 .product-tabs button:hover { color: var(--fg); background: rgba(0,0,0,0.05); }
 .product-tabs button.on { background: var(--fg); color: #ffffff; }
 
-@media (max-width: 1280px) and (min-width: 920px) {
-  /* 八种产品在窄屏压住 MEKIT 字标：动作按钮靠右上对齐，导航下移至品牌行下方独立滚动 */
+@media (max-width: 1559px) and (min-width: 1360px) {
+  /* 1440px 档：收紧胶囊内边距，确保 9 个产品 Tab 完整落入单行不裁切 */
+  .brand-overlay { left: 20px; right: 20px; gap: 10px; }
+  .brand-head { gap: 9px; }
+  .product-tabs { gap: 1px; }
+  .product-tabs button { padding: 0 9px; font-size: 11.5px; }
+  .means-home-link { padding: 0 9.5px; }
+  .means-home-link .btn-text-full { gap: 6px; }
+  .means-home-link .mhl-domain { font-size: 10.5px; }
+  .means-home-link .mhl-label { font-size: 10px; letter-spacing: 0.10em; }
+}
+
+@media (max-width: 1359px) and (min-width: 920px) {
+  /* 中窄桌面：品牌居左、操作胶囊居右，产品切换独立落至第二行避免拥挤裁切 */
   .brand-overlay {
-    right: 30px;
-    flex-direction: row;
-    justify-content: space-between;
+    left: 24px; right: 24px;
+    flex-wrap: wrap;
+    row-gap: 12px;
     align-items: flex-start;
   }
+  .brand-overlay::before {
+    content: "";
+    display: block;
+    order: 2;
+    flex: 1 0 100%;
+    height: 0;
+  }
+  .brand-meta { order: 1; }
+  .brand-actions { order: 1; margin-left: auto; }
   .product-tabs {
-    top: 108px;
-    left: 30px;
-    right: auto;
-    transform: none;
-    max-width: calc(100vw - 50px);
+    order: 3;
+    margin: 0;
     width: max-content;
+    max-width: 100%;
+    height: 36px;
     padding: 3px;
   }
   .product-tabs button {
-    padding: 5px 9px;
+    height: 28px;
+    padding: 0 9px;
     font-size: 11.5px;
   }
 }
@@ -1041,27 +1121,34 @@ details.install li b { color: var(--fg); font-weight: 600; }
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  height: 36px;
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
-  padding: 5px 12px;
+  padding: 0 13px;
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.2;
   color: var(--fg);
+  white-space: nowrap;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s, box-shadow 0.18s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s, box-shadow 0.18s, border-color 0.18s;
+  box-shadow: var(--shadow-pill);
 }
 .config-list-btn:hover {
   background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.16);
   transform: translateY(-1.5px);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.10);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.10);
 }
 .config-list-btn:active {
   transform: translateY(0) scale(0.97);
+}
+@media (max-width: 1559px) and (min-width: 1360px) {
+  .config-list-btn { padding: 0 11px; font-size: 11.5px; }
 }
 .config-list-btn .badge-num {
   background: var(--accent);
@@ -1204,34 +1291,61 @@ details.install li b { color: var(--fg); font-weight: 600; }
   }
   /* 品牌与右上角清单按钮行 */
   .brand-overlay {
-    top: 10px; left: 14px; right: 14px;
+    top: 10px; left: 12px; right: 12px;
     display: flex;
-    flex-direction: row; /* 覆盖桌面 column：品牌居左、全屏/清单居右（此前清单纵落进 tabs 行被盖住） */
+    flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
+    row-gap: 7px;
+    gap: 8px;
     pointer-events: none;
   }
-  .brand-name { font-size: 16px; letter-spacing: 0.11em; }
+  .brand-overlay::before {
+    content: "";
+    display: block;
+    order: 2;
+    flex: 1 0 100%;
+    height: 0;
+  }
+  .brand-meta { order: 1; padding-top: 0; }
+  .brand-head { gap: 8px; }
+  .brand-name { font-size: 16px; letter-spacing: 0.13em; }
   .brand-sub { display: none; }
   .price-src-badge { display: none; }
   .brand-actions {
+    order: 1;
     margin-left: auto;
+    margin-top: 0;
     display: flex;
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
   }
-  .means-home-link { padding: 6px 10px; font-size: 11.5px; }
-  .config-list-btn { padding: 6px 12px; font-size: 11.5px; }
+  .means-home-link {
+    height: 24px;
+    padding: 0 9px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+  .means-home-link .btn-text-full { gap: 5px; }
+  .means-home-link .mhl-domain { font-size: 10.5px; }
+  .means-home-link .mhl-sep { height: 8px; }
+  .means-home-link .mhl-label { font-size: 10px; letter-spacing: 0.10em; }
+  .config-list-btn {
+    height: 30px;
+    padding: 0 11px;
+    font-size: 11.5px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
 
-  /* 产品切换：移动端置顶，紧随品牌栏下方，彻底移出 3D 视口中央！
-     再也不会横跨、遮挡 3D 主体模型！ */
+  /* 产品切换：移动端置顶，紧随品牌栏下方，彻底移出 3D 视口中央 */
   .product-tabs {
-    position: absolute;
-    top: 42px; bottom: auto; left: 12px; right: 12px;
-    transform: none;
-    max-width: calc(100vw - 24px);
-    margin: 0 auto;
+    order: 3;
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin: 0;
     padding: 3px 8px;
     display: flex;
     gap: 4px;
@@ -1248,8 +1362,9 @@ details.install li b { color: var(--fg); font-weight: 600; }
   }
   .product-tabs::-webkit-scrollbar { display: none; }
   .product-tabs button {
+    height: 30px;
     font-size: 12px;
-    padding: 7px 13px;
+    padding: 0 13px;
     flex-shrink: 0;
   }
 
@@ -1335,7 +1450,8 @@ details.install li b { color: var(--fg); font-weight: 600; }
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 6px 12px;
+    height: 30px;
+    padding: 0 11px;
     border: 1px solid var(--hairline);
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.90);
@@ -1345,6 +1461,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
     color: var(--fg);
     font-size: 11.5px;
     font-weight: 500;
+    line-height: 1.2;
     cursor: pointer;
     transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s, box-shadow 0.18s;
   }
@@ -1403,7 +1520,7 @@ details.install li b { color: var(--fg); font-weight: 600; }
 
   /* 移动端 Toast 上移至导航下方，避免与底栏抢占空间 */
   #toast {
-    top: 78px;
+    top: 90px;
     bottom: auto;
     transform: translateX(-50%) translateY(-8px);
   }
@@ -1481,11 +1598,16 @@ details.install li b { color: var(--fg); font-weight: 600; }
 @media (max-width: 540px) {
   .brand-actions { gap: 4px; }
   .means-home-link .btn-text-full { display: none; }
-  .means-home-link .btn-text-short { display: inline; }
-  .means-home-link,
+  .means-home-link .btn-text-short { display: inline; color: var(--fg); }
+  .means-home-link:hover .btn-text-short { color: #ffffff; }
+  .means-home-link {
+    height: 23px;
+    padding: 0 9px;
+  }
   .config-list-btn,
   .btn-mobile-fullscreen {
-    padding: 5px 9px;
+    height: 28px;
+    padding: 0 9px;
     font-size: 11px;
   }
 }

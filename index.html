@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MEKIT · A Design System by MEANS</title>
-  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+  <link rel="icon" type="image/png" href="/favicon.png?v=2" />
   <meta name="description" content="参数化铝型材置物架实时配置器：逐层逐跨配置、算料单导出、安装说明，基于 Three.js 程序化建模" />
   <!-- 分享卡片（OG / Twitter）：微信/iMessage/Slack 抓取 -->
   <meta property="og:type" content="website" />
@@ -25,18 +26,30 @@
         <div id="hotspot-layer"></div>
         <header class="brand-overlay">
           <div class="brand-meta">
-            <div class="brand">
-              <span class="brand-name">MEKIT<span class="brand-dot">.</span></span>
-              <span class="brand-sub">A DESIGN SYSTEM BY MEANS</span>
+            <div class="brand-head">
+              <div class="brand">
+                <span class="brand-name">MEKIT<span class="brand-dot">.</span></span>
+              </div>
+              <a id="means-home-link" class="means-home-link" href="https://means.group/" target="_blank" rel="noopener noreferrer" aria-label="进入 MEANS 主站 (means.group)" title="访问 means.group 主站">
+                <span class="btn-text-full"><span class="mhl-domain">means.group</span><span class="mhl-sep" aria-hidden="true"></span><span class="mhl-label">主站</span></span>
+                <span class="btn-text-short">主站</span>
+              </a>
             </div>
+            <span class="brand-sub">A DESIGN SYSTEM BY MEANS</span>
             <div id="price-src-badge" class="price-src-badge" title=""></div>
           </div>
+          <nav id="product-tabs" class="product-tabs" role="tablist" aria-label="产品切换">
+            <button role="tab" aria-controls="panel" data-kind="profile" aria-label="切换到铝型材置物架">铝型材置物架</button>
+            <button role="tab" aria-controls="panel" data-kind="rod" aria-label="切换到光轴展架">光轴展架</button>
+            <button role="tab" aria-controls="panel" data-kind="books" aria-label="切换到光轴书架">光轴书架</button>
+            <button role="tab" aria-controls="panel" data-kind="table" aria-label="切换到阅读长桌">阅读长桌</button>
+            <button role="tab" aria-controls="panel" data-kind="sheet" aria-label="切换到镀锌板书架">镀锌板书架</button>
+            <button role="tab" aria-controls="panel" data-kind="cart" aria-label="切换到移动边几">移动边几</button>
+            <button role="tab" aria-controls="panel" data-kind="crates" aria-label="切换到周转箱架">周转箱架</button>
+            <button role="tab" aria-controls="panel" data-kind="woodcart" aria-label="切换到木展车">木展车</button>
+            <button role="tab" aria-controls="panel" data-kind="hanger" aria-label="切换到挂衣架">挂衣架</button>
+          </nav>
           <div class="brand-actions">
-            <a id="means-home-link" class="means-home-link" href="https://means.group/" target="_blank" rel="noopener noreferrer" aria-label="进入 MEANS 主站 (means.group)" title="点击进入 means.group 主站">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
-              <span class="btn-text-full">means.group 主站</span>
-              <span class="btn-text-short">主站</span>
-            </a>
             <button id="btn-mobile-fullscreen" class="btn-mobile-fullscreen" aria-label="全屏看模型">
               <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
               <svg class="icon-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
@@ -44,17 +57,6 @@
             </button>
           </div>
         </header>
-        <nav id="product-tabs" class="product-tabs" role="tablist" aria-label="产品切换">
-          <button role="tab" aria-controls="panel" data-kind="profile" aria-label="切换到铝型材置物架">铝型材置物架</button>
-          <button role="tab" aria-controls="panel" data-kind="rod" aria-label="切换到光轴展架">光轴展架</button>
-          <button role="tab" aria-controls="panel" data-kind="books" aria-label="切换到光轴书架">光轴书架</button>
-          <button role="tab" aria-controls="panel" data-kind="table" aria-label="切换到阅读长桌">阅读长桌</button>
-          <button role="tab" aria-controls="panel" data-kind="sheet" aria-label="切换到镀锌板书架">镀锌板书架</button>
-          <button role="tab" aria-controls="panel" data-kind="cart" aria-label="切换到移动边几">移动边几</button>
-          <button role="tab" aria-controls="panel" data-kind="crates" aria-label="切换到周转箱架">周转箱架</button>
-          <button role="tab" aria-controls="panel" data-kind="woodcart" aria-label="切换到木展车">木展车</button>
-          <button role="tab" aria-controls="panel" data-kind="hanger" aria-label="切换到挂衣架">挂衣架</button>
-        </nav>
         <div id="view-tools">
           <button data-zoom="in" aria-label="放大" data-tip="放大"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M11 8.5v5M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
           <button data-zoom="out" aria-label="缩小" data-tip="缩小"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8.5 11h5M21 21l-4.3-4.3"/></svg></button>
